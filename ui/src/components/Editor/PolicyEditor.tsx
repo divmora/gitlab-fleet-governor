@@ -162,7 +162,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
 
   return (
     <div className="flex flex-col h-[720px] rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl overflow-hidden">
-      {/* Unified IDE Header: Window Dots + Title + Status (Left) | Controls & Actions (Right) */}
+      {/* Unified IDE Header: Window Controls + Title + Status (Left) | Controls & Icon Actions (Right) */}
       <div className="px-5 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3 select-none">
         {/* Left Side: Window Controls, Filename, Validation Pill */}
         <div className="flex items-center gap-3 min-w-0">
@@ -192,10 +192,10 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
           )}
         </div>
 
-        {/* Right Side: Format Switch & Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Right Side: Format Switch & Pure Icon Action Buttons */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Format Toggle */}
-          <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800">
+          <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800 mr-1">
             <button
               onClick={() => onSwitchFormat('yaml')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
@@ -214,50 +214,38 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
             </button>
           </div>
 
-          {/* Copy Code */}
+          {/* Copy Code (Icon Only) */}
           <button
             onClick={handleCopyCode}
-            title="Copy policy configuration to clipboard"
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-[11px] font-semibold border border-slate-700/60 transition-all flex items-center gap-1.5 shadow-sm"
+            title={copied ? "Copied to clipboard!" : "Copy policy code"}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center"
           >
             {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">Copied!</span>
-              </>
+              <Check className="w-4 h-4 text-emerald-400" />
             ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-400" />
-                <span>Copy</span>
-              </>
+              <Copy className="w-4 h-4" />
             )}
           </button>
 
-          {/* Download File */}
+          {/* Download File (Icon Only) */}
           <button
             onClick={handleDownload}
             title={`Download fleet-policy.${format}`}
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
           </button>
 
-          {/* Copy CLI Dry-Run Command */}
+          {/* Copy CLI Dry-Run Command (Icon Only) */}
           <button
             onClick={handleCopyCli}
-            title="Copy CLI dry-run execution command"
-            className="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 text-[11px] font-semibold border border-cyan-800/40 transition-all flex items-center gap-1.5 shadow-sm"
+            title={cliCopied ? "CLI command copied!" : "Copy CLI dry-run command"}
+            className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 transition-all shadow-sm flex items-center justify-center"
           >
             {cliCopied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-cyan-400">Copied!</span>
-              </>
+              <Check className="w-4 h-4 text-cyan-400" />
             ) : (
-              <>
-                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                <span>CLI</span>
-              </>
+              <Terminal className="w-4 h-4 text-cyan-400" />
             )}
           </button>
         </div>
