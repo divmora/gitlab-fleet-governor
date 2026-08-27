@@ -36,6 +36,8 @@ site/
 
 # Dependency cache & vendor
 vendor/
+.venv/
+venv/
 
 # Temporary files & reports
 tmp/

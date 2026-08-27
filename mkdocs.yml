@@ -68,8 +68,16 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra_css:
+  - assets/custom.css
+
+extra_javascript:
+  - assets/playground.js
+
 nav:
   - Overview: index.md
+  - 🎮 Policy Studio: playground.md
+  - 🤖 LLM & AI Agents: llms.md
   - Getting Started: getting-started.md
   - Configuration Reference: configuration.md
   - Operations Suite: operations.md

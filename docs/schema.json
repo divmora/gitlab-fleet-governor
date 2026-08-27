@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://divmora.github.io/gitlab-fleet-governor/schema.json",
+  "title": "GitLabFleetGovernorPolicy",
+  "description": "Schema definition for GitLab Fleet Governor declarative policy configurations",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["v1", "1", "1.0"]
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "dry_run": { "type": "boolean", "default": true },
+        "concurrency": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
+        "log_level": { "type": "string", "enum": ["debug", "info", "warn", "error"], "default": "info" },
+        "log_format": { "type": "string", "enum": ["text", "json"], "default": "text" },
+        "report_format": { "type": "string", "enum": ["table", "summary", "json", "csv", "markdown"], "default": "table" },
+        "gitlab": {
+          "type": "object",
+          "properties": {
+            "base_url": { "type": "string" },
+            "token": { "type": "string" },
+            "rate_limit_rps": { "type": "number", "minimum": 0.1, "default": 30.0 },
+            "rate_limit_burst": { "type": "integer", "minimum": 1, "default": 50 },
+            "max_retries": { "type": "integer", "minimum": 0, "default": 3 },
+            "retry_base_delay_ms": { "type": "integer", "minimum": 1, "default": 500 }
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "properties": {
+        "group_selector": {
+          "type": "object",
+          "properties": {
+            "group_ids_include": { "type": "array", "items": { "type": "integer" } },
+            "group_ids_exclude": { "type": "array", "items": { "type": "integer" } },
+            "group_paths_include": { "type": "array", "items": { "type": "string" } },
+            "group_paths_exclude": { "type": "array", "items": { "type": "string" } },
+            "recursive": { "type": "boolean", "default": true }
+          }
+        },
+        "project_selector": {
+          "type": "object",
+          "properties": {
+            "namespaces_include": { "type": "array", "items": { "type": "string" } },
+            "namespaces_exclude": { "type": "array", "items": { "type": "string" } },
+            "project_name_regex_include": { "type": "string" },
+            "project_name_regex_exclude": { "type": "string" },
+            "visibility": { "type": "string", "enum": ["public", "internal", "private", "all"] },
+            "archived": { "type": "boolean" },
+            "id_range": {
+              "type": "object",
+              "properties": {
+                "min": { "type": "integer", "minimum": 1 },
+                "max": { "type": "integer", "minimum": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "properties": {
+        "push_rules": {
+          "type": "object",
+          "properties": {
+            "author_email_regex": { "type": "string" },
+            "branch_name_regex": { "type": "string" },
+            "commit_message_regex": { "type": "string" },
+            "file_name_regex": { "type": "string" },
+            "max_file_size": { "type": "integer", "minimum": 0 },
+            "prevent_secrets": { "type": "boolean" },
+            "reject_unsigned_commits": { "type": "boolean" },
+            "commit_committer_check": { "type": "boolean" },
+            "member_check": { "type": "boolean" },
+            "deny_delete_tag": { "type": "boolean" }
+          }
+        },
+        "protected_branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "allow_force_push": { "type": "boolean" },
+              "code_owner_approval_required": { "type": "boolean" }
+            }
+          }
+        },
+        "approval_rules": {
+          "type": "object",
+          "properties": {
+            "settings": {
+              "type": "object",
+              "properties": {
+                "allow_author_approval": { "type": "boolean" },
+                "allow_committer_approval": { "type": "boolean" },
+                "allow_overrides_to_approver_list_per_merge_request": { "type": "boolean" },
+                "retain_approvals_on_push": { "type": "boolean" }
+              }
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "approvals_required"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "approvals_required": { "type": "integer", "minimum": 0 },
+                  "user_usernames": { "type": "array", "items": { "type": "string" } },
+                  "protected_branch_names": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "project_settings": {
+          "type": "object",
+          "properties": {
+            "default_branch": { "type": "string" },
+            "squash_option": { "type": "string", "enum": ["always", "never", "default_on", "default_off"] },
+            "merge_method": { "type": "string", "enum": ["merge", "rebase_merge", "ff"] },
+            "only_allow_merge_if_pipeline_succeeds": { "type": "boolean" },
+            "only_allow_merge_if_all_discussions_are_resolved": { "type": "boolean" },
+            "keep_latest_artifact": { "type": "boolean" },
+            "printing_merge_request_link_enabled": { "type": "boolean" }
+          }
+        },
+        "pipeline_retention": {
+          "type": "object",
+          "required": ["retention_days"],
+          "properties": {
+            "retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 }
+          }
+        },
+        "compliance": {
+          "type": "object",
+          "required": ["framework_name"],
+          "properties": {
+            "framework_name": { "type": "string" },
+            "prune": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

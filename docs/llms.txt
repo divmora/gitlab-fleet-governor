@@ -1,0 +1,101 @@
+# GitLab Fleet Governor
+
+> Declarative Policy-as-Code & Fleet Governance Automation Engine for GitLab
+
+GitLab Fleet Governor is a high-performance Go-based policy engine engineered to enforce security push rules, branch protections, merge request approval matrices, native pipeline retention (`ci_delete_pipelines_in_seconds`), CI/CD variables, runners, and compliance frameworks across thousands of GitLab repositories and groups.
+
+## Documentation Index
+
+- [Overview](https://divmora.github.io/gitlab-fleet-governor/): High-level architecture, multi-agent topologies, and safety contracts.
+- [Getting Started](https://divmora.github.io/gitlab-fleet-governor/getting-started/): Installation via Homebrew, Docker, binaries, and basic CLI usage.
+- [Policy Studio (Interactive Playground)](https://divmora.github.io/gitlab-fleet-governor/playground/): Visual policy builder, validator, and template generator.
+- [Configuration Reference](https://divmora.github.io/gitlab-fleet-governor/configuration/): Complete YAML and JSON schema specification with environment variable expansion.
+- [Operations Suite](https://divmora.github.io/gitlab-fleet-governor/operations/): Deep dive into all 10 governance reconcilers (Push Rules, Protected Branches, Approval Rules, Settings, Retention, Variables, Runners, Compliance, Webhooks, Members).
+- [AWS Lambda & Serverless](https://divmora.github.io/gitlab-fleet-governor/lambda/): EventBridge scheduled triggers, S3 event dispatch, and serverless execution.
+- [CI/CD Pipelines](https://divmora.github.io/gitlab-fleet-governor/ci-cd/): GitLab CI and GitHub Actions automation recipes.
+- [Architecture](https://divmora.github.io/gitlab-fleet-governor/architecture/): Multi-agent role topology, graph traversal, concurrency semaphores, and rate-limiting protocols.
+- [Full LLM Specification](https://divmora.github.io/gitlab-fleet-governor/llms-full.txt): Complete, consolidated documentation and schema for AI agents.
+
+## Core Schema Structure
+
+```yaml
+version: "v1"
+settings:
+  dry_run: true # Boolean (default: true)
+  concurrency: 10 # Integer (default: 10)
+  log_level: "info" # "debug" | "info" | "warn" | "error"
+  log_format: "text" # "text" | "json"
+  report_format: "table" # "table" | "summary" | "json" | "csv" | "markdown"
+  gitlab:
+    base_url: "${GITLAB_BASE_URL}"
+    token: "${GITLAB_TOKEN}"
+    rate_limit_rps: 30.0
+    rate_limit_burst: 50
+    max_retries: 3
+    retry_base_delay_ms: 500
+
+targets:
+  group_selector:
+    group_ids_include: [10, 20]
+    group_ids_exclude: [99]
+    group_paths_include: ["engineering/core"]
+    group_paths_exclude: ["engineering/archived"]
+    recursive: true
+  project_selector:
+    namespaces_include: ["engineering"]
+    namespaces_exclude: ["engineering/legacy"]
+    project_name_regex_include: "^svc-.*$"
+    project_name_regex_exclude: "^.*-test$"
+    visibility: "all" # "public" | "internal" | "private" | "all"
+    archived: false
+
+policies:
+  push_rules:
+    author_email_regex: "@corp\\.com$"
+    branch_name_regex: "^(main|develop|feat/.*)$"
+    commit_message_regex: "^(feat|fix|docs|refactor|test|chore):.+"
+    file_name_regex: "(?i)\\.(pem|key|pkcs12)$"
+    max_file_size: 25 # Megabytes
+    prevent_secrets: true
+    reject_unsigned_commits: true
+    commit_committer_check: true
+    member_check: true
+    deny_delete_tag: true
+
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0 # No access
+      allowed_to_merge:
+        - access_level: 40 # Maintainer
+      allowed_to_unprotect:
+        - access_level: 40
+      allow_force_push: false
+      code_owner_approval_required: true
+
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      allow_overrides_to_approver_list_per_merge_request: false
+      retain_approvals_on_push: true
+    rules:
+      - name: "AppSec Reviewers"
+        approvals_required: 1
+        user_usernames: ["security-officer"]
+        protected_branch_names: ["main"]
+
+  project_settings:
+    default_branch: "main"
+    squash_option: "always" # "always" | "never" | "default_on" | "default_off"
+    merge_method: "rebase_merge" # "merge" | "rebase_merge" | "ff"
+    only_allow_merge_if_pipeline_succeeds: true
+    only_allow_merge_if_all_discussions_are_resolved: true
+    keep_latest_artifact: true
+
+  pipeline_retention:
+    retention_days: 30 # Maps to native GitLab ci_delete_pipelines_in_seconds: 2592000
+
+  compliance:
+    framework_name: "SOC2" # GraphQL framework assignment
+```
