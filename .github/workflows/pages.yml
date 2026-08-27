@@ -1,12 +1,16 @@
-name: Deploy MkDocs Site to GitHub Pages
+name: Deploy GitLab Fleet Governor Studio & Docs to GitHub Pages
 
 on:
   push:
     branches:
       - main
     paths:
+      - 'ui/**'
       - 'docs/**'
-      - 'mkdocs.yml'
+      - 'scripts/**'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'package.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -21,30 +25,26 @@ permissions:
 
 jobs:
   # ============================================================================
-  # Build Documentation with MkDocs Material
+  # Build Documentation & Interactive Studio Bundle
   # ============================================================================
-  build-docs:
-    name: Build Documentation
+  build:
+    name: Build Studio & Documentation Portal
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'ui/package.json'
 
-      - name: Install MkDocs and Plugins
+      - name: Install UI Dependencies & Bundle Portal
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Build MkDocs Site
-        run: |
-          mkdocs build --strict
+          npm install --prefix ui
+          node scripts/build-site.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -59,9 +59,9 @@ jobs:
   # ============================================================================
   # Deploy Artifact to GitHub Pages
   # ============================================================================
-  deploy-docs:
+  deploy:
     name: Deploy to GitHub Pages
-    needs: build-docs
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages

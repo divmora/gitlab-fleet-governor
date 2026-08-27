@@ -3,6 +3,7 @@
 <div align="center">
 
 [![CI Pipeline](https://github.com/divmora/gitlab-fleet-governor/actions/workflows/ci.yml/badge.svg)](https://github.com/divmora/gitlab-fleet-governor/actions/workflows/ci.yml)
+[![Live Studio](https://img.shields.io/badge/Live%20Studio-GitHub%20Pages-0284c7?style=flat&logo=github)](https://divmora.github.io/gitlab-fleet-governor/)
 [![Release](https://img.shields.io/github/v/release/divmora/gitlab-fleet-governor?sort=semver)](https://github.com/divmora/gitlab-fleet-governor/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/divmora/gitlab-fleet-governor)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -10,6 +11,9 @@
 
 **Production-grade, declarative policy-as-code and governance automation engine in Go for GitLab fleets.**
 
+Try the **[GitLab Fleet Governor Live Studio & Simulator](https://divmora.github.io/gitlab-fleet-governor/)** directly in your browser.
+
+[Live Studio](https://divmora.github.io/gitlab-fleet-governor/) •
 [Features](#-key-features) •
 [Quickstart](#-quickstart) •
 [CLI Usage](#-cli-usage-reference) •
@@ -17,7 +21,7 @@
 [Operations Suite](#-governance-operations-suite) •
 [AWS Lambda](#-aws-lambda--serverless) •
 [CI/CD Integration](#-cicd-pipeline-integration) •
-[Documentation](https://divmora.github.io/gitlab-fleet-governor/)
+[LLM Docs](https://divmora.github.io/gitlab-fleet-governor/llms.txt)
 
 </div>
 

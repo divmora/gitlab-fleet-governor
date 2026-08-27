@@ -38,6 +38,9 @@ site/
 vendor/
 .venv/
 venv/
+node_modules/
+ui/node_modules/
+ui/dist/
 
 # Temporary files & reports
 tmp/
