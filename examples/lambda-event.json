@@ -1,0 +1,11 @@
+{
+  "config_s3_uri": "s3://corp-governance-bucket/policies/enterprise.yaml",
+  "dry_run": true,
+  "concurrency": 10,
+  "log_level": "info",
+  "log_format": "json",
+  "group_paths_include": [
+    "enterprise-fleet/production"
+  ],
+  "project_regex_include": ".*-service$"
+}

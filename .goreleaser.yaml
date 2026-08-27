@@ -1,0 +1,222 @@
+version: 2
+
+project_name: gitlab-fleet-governor
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  # ============================================================================
+  # CLI & Daemon Cross-Platform Binaries
+  # ============================================================================
+  - id: gitlab-fleet-governor
+    main: ./cmd/gitlab-fleet-governor
+    binary: gitlab-fleet-governor
+    flags:
+      - -trimpath
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.Version={{ .Version }}
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit={{ .FullCommit }}
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.BuildDate={{ .Date }}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  # ============================================================================
+  # AWS Lambda Custom Runtime Bootstrap Binary
+  # ============================================================================
+  - id: lambda
+    main: ./cmd/gitlab-fleet-governor
+    binary: bootstrap
+    flags:
+      - -trimpath
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.Version={{ .Version }}
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit={{ .FullCommit }}
+      - -X github.com/divmora/gitlab-fleet-governor/pkg/version.BuildDate={{ .Date }}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  # Standard binary archives
+  - id: cli-archive
+    builds:
+      - gitlab-fleet-governor
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+      - examples/*
+
+  # AWS Lambda deployment zip (bootstrap executable placed directly at archive root)
+  - id: lambda-archive
+    builds:
+      - lambda
+    name_template: "{{ .ProjectName }}-lambda_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: zip
+    files:
+      - none*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+dockers:
+  # CLI Docker images (amd64)
+  - id: docker-cli-amd64
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor:{{ .Version }}-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor:latest-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .FullCommit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+
+  # CLI Docker images (arm64)
+  - id: docker-cli-arm64
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor:{{ .Version }}-arm64"
+      - "ghcr.io/divmora/gitlab-fleet-governor:latest-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .FullCommit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+
+  # Lambda Docker images (amd64)
+  - id: docker-lambda-amd64
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:{{ .Version }}-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:latest-amd64"
+    dockerfile: Dockerfile.lambda
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}-lambda"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .FullCommit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+
+  # Lambda Docker images (arm64)
+  - id: docker-lambda-arm64
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:{{ .Version }}-arm64"
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:latest-arm64"
+    dockerfile: Dockerfile.lambda
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}-lambda"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .FullCommit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+
+docker_manifests:
+  # CLI Multi-Arch Manifest
+  - name_template: "ghcr.io/divmora/gitlab-fleet-governor:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor:{{ .Version }}-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/divmora/gitlab-fleet-governor:latest"
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor:latest-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor:latest-arm64"
+
+  # Lambda Multi-Arch Manifest
+  - name_template: "ghcr.io/divmora/gitlab-fleet-governor-lambda:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:{{ .Version }}-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/divmora/gitlab-fleet-governor-lambda:latest"
+    image_templates:
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:latest-amd64"
+      - "ghcr.io/divmora/gitlab-fleet-governor-lambda:latest-arm64"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '(?i)^docs:'
+      - '(?i)^test:'
+      - '(?i)^chore:'
+      - 'Merge pull request'
+      - 'Merge branch'
+  groups:
+    - title: '✨ Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: '🐛 Bug Fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: '⚡ Performance Improvements'
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 2
+    - title: '🔒 Security Updates'
+      regexp: "^.*sec[(\\w)]*:+.*$"
+      order: 3
+    - title: '♻️ Refactoring'
+      regexp: "^.*refactor[(\\w)]*:+.*$"
+      order: 4
+    - title: '📚 Documentation'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 5
+    - title: '🧪 Testing & QA'
+      regexp: "^.*test[(\\w)]*:+.*$"
+      order: 6
+    - title: '🔧 Tooling & CI'
+      regexp: "^.*chore[(\\w)]*:+.*$"
+      order: 7
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: divmora
+    name: gitlab-fleet-governor
+  draft: false
+  prerelease: auto
+  mode: replace

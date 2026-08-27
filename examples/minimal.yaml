@@ -1,0 +1,37 @@
+# ==============================================================================
+# GitLab Fleet Governor - Minimal Policy Configuration
+# ==============================================================================
+version: "v1"
+
+settings:
+  dry_run: true
+  concurrency: 5
+  log_level: "info"
+  report_format: "table"
+
+targets:
+  group_selector:
+    group_paths_include:
+      - "my-org/core-services"
+    recursive: true
+  project_selector:
+    archived: false
+
+policies:
+  push_rules:
+    author_email_regex: '@myorg\.com$'
+    prevent_secrets: true
+    reject_unsigned_commits: true
+    max_file_size: 25
+
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0 # No direct pushes permitted
+      allowed_to_merge:
+        - access_level: 40 # Maintainers only
+      allow_force_push: false
+      code_owner_approval_required: true
+
+  pipeline_retention:
+    retention_days: 30
