@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Download, Terminal, CheckCircle2, AlertCircle, Check } from 'lucide-react';
 import { ValidationResult } from '../../engine/validator';
+import { Tooltip } from '../Common/Tooltip';
 
 interface PolicyEditorProps {
   code: string;
@@ -177,77 +178,88 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
           </span>
 
           {validation.isValid ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
-              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-              <span>Valid</span>
-            </span>
+            <Tooltip content="Policy configuration matches valid AST schema (0 errors)">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0 cursor-default">
+                <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                <span>Valid</span>
+              </span>
+            </Tooltip>
           ) : (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-[140px] truncate flex-shrink-0 cursor-help"
-              title={validation.errors[0]?.message || 'Schema error detected'}
-            >
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">Invalid</span>
-            </span>
+            <Tooltip content={validation.errors[0]?.message || 'Schema errors detected'}>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-[140px] truncate flex-shrink-0 cursor-help">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">Invalid</span>
+              </span>
+            </Tooltip>
           )}
         </div>
 
-        {/* Right Side: Format Switch & Pure Icon Action Buttons */}
+        {/* Right Side: Format Switch & Pure Icon Action Buttons with Tooltips */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Format Toggle */}
           <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800 mr-1">
-            <button
-              onClick={() => onSwitchFormat('yaml')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                format === 'yaml' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              YAML
-            </button>
-            <button
-              onClick={() => onSwitchFormat('json')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                format === 'json' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              JSON
-            </button>
+            <Tooltip content="Edit in YAML syntax">
+              <button
+                onClick={() => onSwitchFormat('yaml')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  format === 'yaml' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                YAML
+              </button>
+            </Tooltip>
+            <Tooltip content="Edit in JSON syntax">
+              <button
+                onClick={() => onSwitchFormat('json')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  format === 'json' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                JSON
+              </button>
+            </Tooltip>
           </div>
 
-          {/* Copy Code (Icon Only) */}
-          <button
-            onClick={handleCopyCode}
-            title={copied ? "Copied to clipboard!" : "Copy policy code"}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-          </button>
+          {/* Copy Code (Icon Only with Tooltip) */}
+          <Tooltip content={copied ? 'Copied to clipboard!' : 'Copy policy configuration'}>
+            <button
+              onClick={handleCopyCode}
+              aria-label="Copy code"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+            >
+              {copied ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
+          </Tooltip>
 
-          {/* Download File (Icon Only) */}
-          <button
-            onClick={handleDownload}
-            title={`Download fleet-policy.${format}`}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center"
-          >
-            <Download className="w-4 h-4" />
-          </button>
+          {/* Download File (Icon Only with Tooltip) */}
+          <Tooltip content={`Download fleet-policy.${format}`}>
+            <button
+              onClick={handleDownload}
+              aria-label={`Download fleet-policy.${format}`}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
-          {/* Copy CLI Dry-Run Command (Icon Only) */}
-          <button
-            onClick={handleCopyCli}
-            title={cliCopied ? "CLI command copied!" : "Copy CLI dry-run command"}
-            className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 transition-all shadow-sm flex items-center justify-center"
-          >
-            {cliCopied ? (
-              <Check className="w-4 h-4 text-cyan-400" />
-            ) : (
-              <Terminal className="w-4 h-4 text-cyan-400" />
-            )}
-          </button>
+          {/* Copy CLI Dry-Run Command (Icon Only with Tooltip) */}
+          <Tooltip content={cliCopied ? 'CLI dry-run command copied!' : 'Copy CLI dry-run command'}>
+            <button
+              onClick={handleCopyCli}
+              aria-label="Copy CLI command"
+              className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+            >
+              {cliCopied ? (
+                <Check className="w-4 h-4 text-cyan-400" />
+              ) : (
+                <Terminal className="w-4 h-4 text-cyan-400" />
+              )}
+            </button>
+          </Tooltip>
         </div>
       </div>
 

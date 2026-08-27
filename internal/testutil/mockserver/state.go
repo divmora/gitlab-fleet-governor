@@ -130,6 +130,170 @@ func (s *State) Reset() {
 }
 
 // ----------------------------------------------------------------------------
+// Deep Cloning Helpers (Prevent Data Races during Concurrent JSON Encoding)
+// ----------------------------------------------------------------------------
+
+func cloneProject(p *gitlab.Project) *gitlab.Project {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.TagList != nil {
+		cp.TagList = append([]string(nil), p.TagList...)
+	}
+	if p.Topics != nil {
+		cp.Topics = append([]string(nil), p.Topics...)
+	}
+	if p.Namespace != nil {
+		nsCopy := *p.Namespace
+		cp.Namespace = &nsCopy
+	}
+	if p.Owner != nil {
+		ownerCopy := *p.Owner
+		cp.Owner = &ownerCopy
+	}
+	if p.Permissions != nil {
+		permCopy := *p.Permissions
+		cp.Permissions = &permCopy
+	}
+	return &cp
+}
+
+func cloneGroup(g *gitlab.Group) *gitlab.Group {
+	if g == nil {
+		return nil
+	}
+	cp := *g
+	return &cp
+}
+
+func cloneProjectPushRules(pr *gitlab.ProjectPushRules) *gitlab.ProjectPushRules {
+	if pr == nil {
+		return nil
+	}
+	cp := *pr
+	return &cp
+}
+
+func cloneGroupPushRules(pr *gitlab.GroupPushRules) *gitlab.GroupPushRules {
+	if pr == nil {
+		return nil
+	}
+	cp := *pr
+	return &cp
+}
+
+func cloneProtectedBranch(pb *gitlab.ProtectedBranch) *gitlab.ProtectedBranch {
+	if pb == nil {
+		return nil
+	}
+	cp := *pb
+	if pb.PushAccessLevels != nil {
+		cp.PushAccessLevels = append([]*gitlab.BranchAccessDescription(nil), pb.PushAccessLevels...)
+	}
+	if pb.MergeAccessLevels != nil {
+		cp.MergeAccessLevels = append([]*gitlab.BranchAccessDescription(nil), pb.MergeAccessLevels...)
+	}
+	if pb.UnprotectAccessLevels != nil {
+		cp.UnprotectAccessLevels = append([]*gitlab.BranchAccessDescription(nil), pb.UnprotectAccessLevels...)
+	}
+	return &cp
+}
+
+func cloneProjectApprovals(pa *gitlab.ProjectApprovals) *gitlab.ProjectApprovals {
+	if pa == nil {
+		return nil
+	}
+	cp := *pa
+	return &cp
+}
+
+func cloneProjectApprovalRule(ar *gitlab.ProjectApprovalRule) *gitlab.ProjectApprovalRule {
+	if ar == nil {
+		return nil
+	}
+	cp := *ar
+	if ar.EligibleApprovers != nil {
+		cp.EligibleApprovers = append([]*gitlab.BasicUser(nil), ar.EligibleApprovers...)
+	}
+	if ar.Users != nil {
+		cp.Users = append([]*gitlab.BasicUser(nil), ar.Users...)
+	}
+	if ar.Groups != nil {
+		cp.Groups = append([]*gitlab.Group(nil), ar.Groups...)
+	}
+	return &cp
+}
+
+func cloneProjectVariable(v *gitlab.ProjectVariable) *gitlab.ProjectVariable {
+	if v == nil {
+		return nil
+	}
+	cp := *v
+	return &cp
+}
+
+func cloneGroupVariable(v *gitlab.GroupVariable) *gitlab.GroupVariable {
+	if v == nil {
+		return nil
+	}
+	cp := *v
+	return &cp
+}
+
+func cloneProjectHook(h *gitlab.ProjectHook) *gitlab.ProjectHook {
+	if h == nil {
+		return nil
+	}
+	cp := *h
+	return &cp
+}
+
+func cloneProjectMember(m *gitlab.ProjectMember) *gitlab.ProjectMember {
+	if m == nil {
+		return nil
+	}
+	cp := *m
+	return &cp
+}
+
+func cloneGroupMember(m *gitlab.GroupMember) *gitlab.GroupMember {
+	if m == nil {
+		return nil
+	}
+	cp := *m
+	return &cp
+}
+
+func cloneUser(u *gitlab.User) *gitlab.User {
+	if u == nil {
+		return nil
+	}
+	cp := *u
+	return &cp
+}
+
+func cloneRunner(r *gitlab.Runner) *gitlab.Runner {
+	if r == nil {
+		return nil
+	}
+	cp := *r
+	return &cp
+}
+
+func cloneRunnerDetails(d *gitlab.RunnerDetails) *gitlab.RunnerDetails {
+	if d == nil {
+		return nil
+	}
+	cp := *d
+	if d.TagList != nil {
+		cp.TagList = make([]string, len(d.TagList))
+		copy(cp.TagList, d.TagList)
+	}
+	return &cp
+}
+
+// ----------------------------------------------------------------------------
 // Project Operations
 // ----------------------------------------------------------------------------
 
@@ -151,7 +315,7 @@ func (s *State) AddProject(p *gitlab.Project) *gitlab.Project {
 	if p.PathWithNamespace != "" {
 		s.projectByPath[strings.ToLower(p.PathWithNamespace)] = p.ID
 	}
-	return p
+	return cloneProject(p)
 }
 
 func (s *State) GetProject(idOrPath any) (*gitlab.Project, bool) {
@@ -163,7 +327,10 @@ func (s *State) GetProject(idOrPath any) (*gitlab.Project, bool) {
 		return nil, false
 	}
 	p, found := s.projects[id]
-	return p, found
+	if !found {
+		return nil, false
+	}
+	return cloneProject(p), true
 }
 
 func (s *State) UpdateProject(idOrPath any, updater func(*gitlab.Project)) (*gitlab.Project, bool) {
@@ -179,7 +346,7 @@ func (s *State) UpdateProject(idOrPath any, updater func(*gitlab.Project)) (*git
 		return nil, false
 	}
 	updater(p)
-	return p, true
+	return cloneProject(p), true
 }
 
 func (s *State) ListProjects() []*gitlab.Project {
@@ -188,7 +355,7 @@ func (s *State) ListProjects() []*gitlab.Project {
 
 	res := make([]*gitlab.Project, 0, len(s.projects))
 	for _, p := range s.projects {
-		res = append(res, p)
+		res = append(res, cloneProject(p))
 	}
 	return res
 }
@@ -254,7 +421,7 @@ func (s *State) AddGroup(g *gitlab.Group) *gitlab.Group {
 	if g.ParentID != 0 {
 		s.subgroups[g.ParentID] = append(s.subgroups[g.ParentID], g.ID)
 	}
-	return g
+	return cloneGroup(g)
 }
 
 func (s *State) AddSubgroup(parentGroupID, childGroupID int) {
@@ -272,7 +439,10 @@ func (s *State) GetGroup(idOrPath any) (*gitlab.Group, bool) {
 		return nil, false
 	}
 	g, found := s.groups[id]
-	return g, found
+	if !found {
+		return nil, false
+	}
+	return cloneGroup(g), true
 }
 
 func (s *State) ListGroups() []*gitlab.Group {
@@ -281,7 +451,7 @@ func (s *State) ListGroups() []*gitlab.Group {
 
 	res := make([]*gitlab.Group, 0, len(s.groups))
 	for _, g := range s.groups {
-		res = append(res, g)
+		res = append(res, cloneGroup(g))
 	}
 	return res
 }
@@ -298,7 +468,7 @@ func (s *State) ListSubgroups(parentIDOrPath any) []*gitlab.Group {
 	res := make([]*gitlab.Group, 0, len(childIDs))
 	for _, cid := range childIDs {
 		if g, found := s.groups[cid]; found {
-			res = append(res, g)
+			res = append(res, cloneGroup(g))
 		}
 	}
 	return res
@@ -323,7 +493,7 @@ func (s *State) ListGroupProjects(groupIDOrPath any) []*gitlab.Project {
 	res := make([]*gitlab.Project, 0, len(pIDs))
 	for _, pid := range pIDs {
 		if p, found := s.projects[pid]; found {
-			res = append(res, p)
+			res = append(res, cloneProject(p))
 		}
 	}
 	return res
@@ -363,7 +533,10 @@ func (s *State) GetProjectPushRule(idOrPath any) (*gitlab.ProjectPushRules, bool
 		return nil, false
 	}
 	r, found := s.projectPushRules[id]
-	return r, found
+	if !found {
+		return nil, false
+	}
+	return cloneProjectPushRules(r), true
 }
 
 func (s *State) SetProjectPushRule(idOrPath any, r *gitlab.ProjectPushRules) (*gitlab.ProjectPushRules, bool) {
@@ -376,7 +549,7 @@ func (s *State) SetProjectPushRule(idOrPath any, r *gitlab.ProjectPushRules) (*g
 	}
 	r.ID = id
 	s.projectPushRules[id] = r
-	return r, true
+	return cloneProjectPushRules(r), true
 }
 
 func (s *State) GetGroupPushRule(idOrPath any) (*gitlab.GroupPushRules, bool) {
@@ -388,7 +561,10 @@ func (s *State) GetGroupPushRule(idOrPath any) (*gitlab.GroupPushRules, bool) {
 		return nil, false
 	}
 	r, found := s.groupPushRules[id]
-	return r, found
+	if !found {
+		return nil, false
+	}
+	return cloneGroupPushRules(r), true
 }
 
 func (s *State) SetGroupPushRule(idOrPath any, r *gitlab.GroupPushRules) (*gitlab.GroupPushRules, bool) {
@@ -401,7 +577,7 @@ func (s *State) SetGroupPushRule(idOrPath any, r *gitlab.GroupPushRules) (*gitla
 	}
 	r.ID = id
 	s.groupPushRules[id] = r
-	return r, true
+	return cloneGroupPushRules(r), true
 }
 
 // ----------------------------------------------------------------------------
@@ -419,7 +595,7 @@ func (s *State) ListProtectedBranches(idOrPath any) []*gitlab.ProtectedBranch {
 	branches := s.protectedBranches[id]
 	res := make([]*gitlab.ProtectedBranch, 0, len(branches))
 	for _, b := range branches {
-		res = append(res, b)
+		res = append(res, cloneProtectedBranch(b))
 	}
 	return res
 }
@@ -436,7 +612,7 @@ func (s *State) ProtectBranch(idOrPath any, b *gitlab.ProtectedBranch) (*gitlab.
 		s.protectedBranches[id] = make(map[string]*gitlab.ProtectedBranch)
 	}
 	s.protectedBranches[id][b.Name] = b
-	return b, true
+	return cloneProtectedBranch(b), true
 }
 
 func (s *State) UnprotectBranch(idOrPath any, branch string) bool {
@@ -463,7 +639,10 @@ func (s *State) GetProtectedBranch(idOrPath any, branch string) (*gitlab.Protect
 		return nil, false
 	}
 	b, found := s.protectedBranches[id][branch]
-	return b, found
+	if !found {
+		return nil, false
+	}
+	return cloneProtectedBranch(b), true
 }
 
 // ----------------------------------------------------------------------------
@@ -480,10 +659,9 @@ func (s *State) GetProjectApprovals(idOrPath any) *gitlab.ProjectApprovals {
 	}
 	app, found := s.projectApprovals[id]
 	if !found {
-		// Return empty approvals default
 		return &gitlab.ProjectApprovals{}
 	}
-	return app
+	return cloneProjectApprovals(app)
 }
 
 func (s *State) SetProjectApprovals(idOrPath any, a *gitlab.ProjectApprovals) bool {
@@ -509,7 +687,7 @@ func (s *State) ListApprovalRules(idOrPath any) []*gitlab.ProjectApprovalRule {
 	rules := s.projectApprovalRules[id]
 	res := make([]*gitlab.ProjectApprovalRule, 0, len(rules))
 	for _, r := range rules {
-		res = append(res, r)
+		res = append(res, cloneProjectApprovalRule(r))
 	}
 	return res
 }
@@ -532,7 +710,7 @@ func (s *State) AddApprovalRule(idOrPath any, r *gitlab.ProjectApprovalRule) (*g
 		s.nextApprovalRuleID = r.ID + 1
 	}
 	s.projectApprovalRules[id][r.ID] = r
-	return r, true
+	return cloneProjectApprovalRule(r), true
 }
 
 func (s *State) UpdateApprovalRule(idOrPath any, ruleID int, updater func(*gitlab.ProjectApprovalRule)) (*gitlab.ProjectApprovalRule, bool) {
@@ -548,7 +726,7 @@ func (s *State) UpdateApprovalRule(idOrPath any, ruleID int, updater func(*gitla
 		return nil, false
 	}
 	updater(rule)
-	return rule, true
+	return cloneProjectApprovalRule(rule), true
 }
 
 func (s *State) DeleteApprovalRule(idOrPath any, ruleID int) bool {
@@ -588,7 +766,7 @@ func (s *State) ListProjectVariables(idOrPath any) []*gitlab.ProjectVariable {
 	vars := s.projectVariables[id]
 	res := make([]*gitlab.ProjectVariable, 0, len(vars))
 	for _, v := range vars {
-		res = append(res, v)
+		res = append(res, cloneProjectVariable(v))
 	}
 	return res
 }
@@ -622,7 +800,6 @@ func (s *State) RemoveProjectVariable(idOrPath any, key, envScope string) bool {
 		delete(s.projectVariables[id], cKey)
 		return true
 	}
-	// Fallback check matching key if envScope is wildcard or empty
 	for k, v := range s.projectVariables[id] {
 		if v.Key == key && (envScope == "" || v.EnvironmentScope == envScope) {
 			delete(s.projectVariables[id], k)
@@ -643,7 +820,7 @@ func (s *State) ListGroupVariables(idOrPath any) []*gitlab.GroupVariable {
 	vars := s.groupVariables[id]
 	res := make([]*gitlab.GroupVariable, 0, len(vars))
 	for _, v := range vars {
-		res = append(res, v)
+		res = append(res, cloneGroupVariable(v))
 	}
 	return res
 }
@@ -705,7 +882,7 @@ func (s *State) AddRunner(r *gitlab.Runner, details *gitlab.RunnerDetails) *gitl
 		details.ID = r.ID
 		s.runnerDetails[r.ID] = details
 	}
-	return r
+	return cloneRunner(r)
 }
 
 func (s *State) ListRunners() []*gitlab.Runner {
@@ -714,21 +891,9 @@ func (s *State) ListRunners() []*gitlab.Runner {
 
 	res := make([]*gitlab.Runner, 0, len(s.runners))
 	for _, r := range s.runners {
-		res = append(res, r)
+		res = append(res, cloneRunner(r))
 	}
 	return res
-}
-
-func cloneRunnerDetails(d *gitlab.RunnerDetails) *gitlab.RunnerDetails {
-	if d == nil {
-		return nil
-	}
-	cp := *d
-	if d.TagList != nil {
-		cp.TagList = make([]string, len(d.TagList))
-		copy(cp.TagList, d.TagList)
-	}
-	return &cp
 }
 
 func (s *State) GetRunnerDetails(id int) (*gitlab.RunnerDetails, bool) {
@@ -762,7 +927,9 @@ func (s *State) GetComplianceFrameworks(projectID int) []MockComplianceFramework
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.complianceFrameworks[projectID]
+	res := make([]MockComplianceFramework, len(s.complianceFrameworks[projectID]))
+	copy(res, s.complianceFrameworks[projectID])
+	return res
 }
 
 func (s *State) SetComplianceFramework(projectID int, f MockComplianceFramework) {
@@ -794,7 +961,7 @@ func (s *State) ListProjectHooks(idOrPath any) []*gitlab.ProjectHook {
 	hooks := s.projectHooks[id]
 	res := make([]*gitlab.ProjectHook, 0, len(hooks))
 	for _, h := range hooks {
-		res = append(res, h)
+		res = append(res, cloneProjectHook(h))
 	}
 	return res
 }
@@ -817,7 +984,7 @@ func (s *State) AddProjectHook(idOrPath any, h *gitlab.ProjectHook) (*gitlab.Pro
 		s.nextHookID = h.ID + 1
 	}
 	s.projectHooks[id][h.ID] = h
-	return h, true
+	return cloneProjectHook(h), true
 }
 
 func (s *State) EditProjectHook(idOrPath any, hookID int, updater func(*gitlab.ProjectHook)) (*gitlab.ProjectHook, bool) {
@@ -833,7 +1000,7 @@ func (s *State) EditProjectHook(idOrPath any, hookID int, updater func(*gitlab.P
 		return nil, false
 	}
 	updater(hook)
-	return hook, true
+	return cloneProjectHook(hook), true
 }
 
 func (s *State) DeleteProjectHook(idOrPath any, hookID int) bool {
@@ -866,7 +1033,7 @@ func (s *State) ListProjectMembers(idOrPath any) []*gitlab.ProjectMember {
 	members := s.projectMembers[id]
 	res := make([]*gitlab.ProjectMember, 0, len(members))
 	for _, m := range members {
-		res = append(res, m)
+		res = append(res, cloneProjectMember(m))
 	}
 	return res
 }
@@ -897,7 +1064,7 @@ func (s *State) ListGroupMembers(idOrPath any) []*gitlab.GroupMember {
 	members := s.groupMembers[id]
 	res := make([]*gitlab.GroupMember, 0, len(members))
 	for _, m := range members {
-		res = append(res, m)
+		res = append(res, cloneGroupMember(m))
 	}
 	return res
 }
@@ -935,7 +1102,7 @@ func (s *State) AddUser(u *gitlab.User) *gitlab.User {
 	if u.Username != "" {
 		s.userByUsername[strings.ToLower(u.Username)] = u.ID
 	}
-	return u
+	return cloneUser(u)
 }
 
 func (s *State) GetUser(id int) (*gitlab.User, bool) {
@@ -943,7 +1110,10 @@ func (s *State) GetUser(id int) (*gitlab.User, bool) {
 	defer s.mu.RUnlock()
 
 	u, found := s.users[id]
-	return u, found
+	if !found {
+		return nil, false
+	}
+	return cloneUser(u), true
 }
 
 func (s *State) GetUserByUsername(username string) (*gitlab.User, bool) {
@@ -954,7 +1124,7 @@ func (s *State) GetUserByUsername(username string) (*gitlab.User, bool) {
 	if !found {
 		return nil, false
 	}
-	return s.users[id], true
+	return cloneUser(s.users[id]), true
 }
 
 func (s *State) ListUsers() []*gitlab.User {
@@ -963,7 +1133,7 @@ func (s *State) ListUsers() []*gitlab.User {
 
 	res := make([]*gitlab.User, 0, len(s.users))
 	for _, u := range s.users {
-		res = append(res, u)
+		res = append(res, cloneUser(u))
 	}
 	return res
 }
