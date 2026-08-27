@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Download, Terminal, CheckCircle2, AlertCircle, Focus } from 'lucide-react';
+import { Copy, Download, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ValidationResult } from '../../engine/validator';
 
 interface PolicyEditorProps {
@@ -163,7 +163,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
   return (
     <div className="flex flex-col h-[720px] rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl overflow-hidden">
       {/* Editor Header */}
-      <div className="px-6 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+      <div className="px-6 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
@@ -173,21 +173,6 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
           <span className="font-mono text-xs font-semibold text-slate-300">
             fleet-policy.{format}
           </span>
-          {blockRange && (
-            <button
-              onClick={jumpToFocusedSection}
-              title="Click to jump to section"
-              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 transition-all cursor-pointer shadow-sm shadow-indigo-500/10"
-            >
-              <Focus className="w-3 h-3 text-indigo-400" />
-              <span>
-                {blockRange.start === blockRange.end
-                  ? `Line ${blockRange.start + 1}`
-                  : `Lines ${blockRange.start + 1}–${blockRange.end + 1}`}
-                : {blockRange.label}
-              </span>
-            </button>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
