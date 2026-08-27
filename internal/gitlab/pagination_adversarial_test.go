@@ -166,6 +166,7 @@ func TestPagination_ContextCancellationMidStream(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	opts := gitlab.DefaultStreamOptions()
 	opts.Pagination.PerPage = 10
