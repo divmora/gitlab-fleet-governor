@@ -19,7 +19,7 @@ GIT_COMMIT   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE   ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Go Environment
-GO_MIN_VERSION := 1.25
+GO_MIN_VERSION := 1.26
 GO             ?= go
 GOFLAGS        ?=
 
@@ -47,11 +47,11 @@ all: check-go-version lint test build ## Run full lint, test suite, and local co
 # ==============================================================================
 
 .PHONY: check-go-version
-check-go-version: ## Verify installed Go version is >= 1.25
+check-go-version: ## Verify installed Go version is >= 1.26
 	@current_version=$$($(GO) version | awk '{print $$3}' | sed 's/go//'); \
 	major=$$(echo "$$current_version" | cut -d. -f1); \
 	minor=$$(echo "$$current_version" | cut -d. -f2); \
-	if [ "$$major" -lt 1 ] || { [ "$$major" -eq 1 ] && [ "$$minor" -lt 25 ]; }; then \
+	if [ "$$major" -lt 1 ] || { [ "$$major" -eq 1 ] && [ "$$minor" -lt 26 ]; }; then \
 		echo "ERROR: Go version $$current_version is below minimum required version $(GO_MIN_VERSION)"; \
 		exit 1; \
 	fi; \

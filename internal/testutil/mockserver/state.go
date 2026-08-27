@@ -719,12 +719,27 @@ func (s *State) ListRunners() []*gitlab.Runner {
 	return res
 }
 
+func cloneRunnerDetails(d *gitlab.RunnerDetails) *gitlab.RunnerDetails {
+	if d == nil {
+		return nil
+	}
+	cp := *d
+	if d.TagList != nil {
+		cp.TagList = make([]string, len(d.TagList))
+		copy(cp.TagList, d.TagList)
+	}
+	return &cp
+}
+
 func (s *State) GetRunnerDetails(id int) (*gitlab.RunnerDetails, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	d, found := s.runnerDetails[id]
-	return d, found
+	if !found {
+		return nil, false
+	}
+	return cloneRunnerDetails(d), true
 }
 
 func (s *State) UpdateRunnerDetails(id int, updater func(*gitlab.RunnerDetails)) (*gitlab.RunnerDetails, bool) {
@@ -736,7 +751,7 @@ func (s *State) UpdateRunnerDetails(id int, updater func(*gitlab.RunnerDetails))
 		return nil, false
 	}
 	updater(d)
-	return d, true
+	return cloneRunnerDetails(d), true
 }
 
 // ----------------------------------------------------------------------------

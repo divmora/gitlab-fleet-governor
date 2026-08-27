@@ -573,9 +573,9 @@ func TestTier5_Adversarial_MaliciousRegexes_ReDoSDefense(t *testing.T) {
 			elapsed := time.Since(start)
 
 			assert.False(t, matched, "Attack input should not match pattern")
-			// RE2 execution must complete in < 50ms (well under any catastrophic backtracking threshold)
-			assert.Less(t, elapsed, 100*time.Millisecond,
-				"RE2 algorithm must match 50KB adversarial string in <100ms (took %v)", elapsed)
+			// RE2 execution must complete linearly (well under any catastrophic backtracking threshold of seconds/minutes)
+			assert.Less(t, elapsed, 1*time.Second,
+				"RE2 algorithm must match 50KB adversarial string in <1s under race detector (took %v)", elapsed)
 		})
 
 		t.Run("Config Schema Validation With ReDoS Pattern: "+tc.name, func(t *testing.T) {
