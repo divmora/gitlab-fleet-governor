@@ -20,9 +20,9 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
   const getNode = (id: string) => nodes.find((n) => n.id === id);
 
   return (
-    <div className="relative w-full h-[460px] rounded-2xl bg-slate-950 border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+    <div className="relative w-full h-[720px] rounded-2xl bg-slate-950 border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
       {/* Top DAG Canvas Header */}
-      <div className="px-6 py-3 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between z-10 backdrop-blur-md">
+      <div className="px-6 py-3.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between z-10 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-indigo-400" />
           <span className="font-bold text-xs uppercase tracking-wider text-slate-200">
@@ -42,8 +42,8 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
       </div>
 
       {/* SVG Canvas Area */}
-      <div className="relative flex-1 overflow-auto bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] p-4">
-        <svg className="absolute inset-0 w-[980px] h-[430px] pointer-events-none">
+      <div className="relative flex-1 overflow-auto bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] p-6">
+        <svg className="absolute inset-0 w-[980px] h-[670px] pointer-events-none">
           <defs>
             <linearGradient id="edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#6366f1" stopOpacity="0.9" />
@@ -82,7 +82,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
         </svg>
 
         {/* Nodes Layer */}
-        <div className="relative w-[980px] h-[430px]">
+        <div className="relative w-[980px] h-[670px]">
           {nodes.map((node) => {
             const isSelected = selectedNodeId === node.id;
             const isActive = node.status === 'active';

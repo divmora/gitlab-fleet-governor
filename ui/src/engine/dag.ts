@@ -7,6 +7,7 @@ export interface DAGNode {
   icon: string;
   status: 'active' | 'inactive' | 'error';
   reconcilerKey?: string;
+  targetYamlKey?: string;
   badge?: string;
   description: string;
   details: Record<string, any>;
@@ -38,6 +39,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
     category: 'input',
     icon: '📄',
     status: config ? 'active' : 'inactive',
+    targetYamlKey: 'version',
     badge: 'AST v1',
     description: 'Declarative YAML/JSON configuration input & offline schema validation.',
     details: {
@@ -46,7 +48,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       concurrency: config?.settings?.concurrency ?? 10,
     },
     x: 30,
-    y: 180,
+    y: 290,
   });
 
   // Discovery Nodes: Group BFS & Project Regex
@@ -59,11 +61,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
     category: 'discovery',
     icon: '🌳',
     status: config?.targets?.group_selector ? 'active' : 'inactive',
+    targetYamlKey: 'group_selector',
     badge: groupCount > 0 ? `${groupCount} group(s)` : 'BFS Auto',
     description: 'Recursive group hierarchy traversal with cycle detection.',
     details: config?.targets?.group_selector || { note: 'No group selector' },
     x: 220,
-    y: 110,
+    y: 160,
   });
 
   nodes.push({
@@ -72,11 +75,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
     category: 'discovery',
     icon: '🎯',
     status: config?.targets?.project_selector ? 'active' : 'inactive',
+    targetYamlKey: 'project_selector',
     badge: config?.targets?.project_selector?.visibility || 'Fleet Filter',
     description: 'Filters target fleet by namespace, regex, visibility, and archive status.',
     details: config?.targets?.project_selector || { note: 'No project selector' },
     x: 220,
-    y: 250,
+    y: 420,
   });
 
   edges.push({ id: 'e1', from: 'node-policy', to: 'node-discovery-group', animated: true });
@@ -155,8 +159,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
   ];
 
   const reconcilerStartX = 420;
-  const startY = 20;
-  const gapY = 62;
+  const startY = 30;
+  const gapY = 95;
 
   reconcilers.forEach((rec, idx) => {
     const nodeId = `node-rec-${rec.key}`;
@@ -168,6 +172,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       icon: rec.icon,
       status: isActive ? 'active' : 'inactive',
       reconcilerKey: rec.key,
+      targetYamlKey: rec.key,
       badge: getReconcilerBadge(rec.key, rec.data),
       description: `Reconciles ${rec.label} against target GitLab fleet.`,
       details: rec.data || { enabled: false },
@@ -186,6 +191,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
     category: 'engine',
     icon: '⚡',
     status: 'active',
+    targetYamlKey: 'settings',
     badge: `${config?.settings?.concurrency || 10} workers`,
     description: 'Channel-based bounded concurrency worker pool with jittered backoff retries.',
     details: {
@@ -193,7 +199,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       dry_run: config?.settings?.dry_run ?? true,
     },
     x: 630,
-    y: 180,
+    y: 290,
   });
 
   reconcilers.forEach((rec) => {
@@ -207,13 +213,14 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
     category: 'report',
     icon: '📊',
     status: 'active',
+    targetYamlKey: 'settings',
     badge: config?.settings?.report_format || 'table',
     description: 'Aggregates scanned, matched, applied, skipped, and error totals.',
     details: {
       format: config?.settings?.report_format || 'table',
     },
     x: 820,
-    y: 180,
+    y: 290,
   });
 
   edges.push({ id: 'e-rep', from: 'node-engine', to: 'node-report', animated: true });
