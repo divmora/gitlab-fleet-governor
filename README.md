@@ -3,6 +3,7 @@
 <div align="center">
 
 [![CI Pipeline](https://github.com/divmora/gitlab-fleet-governor/actions/workflows/ci.yml/badge.svg)](https://github.com/divmora/gitlab-fleet-governor/actions/workflows/ci.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/divmora/gitlab-fleet-governor)
 [![Live Studio](https://img.shields.io/badge/Live%20Studio-GitHub%20Pages-0284c7?style=flat&logo=github)](https://divmora.github.io/gitlab-fleet-governor/)
 [![Release](https://img.shields.io/github/v/release/divmora/gitlab-fleet-governor?sort=semver)](https://github.com/divmora/gitlab-fleet-governor/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/divmora/gitlab-fleet-governor)](https://go.dev/)

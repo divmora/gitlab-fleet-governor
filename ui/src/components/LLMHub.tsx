@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Copy, FileCode, Sparkles } from 'lucide-react';
+import { Bot, Copy, FileCode, Sparkles, ExternalLink } from 'lucide-react';
 
 export const LLMHub: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -62,55 +62,81 @@ When writing policies:
           <h2 className="text-xl font-bold text-white tracking-tight">Large Language Model & Agent Integration</h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-          GitLab Fleet Governor exposes standardized AI endpoints (<code className="text-cyan-300">/llms.txt</code>, <code className="text-cyan-300">/llms-full.txt</code>, and <code className="text-cyan-300">/schema.json</code>) for seamless integration with Cursor, Claude, ChatGPT, and autonomous coding agents.
+          GitLab Fleet Governor exposes standardized AI endpoints (<code className="text-cyan-300">/llms.txt</code>, <code className="text-cyan-300">/llms-full.txt</code>, and <code className="text-cyan-300">/schema.json</code>) and is indexed on DeepWiki for seamless integration with Cursor, Claude, ChatGPT, and autonomous coding agents.
         </p>
       </div>
 
-      {/* Manifest Endpoints */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Manifest & AI Wiki Endpoints */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <a
+          href="https://deepwiki.com/divmora/gitlab-fleet-governor"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900/80 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-lg group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-white text-sm group-hover:text-indigo-300 transition-colors">Ask DeepWiki</span>
+              <ExternalLink className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+              Ask questions directly to the AI Wiki knowledge base indexed on this repository.
+            </p>
+          </div>
+          <div>
+            <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" className="h-5 rounded" />
+          </div>
+        </a>
+
         <a
           href="llms.txt"
           target="_blank"
           rel="noopener noreferrer"
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group"
+          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/llms.txt</span>
-            <FileCode className="w-4 h-4 text-cyan-400" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/llms.txt</span>
+              <FileCode className="w-4 h-4 text-cyan-400" />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Standard curated AI sitemap and structured policy index per the llmstxt.org specification.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Standard curated AI sitemap and structured policy index per the llmstxt.org specification.
-          </p>
         </a>
 
         <a
           href="llms-full.txt"
           target="_blank"
           rel="noopener noreferrer"
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group"
+          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/llms-full.txt</span>
-            <FileCode className="w-4 h-4 text-cyan-400" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/llms-full.txt</span>
+              <FileCode className="w-4 h-4 text-cyan-400" />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Consolidated single-file markdown specification for 1-shot LLM context injection & RAG.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Consolidated single-file markdown specification for 1-shot LLM context injection & RAG.
-          </p>
         </a>
 
         <a
           href="schema.json"
           target="_blank"
           rel="noopener noreferrer"
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group"
+          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-lg group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/schema.json</span>
-            <FileCode className="w-4 h-4 text-cyan-400" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors">/schema.json</span>
+              <FileCode className="w-4 h-4 text-cyan-400" />
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Machine-readable JSON Schema for IDE validation ($schema) in VS Code, IntelliJ, and Cursor.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Machine-readable JSON Schema for IDE validation ($schema) in VS Code, IntelliJ, and Cursor.
-          </p>
         </a>
       </div>
 
