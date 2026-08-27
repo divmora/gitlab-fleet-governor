@@ -91,6 +91,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
             return (
               <div
                 key={node.id}
+                title={node.description}
                 onClick={() => onSelectNode(node.id)}
                 style={{ left: `${node.x}px`, top: `${node.y}px` }}
                 className={`absolute w-38 p-2.5 rounded-xl border transition-all cursor-pointer select-none shadow-lg backdrop-blur-md ${
@@ -127,11 +128,13 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400">
-                  <span className="truncate">{node.description}</span>
+                <div className="flex items-center justify-between gap-1 text-[10px]">
+                  <span className="text-slate-400 text-[10px] font-medium capitalize truncate">
+                    {node.category}
+                  </span>
                   {node.badge && (
                     <span
-                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono flex-shrink-0 ${
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold flex-shrink-0 ${
                         isActive
                           ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                           : 'bg-slate-800 text-slate-500'
