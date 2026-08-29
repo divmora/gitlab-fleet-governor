@@ -205,7 +205,8 @@ func TestWithLogger_And_FromContext(t *testing.T) {
 		t.Errorf("expected non-nil default logger from empty context")
 	}
 
-	nilCtxExtracted := logging.FromContext(nil)
+	var nilCtx context.Context
+	nilCtxExtracted := logging.FromContext(nilCtx)
 	if nilCtxExtracted == nil {
 		t.Errorf("expected non-nil default logger from nil context")
 	}

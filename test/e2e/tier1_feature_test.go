@@ -323,7 +323,7 @@ func TestE2E_Tier1_Configuration_Sources(t *testing.T) {
     author_email_regex: '@${CORP_DOMAIN:-example.com}$'
     prevent_secrets: true
 `)
-	rawJSON := fmt.Sprintf(`{
+	rawJSON := `{
   "version": "v1",
   "settings": {
     "dry_run": true,
@@ -342,7 +342,7 @@ func TestE2E_Tier1_Configuration_Sources(t *testing.T) {
       "retention_days": 45
     }
   }
-}`)
+}`
 
 	yamlPath := h.WriteConfigFile("source_test.yaml", rawYAML)
 	jsonPath := h.WriteConfigFile("source_test.json", rawJSON)

@@ -357,8 +357,8 @@ func (s *defaultProtectedBranchesService) ProtectRepositoryBranches(pid any, opt
 func (s *defaultProtectedBranchesService) UnprotectRepositoryBranches(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
 	return s.client.ProtectedBranches.UnprotectRepositoryBranches(pid, branch, options...)
 }
-func (s *defaultProtectedBranchesService) RequireCodeOwnerApprovals(pid any, branch string, opt *gitlab.RequireCodeOwnerApprovalsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
-	return s.client.ProtectedBranches.RequireCodeOwnerApprovals(pid, branch, opt, options...)
+func (s *defaultProtectedBranchesService) UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error) {
+	return s.client.ProtectedBranches.UpdateProtectedBranch(pid, branch, opt, options...)
 }
 
 type defaultPushRulesService struct{ client *gitlab.Client }

@@ -11,8 +11,6 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 )
 
-// Helper functions for pointer creation in tests
-func strPtr(s string) *string { return &s }
 
 // TestAdversarial_InvalidRegexPatterns verifies that all regex fields across the entire configuration
 // schema properly reject invalid, uncompilable regular expressions.

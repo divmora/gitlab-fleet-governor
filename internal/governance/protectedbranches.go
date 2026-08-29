@@ -126,10 +126,10 @@ func (r *ProtectedBranchesReconciler) Apply(ctx context.Context, client gitlab.G
 			// Determine if ONLY CodeOwnerApprovalRequired changed
 			onlyCodeOwnerChanged := r.isOnlyCodeOwnerApprovalChanged(diff)
 			if onlyCodeOwnerChanged && rule.CodeOwnerApprovalRequired != nil {
-				patchOpt := &gogitlab.RequireCodeOwnerApprovalsOptions{
+				patchOpt := &gogitlab.UpdateProtectedBranchOptions{
 					CodeOwnerApprovalRequired: rule.CodeOwnerApprovalRequired,
 				}
-				_, patchErr := client.ProtectedBranches().RequireCodeOwnerApprovals(project.ID, rule.Name, patchOpt, gogitlab.WithContext(ctx))
+				_, _, patchErr := client.ProtectedBranches().UpdateProtectedBranch(project.ID, rule.Name, patchOpt, gogitlab.WithContext(ctx))
 				if patchErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionUpdate, StatusFailed, append(appliedDiffs, diff), patchErr, start), patchErr
 				}

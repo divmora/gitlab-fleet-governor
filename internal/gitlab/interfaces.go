@@ -48,7 +48,7 @@ type ProtectedBranchesService interface {
 	ListProtectedBranches(pid any, opt *gitlab.ListProtectedBranchesOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedBranch, *gitlab.Response, error)
 	ProtectRepositoryBranches(pid any, opt *gitlab.ProtectRepositoryBranchesOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
 	UnprotectRepositoryBranches(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
-	RequireCodeOwnerApprovals(pid any, branch string, opt *gitlab.RequireCodeOwnerApprovalsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
+	UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
 }
 
 // PushRulesService abstracts project-level and group-level push rules.
