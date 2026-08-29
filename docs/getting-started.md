@@ -8,7 +8,7 @@ This guide walks you through installing `gitlab-fleet-governor`, configuring cre
 
 - **GitLab Instance**: GitLab.com (SaaS) or Self-Managed GitLab instance (v15.0+).
 - **GitLab API Token**: Personal Access Token, Group Access Token, Project Access Token, or CI Job Token with `api` scope.
-- **Go**: 1.25+ (if compiling from source).
+- **Go**: 1.26+ (if compiling from source).
 
 ---
 

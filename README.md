@@ -66,7 +66,7 @@ Managing security baselines, branch protections, push rules, and compliance stan
 ### Step 1: Install `gitlab-fleet-governor`
 
 ```bash
-# Via Go 1.25+
+# Via Go 1.26+
 go install github.com/divmora/gitlab-fleet-governor/cmd/gitlab-fleet-governor@latest
 
 # Or download pre-built binary from GitHub Releases

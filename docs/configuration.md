@@ -103,7 +103,7 @@ targets:
     project_name_regex_exclude: '^temp-.*'
     topics_include: ["tier-1", "backend"]
     topics_exclude: ["experimental"]
-    visibility: "private" # "public", "internal", "private", or "" (any)
+    visibility: "private" # "public", "internal", "private", or "any"
     archived: false       # false (active only), true (archived only), omit (any)
     id_range:
       min: 1

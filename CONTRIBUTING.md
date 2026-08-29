@@ -6,7 +6,7 @@ Thank you for your interest in contributing to **GitLab Fleet Governor**! We wel
 
 ## Development Prerequisites
 
-- **Go**: Version 1.25 or higher.
+- **Go**: Version 1.26 or higher.
 - **Git**: Modern version.
 - **Make**: Standard build automation tool.
 - **golangci-lint**: Optional for local linting (`v1.60+`).
