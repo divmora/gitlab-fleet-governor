@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3](https://github.com/divmora/gitlab-fleet-governor/compare/v0.2.2...v0.2.3) (2026-08-29)
+
+
+### Bug Fixes
+
+* Update workflow name for Docker CI/CD ([a7fb0e4](https://github.com/divmora/gitlab-fleet-governor/commit/a7fb0e4decaacf866ee8c9b22c2fde8c5bc6068c))
+
 ## [0.2.2](https://github.com/divmora/gitlab-fleet-governor/compare/v0.2.1...v0.2.2) (2026-08-29)
 
 
