@@ -2,7 +2,7 @@
 # Build Stage
 # ==============================================================================
 ARG GO_VERSION=1.26-alpine
-FROM golang:${GO_VERSION} AS builder
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS builder
 
 # Build arguments for build metadata injection
 ARG VERSION=dev

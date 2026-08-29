@@ -1,0 +1,199 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ "**" ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*', 'v*' ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA'
+        required: false
+        type: string
+      tag_name:
+        description: 'Tag Name'
+        required: false
+        type: string
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Run Linters
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          install-mode: goinstall
+          working-directory: .
+          args: --timeout=5m
+
+      - name: Run Unit Tests
+        run: go test ./... -v
+
+  build-and-push:
+    name: Build & Publish Docker
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha || github.ref }}
+
+      # Set up QEMU for multi-arch builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Set up Buildx to support cache export
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login against a Docker registry except on PR
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Prod Metadata: Only for Releases (SemVer) - CLI
+      - name: Extract Prod Docker metadata (CLI)
+        id: meta-prod-cli
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ inputs.tag_name }},enable=${{ inputs.tag_name != '' }}
+            type=raw,value=latest,enable=${{ inputs.tag_name != '' }}
+
+      # Debug Metadata: Releases (SemVer) + Branches (Full SHA) - CLI
+      - name: Extract Debug Docker metadata (CLI)
+        id: meta-debug-cli
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/debug
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=sha,format=long,prefix=
+
+      # Prod Metadata: Only for Releases (SemVer) - Lambda
+      - name: Extract Prod Docker metadata (Lambda)
+        id: meta-prod-lambda
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lambda
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ inputs.tag_name }},enable=${{ inputs.tag_name != '' }}
+            type=raw,value=latest,enable=${{ inputs.tag_name != '' }}
+
+      # Debug Metadata: Releases (SemVer) + Branches (Full SHA) - Lambda
+      - name: Extract Debug Docker metadata (Lambda)
+        id: meta-debug-lambda
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lambda/debug
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=sha,format=long,prefix=
+
+      - name: Debug Tags
+        run: |
+          echo "CLI Prod Tags:"
+          echo "${{ steps.meta-prod-cli.outputs.tags }}"
+          echo "CLI Debug Tags:"
+          echo "${{ steps.meta-debug-cli.outputs.tags }}"
+          echo "Lambda Prod Tags:"
+          echo "${{ steps.meta-prod-lambda.outputs.tags }}"
+          echo "Lambda Debug Tags:"
+          echo "${{ steps.meta-debug-lambda.outputs.tags }}"
+
+      - name: Calculate Version
+        id: version
+        run: |
+          if [[ "${{ inputs.tag_name }}" != "" ]]; then
+             TAG_REF="${{ inputs.tag_name }}"
+             echo "VERSION=${TAG_REF#v}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/heads/}-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
+      # Build and push CLI Docker image with Buildx (don't push on PR)
+      - name: Build and push CLI Docker image
+        id: build-and-push-cli
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+          tags: |
+            ${{ steps.meta-prod-cli.outputs.tags }}
+            ${{ steps.meta-debug-cli.outputs.tags }}
+          labels: |
+            ${{ steps.meta-prod-cli.outputs.labels }}
+            ${{ steps.meta-debug-cli.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build and push Lambda Docker image with Buildx (don't push on PR)
+      - name: Build and push Lambda Docker image
+        id: build-and-push-lambda
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.lambda
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+          tags: |
+            ${{ steps.meta-prod-lambda.outputs.tags }}
+            ${{ steps.meta-debug-lambda.outputs.tags }}
+          labels: |
+            ${{ steps.meta-prod-lambda.outputs.labels }}
+            ${{ steps.meta-debug-lambda.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

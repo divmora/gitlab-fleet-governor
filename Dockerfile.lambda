@@ -2,7 +2,7 @@
 # Build Stage
 # ==============================================================================
 ARG GO_VERSION=1.26-alpine
-FROM golang:${GO_VERSION} AS builder
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS builder
 
 ARG VERSION=dev
 ARG GIT_COMMIT=none
