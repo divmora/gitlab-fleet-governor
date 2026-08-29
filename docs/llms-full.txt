@@ -73,7 +73,7 @@ targets:
     namespaces_exclude: ["payments/deprecated"]
     project_name_regex_include: "^svc-.*$"
     project_name_regex_exclude: "^.*-spike$"
-    visibility: "all" # "public" | "internal" | "private" | "all"
+    visibility: "any" # "public" | "internal" | "private" | "any"
     archived: false
     id_range:
       min: 1

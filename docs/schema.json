@@ -51,7 +51,7 @@
             "namespaces_exclude": { "type": "array", "items": { "type": "string" } },
             "project_name_regex_include": { "type": "string" },
             "project_name_regex_exclude": { "type": "string" },
-            "visibility": { "type": "string", "enum": ["public", "internal", "private", "all"] },
+            "visibility": { "type": "string", "enum": ["public", "internal", "private", "any"] },
             "archived": { "type": "boolean" },
             "id_range": {
               "type": "object",

@@ -27,7 +27,7 @@ export const PRESETS: Record<string, { name: string; icon: string; description: 
         },
         project_selector: {
           archived: false,
-          visibility: 'all',
+          visibility: 'any',
         },
       },
       policies: {

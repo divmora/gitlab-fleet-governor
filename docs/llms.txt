@@ -46,7 +46,7 @@ targets:
     namespaces_exclude: ["engineering/legacy"]
     project_name_regex_include: "^svc-.*$"
     project_name_regex_exclude: "^.*-test$"
-    visibility: "all" # "public" | "internal" | "private" | "all"
+    visibility: "any" # "public" | "internal" | "private" | "any"
     archived: false
 
 policies:

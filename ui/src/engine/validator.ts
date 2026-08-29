@@ -111,8 +111,8 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
         errors.push({ path: 'targets.project_selector.project_name_regex_exclude', message: `Invalid RE2 regular expression: ${e.message}`, severity: 'error' });
       }
     }
-    if (ps?.visibility && !['public', 'internal', 'private', 'all'].includes(ps.visibility)) {
-      errors.push({ path: 'targets.project_selector.visibility', message: "visibility must be 'public', 'internal', 'private', or 'all'.", severity: 'error' });
+    if (ps?.visibility && !['public', 'internal', 'private', 'any'].includes(ps.visibility)) {
+      errors.push({ path: 'targets.project_selector.visibility', message: "visibility must be 'public', 'internal', 'private', or 'any'.", severity: 'error' });
     }
   }
 

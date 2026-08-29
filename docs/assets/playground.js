@@ -22,7 +22,7 @@
       },
       project_selector: {
         archived: false,
-        visibility: "all"
+        visibility: "any"
       }
     },
     policies: {

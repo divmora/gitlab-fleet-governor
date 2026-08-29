@@ -29,7 +29,7 @@ export interface ProjectSelector {
   namespaces_exclude?: string[];
   project_name_regex_include?: string;
   project_name_regex_exclude?: string;
-  visibility?: 'public' | 'internal' | 'private' | 'all';
+  visibility?: 'public' | 'internal' | 'private' | 'any';
   archived?: boolean;
   id_range?: {
     min?: number;
