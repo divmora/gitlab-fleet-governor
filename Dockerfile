@@ -47,7 +47,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ==============================================================================
 # Final Runtime Stage
 # ==============================================================================
-FROM alpine:3.21 AS final
+FROM alpine:3.24 AS final
 
 # Install runtime dependencies (certificates, timezone data)
 RUN apk update && apk add --no-cache \
