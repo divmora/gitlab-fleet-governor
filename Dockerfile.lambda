@@ -1,0 +1,63 @@
+# ==============================================================================
+# Build Stage
+# ==============================================================================
+ARG GO_VERSION=1.26-alpine
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS builder
+
+ARG VERSION=dev
+ARG GIT_COMMIT=none
+ARG BUILD_DATE=unknown
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN apk update && apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    && update-ca-certificates
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
+
+COPY . .
+
+# Compile AWS Lambda custom runtime bootstrap executable (CGO_ENABLED=0)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath \
+    -ldflags="-s -w \
+      -X github.com/divmora/gitlab-fleet-governor/pkg/version.Version=${VERSION} \
+      -X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit=${GIT_COMMIT} \
+      -X github.com/divmora/gitlab-fleet-governor/pkg/version.BuildDate=${BUILD_DATE}" \
+    -o /build/bootstrap ./cmd/gitlab-fleet-governor
+
+# ==============================================================================
+# Final AWS Lambda Runtime Stage (Amazon Linux 2023 Minimal Base)
+# ==============================================================================
+FROM public.ecr.aws/lambda/provided:al2023
+
+# Copy bootstrap executable to Lambda task root and runtime directory
+COPY --from=builder /build/bootstrap ${LAMBDA_RUNTIME_DIR}/bootstrap
+COPY --from=builder /build/bootstrap ${LAMBDA_TASK_ROOT}/bootstrap
+
+# Copy certificates and timezone information
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Ensure executable permissions
+RUN chmod 755 ${LAMBDA_RUNTIME_DIR}/bootstrap && \
+    chmod 755 ${LAMBDA_TASK_ROOT}/bootstrap
+
+LABEL org.opencontainers.image.title="gitlab-fleet-governor-lambda" \
+      org.opencontainers.image.description="AWS Lambda container runtime for GitLab Fleet Governor" \
+      org.opencontainers.image.url="https://github.com/divmora/gitlab-fleet-governor" \
+      org.opencontainers.image.source="https://github.com/divmora/gitlab-fleet-governor" \
+      org.opencontainers.image.vendor="divmora" \
+      org.opencontainers.image.licenses="BSL-1.1"
+
+# AWS Lambda Runtime entrypoint executes bootstrap automatically
+CMD ["main"]

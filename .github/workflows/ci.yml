@@ -1,0 +1,13 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  ci:
+    uses: divmora/.github/.github/workflows/go-ci.yml@main
+    with:
+      go-version: '1.26'

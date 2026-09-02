@@ -1,0 +1,55 @@
+# Binaries & build artifacts
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.zip
+bootstrap
+
+# Test coverage & profiling
+coverage.txt
+coverage.html
+profile.out
+*.prof
+
+# IDE & Editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation site build output
+site/
+
+# Terraform & local testing state
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Dependency cache & vendor
+vendor/
+.venv/
+venv/
+node_modules/
+ui/node_modules/
+ui/dist/
+
+# Temporary files & reports
+tmp/
+temp/
+*.log
+drift-report.md
+report.md
+report.json
+report.csv
+
+# Agent configuration
+.agents/

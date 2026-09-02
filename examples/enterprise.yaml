@@ -1,0 +1,200 @@
+# ==============================================================================
+# GitLab Fleet Governor - Enterprise Fleet Policy Configuration
+# ==============================================================================
+version: "v1"
+
+settings:
+  dry_run: true
+  concurrency: 16
+  log_level: "info"
+  log_format: "text"
+  report_format: "table"
+  gitlab:
+    base_url: "${GITLAB_BASE_URL:-https://gitlab.com/api/v4}"
+    token: "${GITLAB_TOKEN}"
+    token_type: "private_token"
+    timeout_seconds: 45
+    rate_limit_rps: 30.0
+    rate_limit_burst: 50
+    max_retries: 4
+    retry_base_delay_ms: 500
+    retry_max_delay_ms: 30000
+
+targets:
+  group_selector:
+    group_paths_include:
+      - "enterprise-fleet"
+      - "platform/services"
+    group_paths_exclude:
+      - "enterprise-fleet/sandboxes"
+      - "enterprise-fleet/legacy-archive"
+    recursive: true
+  project_selector:
+    namespaces_include:
+      - "enterprise-fleet/production"
+      - "platform/services"
+    namespaces_exclude:
+      - "enterprise-fleet/production/deprecated"
+    project_name_regex_include: '^[a-z0-9-]+-(service|api|app|worker)$'
+    project_name_regex_exclude: '^temp-.*'
+    topics_include:
+      - "tier-1"
+      - "tier-2"
+    topics_exclude:
+      - "experimental"
+    visibility: "private"
+    archived: false
+
+policies:
+  # 1. Push Rules
+  push_rules:
+    author_email_regex: '@enterprise\.com$'
+    branch_name_regex: '^(main|develop|release\/v[0-9]+\.[0-9]+|(feat|fix|chore|docs|refactor)\/[A-Z]+-[0-9]+-[a-z0-9-]+)$'
+    commit_message_regex: '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_-]+\))?: .+'
+    commit_message_negative_regex: '(?i)(wip|do not merge|temp commit)'
+    file_name_regex: '(id_rsa|\.pem|\.pfx|\.key|\.p12|\.pkcs12)$'
+    max_file_size: 20
+    commit_committer_check: true
+    member_check: true
+    prevent_secrets: true
+    deny_delete_tag: true
+    reject_unsigned_commits: true
+    reject_non_dco_commits: true
+
+  # 2. Protected Branches
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0 # Direct push disallowed
+      allowed_to_merge:
+        - access_level: 40 # Maintainers only
+      allowed_to_unprotect:
+        - access_level: 40
+      allow_force_push: false
+      code_owner_approval_required: true
+
+    - name: "release/*"
+      allowed_to_push:
+        - access_level: 40 # Release managers
+      allowed_to_merge:
+        - access_level: 40
+      allow_force_push: false
+      code_owner_approval_required: true
+
+  # 3. Merge Request Approval Rules
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      allow_overrides_to_approver_list_per_merge_request: false
+      retain_approvals_on_push: true
+      selective_code_owner_removals: true
+      require_password_to_approve: false
+    rules:
+      - name: "Security & AppSec Review"
+        approvals_required: 2
+        user_usernames:
+          - "appsec_lead"
+          - "security_bot"
+        group_paths:
+          - "enterprise-fleet/security-reviewers"
+        protected_branch_names:
+          - "main"
+          - "release/*"
+        rule_type: "regular"
+      - name: "Platform Architecture Sign-off"
+        approvals_required: 1
+        group_paths:
+          - "enterprise-fleet/architecture-leads"
+        protected_branch_names:
+          - "main"
+        rule_type: "regular"
+    prune: true
+
+  # 4. Project Settings
+  project_settings:
+    default_branch: "main"
+    squash_option: "always"
+    merge_method: "rebase_merge"
+    only_allow_merge_if_pipeline_succeeds: true
+    allow_merge_on_skipped_pipeline: false
+    only_allow_merge_if_all_discussions_are_resolved: true
+    remove_source_branch_after_merge: true
+    keep_latest_artifact: true
+    printing_merge_request_link_enabled: true
+    auto_cancel_pending_pipelines: "enabled"
+    auto_devops_enabled: false
+    container_expiration_policy:
+      cadence: "7d"
+      enabled: true
+      keep_n: 10
+      older_than: "30d"
+
+  # 5. Pipeline Retention
+  pipeline_retention:
+    retention_days: 90
+
+  # 6. CI/CD Variables
+  variables:
+    - key: "ENTERPRISE_ARTIFACTORY_URL"
+      value: "https://artifactory.enterprise.internal/artifactory"
+      variable_type: "env_var"
+      protected: true
+      masked: false
+      raw: true
+      environment_scope: "*"
+      description: "Global corporate package repository URL"
+    - key: "ENTERPRISE_DEPLOY_SIGNING_KEY"
+      value: "${SECRET_ENTERPRISE_DEPLOY_KEY:-sample-signing-key-value-12345}"
+      variable_type: "env_var"
+      protected: true
+      masked: true
+      raw: true
+      environment_scope: "production"
+      description: "Production release deployment signing key"
+
+  # 7. Runner Fleet Governance
+  runners:
+    shared_runners_enabled: true
+    group_runners_enabled: true
+    runners:
+      - id: 105
+        paused: false
+        locked: true
+        tag_list:
+          - "k8s-runner"
+          - "docker"
+          - "linux-amd64"
+        run_untagged: false
+        access_level: "ref_protected"
+
+  # 8. Compliance Frameworks
+  compliance:
+    framework_name: "SOC2-Type2"
+    prune: false
+
+  # 9. Webhooks & Integrations
+  webhooks:
+    - url: "https://security-ops.enterprise.internal/api/v1/gitlab-audit"
+      push_events: true
+      merge_requests_events: true
+      tag_push_events: true
+      pipeline_events: true
+      job_events: false
+      enable_ssl_verification: true
+      secret_token: "${SECURITY_WEBHOOK_SECRET}"
+      push_events_branch_filter: "main"
+
+  # 10. Members & Access Governance
+  members:
+    min_access_level: 20
+    max_access_level: 40
+    enforce_expires_at: true
+    max_expiration_days: 180
+    remove_inherited_maintainers: true
+    denied_members:
+      - "unauthorized_external_contractor"
+    allowed_members:
+      - username: "fleet_compliance_bot"
+        access_level: 40
+        expires_at: "2027-12-31"

@@ -1,0 +1,81 @@
+# ==============================================================================
+# GitLab Fleet Governor - SOC2 & PCI-DSS Compliance Baseline Policy
+# ==============================================================================
+version: "v1"
+
+settings:
+  dry_run: true
+  concurrency: 10
+  log_level: "info"
+  report_format: "table"
+
+targets:
+  group_selector:
+    group_paths_include:
+      - "finance"
+      - "payments"
+      - "identity"
+    recursive: true
+  project_selector:
+    archived: false
+    visibility: "private"
+
+policies:
+  # Mandatory Commit Signatures & Secret Scanning
+  push_rules:
+    author_email_regex: '@corporate\.com$'
+    reject_unsigned_commits: true
+    prevent_secrets: true
+    deny_delete_tag: true
+    member_check: true
+    commit_committer_check: true
+    file_name_regex: '(\.key|\.pem|\.p12|id_rsa)$'
+
+  # Strict Branch Lockdown on main & release branches
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0 # Zero direct push
+      allowed_to_merge:
+        - access_level: 40 # Maintainers only
+      code_owner_approval_required: true
+      allow_force_push: false
+
+  # Dual-Approver Gate & Segregation of Duties
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      allow_overrides_to_approver_list_per_merge_request: false
+      retain_approvals_on_push: true
+      selective_code_owner_removals: true
+      require_password_to_approve: true
+    rules:
+      - name: "Compliance Sign-off"
+        approvals_required: 2
+        group_paths:
+          - "security/compliance-officers"
+        protected_branch_names:
+          - "main"
+
+  # Pipeline Status & Discussion Resolution Gating
+  project_settings:
+    only_allow_merge_if_pipeline_succeeds: true
+    only_allow_merge_if_all_discussions_are_resolved: true
+    remove_source_branch_after_merge: true
+    squash_option: "always"
+
+  # Audit Retention
+  pipeline_retention:
+    retention_days: 365 # 1 year retention for compliance audit trails
+
+  # Framework Labeling
+  compliance:
+    framework_name: "PCI-DSS-v4"
+    prune: true
+
+  # Member Expiration Ceilings
+  members:
+    max_access_level: 40
+    enforce_expires_at: true
+    max_expiration_days: 90

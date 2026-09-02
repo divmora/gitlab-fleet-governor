@@ -1,0 +1,59 @@
+version: "v1"
+
+settings:
+  dry_run: true
+  concurrency: 10
+  log_level: "info"
+  log_format: "text"
+  report_format: "table"
+  gitlab:
+    base_url: "${GITLAB_BASE_URL:-https://gitlab.com/api/v4}"
+    token: "${GITLAB_TOKEN}"
+
+targets:
+  group_selector:
+    group_paths_include:
+      - "my-organization"
+    recursive: true
+  project_selector:
+    archived: false
+
+policies:
+  push_rules:
+    author_email_regex: '@myorg\.com$'
+    prevent_secrets: true
+    reject_unsigned_commits: true
+    max_file_size: 15
+
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0
+      allowed_to_merge:
+        - access_level: 40
+      code_owner_approval_required: true
+      allow_force_push: false
+
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      retain_approvals_on_push: true
+    rules:
+      - name: "Standard Peer Review"
+        approvals_required: 1
+        user_usernames:
+          - "security-lead"
+          - "tech-lead"
+        protected_branch_names:
+          - "main"
+
+  project_settings:
+    default_branch: "main"
+    squash_option: "default_on"
+    merge_method: "rebase_merge"
+    only_allow_merge_if_pipeline_succeeds: true
+    only_allow_merge_if_all_discussions_are_resolved: true
+
+  pipeline_retention:
+    retention_days: 30

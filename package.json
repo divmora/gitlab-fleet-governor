@@ -1,0 +1,12 @@
+{
+  "name": "gitlab-fleet-governor",
+  "version": "1.0.0",
+  "description": "Declarative policy-as-code and governance automation engine for GitLab fleets",
+  "type": "module",
+  "scripts": {
+    "dev:ui": "npm run dev --prefix ui",
+    "build:ui": "npm run build --prefix ui",
+    "build:site": "node scripts/build-site.js",
+    "preview": "npx serve site"
+  }
+}
