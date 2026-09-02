@@ -1,0 +1,34 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ui/**'
+      - 'docs/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'package.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    uses: divmora/.github/.github/workflows/pages-deploy.yml@main
+    with:
+      artifact-path: './site'
+      build-command: 'npm run build:site'
+      node-version: '22'
+      package-manager: 'npm'

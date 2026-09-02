@@ -1,0 +1,195 @@
+# GitLab Fleet Governor - Comprehensive LLM Specification & Context Document
+
+Version: 1.0.0
+Author: Divmora Team
+Repository: https://github.com/divmora/gitlab-fleet-governor
+
+---
+
+## 1. System Overview
+
+GitLab Fleet Governor (`gitlab-fleet-governor`) is a production-grade, declarative policy-as-code and governance automation engine implemented in Go. It operates idempotently across enterprise GitLab topologies (spanning thousands of groups and repositories).
+
+### Architectural Philosophy
+1. Declarative Invariant Convergence: Converges GitLab fleet state to desired state defined in YAML or JSON policies.
+2. Simulation Before Mutation (Dry-Run First): Default mode is non-destructive dry-run preview.
+3. Transport Resilience & Rate Politeness: Proactive token-bucket rate limiting (default 30 RPS, 50 burst) and exponential backoff retry with jitter on HTTP 429 and 5xx.
+4. Zero-Trust Credential Masking: Secrets and variables are masked in all logs and reports.
+
+---
+
+## 2. CLI Command Line Interface
+
+```bash
+# General Syntax
+gitlab-fleet-governor [command] [flags]
+
+# Commands
+gitlab-fleet-governor run -c <path> [flags]        # Execute fleet governance
+gitlab-fleet-governor validate -c <path> [flags]   # Validate policy syntax & schema offline
+gitlab-fleet-governor lambda --event <path>        # Emulate local AWS Lambda execution
+gitlab-fleet-governor version                      # Show build & semver information
+
+# Global Flags
+-c, --config string        # Path to config file, or '-' for stdin
+--dry-run                  # Simulate mutations without modifying remote state (default: true)
+--concurrency int          # Number of concurrent worker goroutines (default: 10)
+--log-level string         # "debug" | "info" | "warn" | "error" (default: "info")
+--log-format string        # "text" | "json" (default: "text")
+--report-format string     # "table" | "summary" | "json" | "csv" | "markdown" (default: "table")
+-o, --output string        # Output file destination for summary reports
+```
+
+---
+
+## 3. Complete YAML / JSON Schema Reference
+
+```yaml
+version: "v1"
+
+settings:
+  dry_run: true
+  concurrency: 10
+  log_level: "info"
+  log_format: "text"
+  report_format: "table"
+  gitlab:
+    base_url: "${GITLAB_BASE_URL:-https://gitlab.com}"
+    token: "${GITLAB_TOKEN}"
+    rate_limit_rps: 30.0
+    rate_limit_burst: 50
+    max_retries: 3
+    retry_base_delay_ms: 500
+
+targets:
+  group_selector:
+    group_ids_include: [101, 202]
+    group_ids_exclude: [999]
+    group_paths_include: ["enterprise/core", "payments"]
+    group_paths_exclude: ["enterprise/archived"]
+    recursive: true
+  project_selector:
+    namespaces_include: ["payments"]
+    namespaces_exclude: ["payments/deprecated"]
+    project_name_regex_include: "^svc-.*$"
+    project_name_regex_exclude: "^.*-spike$"
+    visibility: "any" # "public" | "internal" | "private" | "any"
+    archived: false
+    id_range:
+      min: 1
+      max: 50000
+
+policies:
+  # 1. Push Rules (Project & Group Level)
+  push_rules:
+    author_email_regex: "@fleetcorp\\.io$"
+    branch_name_regex: "^(main|develop|feat/.*)$"
+    commit_message_regex: "^(feat|fix|docs|refactor|test|chore)(\\(.+\\))?:.+"
+    file_name_regex: "(?i)\\.(pem|key|pkcs12|id_rsa)$"
+    max_file_size: 25 # MB
+    prevent_secrets: true
+    reject_unsigned_commits: true
+    commit_committer_check: true
+    member_check: true
+    deny_delete_tag: true
+
+  # 2. Protected Branches (Project Level)
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0 # 0=No Access, 30=Developer, 40=Maintainer, 60=Admin
+      allowed_to_merge:
+        - access_level: 40
+      allowed_to_unprotect:
+        - access_level: 40
+      allow_force_push: false
+      code_owner_approval_required: true
+
+  # 3. Merge Request Approval Rules (Project Level)
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      allow_overrides_to_approver_list_per_merge_request: false
+      retain_approvals_on_push: true
+    rules:
+      - name: "AppSec Approval Rule"
+        approvals_required: 1
+        user_usernames:
+          - "security-auditor"
+        protected_branch_names:
+          - "main"
+
+  # 4. Project Settings (Project Level)
+  project_settings:
+    default_branch: "main"
+    squash_option: "always" # "always" | "never" | "default_on" | "default_off"
+    merge_method: "rebase_merge" # "merge" | "rebase_merge" | "ff"
+    only_allow_merge_if_pipeline_succeeds: true
+    only_allow_merge_if_all_discussions_are_resolved: true
+    keep_latest_artifact: true
+    printing_merge_request_link_enabled: true
+
+  # 5. Pipeline Retention (Project Level)
+  pipeline_retention:
+    retention_days: 30 # Converted automatically to native ci_delete_pipelines_in_seconds
+
+  # 6. CI/CD Variables (Project & Group Level)
+  variables:
+    - key: "GLOBAL_API_ENDPOINT"
+      value: "https://api.fleetcorp.io/v1"
+      variable_type: "env_var" # "env_var" | "file"
+      protected: true
+      masked: false
+      raw: true
+      environment_scope: "*"
+
+  # 7. Project & Group Runners
+  runners:
+    - id: 1
+      paused: false
+      locked: true
+      tag_list:
+        - "docker"
+        - "linux-amd64"
+      access_level: "not_protected" # "not_protected" | "ref_protected"
+
+  # 8. Compliance Framework (Project Level)
+  compliance:
+    framework_name: "SOC2"
+    prune: false
+
+  # 9. Webhooks (Project Level)
+  webhooks:
+    - url: "https://events.fleetcorp.io/audit"
+      push_events: true
+      merge_requests_events: true
+      enable_ssl_verification: true
+      secret_token: "${AUDIT_WEBHOOK_SECRET}"
+
+  # 10. Members Governance (Audit Mode)
+  members:
+    max_access_level: 40
+    enforce_expires_at: true
+    max_expiration_days: 90
+    denied_members:
+      - "compromised-user"
+    allowed_members:
+      - username: "security-lead"
+        access_level: 40
+```
+
+---
+
+## 4. GitLab Access Levels
+
+| Access Level | Role |
+|---|---|
+| `0` | No Access |
+| `5` | Minimal Access |
+| `10` | Guest |
+| `20` | Reporter |
+| `30` | Developer |
+| `40` | Maintainer |
+| `50` | Owner |
+| `60` | Admin |

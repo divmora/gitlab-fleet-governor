@@ -1,0 +1,86 @@
+site_name: GitLab Fleet Governor
+site_description: Production-grade declarative policy-as-code and governance automation engine for GitLab fleets
+site_author: Divmora Team & Contributors
+site_url: https://divmora.github.io/gitlab-fleet-governor/
+repo_url: https://github.com/divmora/gitlab-fleet-governor
+repo_name: divmora/gitlab-fleet-governor
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    # Light Mode
+    - scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    # Dark Mode
+    - scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/divmora/gitlab-fleet-governor
+    - icon: fontawesome/brands/gitlab
+      link: https://gitlab.com
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - toc:
+      permalink: true
+
+extra_css:
+  - assets/custom.css
+
+extra_javascript:
+  - assets/playground.js
+
+nav:
+  - Overview: index.md
+  - 🎮 Policy Studio: playground.md
+  - 🤖 LLM & AI Agents: llms.md
+  - Getting Started: getting-started.md
+  - Configuration Reference: configuration.md
+  - Operations Suite: operations.md
+  - AWS Lambda & Serverless: lambda.md
+  - CI/CD Pipelines: ci-cd.md
+  - Architecture: architecture.md

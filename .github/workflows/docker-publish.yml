@@ -1,0 +1,17 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ "**" ]
+    tags: [ 'v*.*.*', 'v*' ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  ci-cd:
+    uses: divmora/.github/.github/workflows/docker-publish.yml@main
+    with:
+      enable-go-quality: true
+      go-version: '1.26'
+    secrets: inherit
