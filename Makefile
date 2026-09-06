@@ -193,6 +193,19 @@ docker-build-lambda: ## Build AWS Lambda container image
 		-t $(DOCKER_LAMBDA_LATEST) \
 		-f Dockerfile.lambda .
 
+.PHONY: docker-build-lambda-multiarch
+docker-build-lambda-multiarch: ## Build multi-arch AWS Lambda container image with Buildx
+	@echo "==> Building multi-arch Lambda Docker image: $(DOCKER_LAMBDA_IMAGE)"
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
+		-t $(DOCKER_LAMBDA_IMAGE) \
+		-t $(DOCKER_LAMBDA_LATEST) \
+		-f Dockerfile.lambda .
+
+
 # ==============================================================================
 # Release & Cleanup
 # ==============================================================================

@@ -7,6 +7,15 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA'
+        required: false
+        type: string
+      tag_name:
+        description: 'Tag Name'
+        required: false
+        type: string
 
 jobs:
   ci-cd:
@@ -14,4 +23,7 @@ jobs:
     with:
       enable-go-quality: true
       go-version: '1.26'
+      enable-lambda: true
+      sha: ${{ inputs.sha || '' }}
+      tag_name: ${{ inputs.tag_name || '' }}
     secrets: inherit

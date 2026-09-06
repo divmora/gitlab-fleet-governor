@@ -138,3 +138,39 @@ You can test the Lambda handler locally using the `lambda` CLI subcommand:
 ```bash
 gitlab-fleet-governor lambda --event examples/lambda-event.json
 ```
+
+---
+
+## AWS Lambda Container Image Deployment
+
+GitLab Fleet Governor is packaged and published as an OCI-compliant AWS Lambda container image for both `x86_64` (amd64) and `arm64` architectures:
+
+- **Registry**: `ghcr.io/divmora/gitlab-fleet-governor-lambda:latest` (and `:vX.Y.Z`)
+- **Base Image**: `public.ecr.aws/lambda/provided:al2023`
+- **Architectures**: `linux/amd64`, `linux/arm64`
+
+### Deployment with AWS CLI
+
+```bash
+# Deploy to AWS Lambda using container image
+aws lambda create-function \
+  --function-name gitlab-fleet-governor \
+  --package-type Image \
+  --code ImageUri=ghcr.io/divmora/gitlab-fleet-governor-lambda:latest \
+  --role arn:aws:iam::123456789012:role/gitlab-fleet-governor-execution-role \
+  --timeout 300 \
+  --memory-size 512 \
+  --environment Variables="{GITLAB_TOKEN=glpat-xxxx,CONFIG_SOURCE=s3://my-corp-policies/governance.yaml}"
+```
+
+### Local Testing with Docker
+
+```bash
+# Run Lambda Container locally (starts Lambda Runtime Interface Emulator on :8080)
+docker run -p 8080:8080 ghcr.io/divmora/gitlab-fleet-governor-lambda:latest
+
+# Invoke locally via curl
+curl -XPOST "http://localhost:8080/2015-03-31/functions/function/invocations" \
+  -d @examples/lambda-event.json
+```
+
