@@ -165,6 +165,15 @@ pkg/version/                # Release Please versioning and build metadata
 - **Context Propagation**: Always propagate `context.Context` through all API client calls and reconciler phases.
 - **Dry-Run Safety**: Every reconciler operation MUST check `dryRun bool` and skip mutating calls (`POST`, `PUT`, `DELETE`).
 
+### Living Product Roadmap Management
+`ROADMAP.md` is the central living document tracking future capabilities, optimizations, and technical debt:
+- **Adding Items**: Whenever you or the user identify a capability, optimization, or edge-case improvement for future work, add it to `ROADMAP.md` under the appropriate category.
+- **Removing Items**: Once a feature is fully implemented, verified with tests, and committed, **remove it from `ROADMAP.md`** immediately to keep the roadmap focused on active upcoming tasks.
+
+### Conventional Commits & Release Automation
+- Adhere strictly to the [Conventional Commits](https://www.conventionalcommits.org/) specification (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `ci:`, `feat!:`) for automated release tagging and changelog generation via Google Release Please.
+- Version numbers are maintained in `.release-please-manifest.json` and injected into `pkg/version` at build time via `-ldflags`.
+
 ### Verification Commands
 ```bash
 make fmt          # Format Go code with gofmt and goimports

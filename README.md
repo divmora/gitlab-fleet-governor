@@ -18,6 +18,7 @@ Try the **[GitLab Fleet Governor Live Studio & Simulator](https://divmora.github
 [CLI Usage](#-cli-usage-reference) •
 [Policy Reference](#-declarative-policy-reference) •
 [Operations Suite](#-governance-operations-suite) •
+[Roadmap](ROADMAP.md) •
 [AWS Lambda](#-aws-lambda--serverless) •
 [CI/CD Integration](#-cicd-pipeline-integration) •
 [LLM Docs](https://divmora.github.io/gitlab-fleet-governor/llms.txt)
@@ -212,6 +213,40 @@ GitLab Fleet Governor auto-detects AWS Lambda when `AWS_LAMBDA_FUNCTION_NAME` is
 
 See [AWS Lambda Guide](https://divmora.github.io/gitlab-fleet-governor/lambda/) for deployment details.
 
+### IAM Least-Privilege Policy
+
+When deploying GitLab Fleet Governor on AWS Lambda, attach the following minimal IAM execution policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PolicyBucketAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<your-governance-bucket>",
+        "arn:aws:s3:::<your-governance-bucket>/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}
+```
+
 ---
 
 ## 🔄 CI/CD Pipeline Integration
@@ -232,9 +267,44 @@ See [CI/CD Integration Guide](https://divmora.github.io/gitlab-fleet-governor/ci
 
 ---
 
-## 🤝 Contributing
+## 💻 Development & Building
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before submitting pull requests.
+### Prerequisites
+- **Go**: Version 1.26 or higher
+- **Make**: Build automation
+- **golangci-lint**: Static code analysis (`v1.60+`)
+- **Docker**: For containerized and multi-architecture builds
+
+### Common Build Targets
+```bash
+# Compile local host binary into bin/gitlab-fleet-governor
+make build
+
+# Run unit & integration tests with race detector and coverage
+make test
+
+# Format source code
+make fmt
+
+# Static analysis and linting
+make lint
+
+# Compile AWS Lambda custom runtime bootstrap bundle
+make build-lambda
+
+# Build local Docker image
+make docker-build
+```
+
+---
+
+## 🤝 Community & Contributing
+
+Contributions are welcome!
+- **[ROADMAP.md](ROADMAP.md)**: Living product roadmap tracking planned capabilities and architectural initiatives.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Local developer setup, make targets, and PR workflow.
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**: Community participation standards.
+- **[SECURITY.md](SECURITY.md)**: Vulnerability disclosure policy and reporting process.
 
 ---
 
