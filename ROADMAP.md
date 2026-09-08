@@ -102,5 +102,5 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 - [ ] **Interactive Terminal UI (TUI) Drift Dashboard**
   - Build an interactive terminal dashboard using Bubbletea (`gitlab-fleet-governor dashboard`) to visually explore discovered projects, view colorized side-by-side diffs, and selectively trigger reconciliations.
 
-- [ ] **Kubernetes Operator & CronJob Helm Chart**
-  - Package a native Kubernetes Operator with Custom Resource Definitions (`GitLabFleetPolicy`) and a Helm chart for continuous in-cluster background reconciliation.
+- [ ] **Kubernetes Operator (CRD) & Helm Chart Packaging**
+  - Package a native Kubernetes Operator with Custom Resource Definitions (`GitLabFleetPolicy`) and a Helm chart to complement the static CronJob manifests in `deploy/kubernetes/`.

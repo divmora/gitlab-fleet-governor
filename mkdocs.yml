@@ -81,6 +81,7 @@ nav:
   - Getting Started: getting-started.md
   - Configuration Reference: configuration.md
   - Operations Suite: operations.md
+  - Deployment Guide: deployment.md
   - AWS Lambda & Serverless: lambda.md
   - CI/CD Pipelines: ci-cd.md
   - Architecture: architecture.md

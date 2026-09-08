@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-fleet-governor-policy
+  namespace: default
+  labels:
+    app.kubernetes.io/name: gitlab-fleet-governor
+    app.kubernetes.io/component: governance-engine
+    app.kubernetes.io/part-of: fleet-governance
+data:
+  policy.yaml: |
+    version: "1.0"
+    name: "production-fleet-governance"
+
+    settings:
+      dry_run: true
+      concurrency: 10
+      gitlab:
+        base_url: "${GITLAB_BASE_URL:-https://gitlab.com/api/v4}"
+        token: "${GITLAB_TOKEN}"
+        rate_limit_rps: 25.0
+        rate_limit_burst: 50
+        max_retries: 3
+        timeout_seconds: 60
+
+    targets:
+      group_paths_include:
+        - "my-organization"
+      project_filters:
+        include_archived: false
+        visibility: ["private", "internal"]
+
+    operations:
+      protected_branches:
+        - name: "main"
+          push_access_level: 40       # Maintainer only
+          merge_access_level: 30      # Developer +
+          allow_force_push: false
+          code_owner_approval_required: true
+
+      push_rules:
+        prevent_secrets: true
+        reject_unsigned_commits: true
+        commit_message_regex: "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?: .+"
+        max_file_size_mb: 25

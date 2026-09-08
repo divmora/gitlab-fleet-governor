@@ -225,6 +225,16 @@ See [Configuration Reference](https://divmora.github.io/gitlab-fleet-governor/co
 
 ---
 
+## 🚀 Cloud-Native Deployments
+
+Ready-to-use deployment manifests and cloud infrastructure templates are available:
+
+- **[Kubernetes CronJobs](./deploy/kubernetes/)**: Automated compliance audit (`cronjob-audit.yaml`) and governance enforcement (`cronjob-enforce.yaml`) CronJobs with non-root security hardening, read-only root filesystem, ConfigMap mounts, and Kustomize integration.
+- **[AWS Lambda Serverless (CloudFormation)](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor)**: Production CloudFormation template for serverless execution triggered by EventBridge cron schedules or S3 policy uploads.
+- **[AWS ECS Fargate Scheduled Tasks (CloudFormation)](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor)**: Production CloudFormation template for scheduled container tasks on Fargate for large enterprise fleets (>1,000 repositories) where scans require more than Lambda's 15-minute limit.
+
+---
+
 ## ☁️ AWS Lambda & Serverless
 
 GitLab Fleet Governor auto-detects AWS Lambda when `AWS_LAMBDA_FUNCTION_NAME` is set. It natively supports:
