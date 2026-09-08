@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.2.0...v0.3.0) (2026-09-08)
+
+
+### Features
+
+* **audit:** add fleet-wide compliance & security audit command with multi-sheet excel and smtp dispatch ([ec3dde3](https://github.com/divmora/gitlab-fleet-governor/commit/ec3dde3220dd51cc1d8eaa08a8fc85bf9b8296de))
+* **audit:** include authenticated token user identity in executive summary and audit reports ([e92914c](https://github.com/divmora/gitlab-fleet-governor/commit/e92914ce8b0fa6374e9906ad292fdb3077da80df))
+* **audit:** make service account and bot identification fully configurable by username, custom email, and pattern ([68b0fa9](https://github.com/divmora/gitlab-fleet-governor/commit/68b0fa99f5d71d839c33c3d411dbe2b2220e9660))
+* **audit:** recognize GitLab Enterprise service account emails (service_account_*[@noreply](https://github.com/noreply).*) ([6db69b7](https://github.com/divmora/gitlab-fleet-governor/commit/6db69b72a35f379e9dba3049b84498cba348c59e))
+* **audit:** separate bot findings, de-prioritize archived projects, resolve user IDs, and add remediation guidelines ([64b1a65](https://github.com/divmora/gitlab-fleet-governor/commit/64b1a65f05bc8211e21090e7e84082bc1158f1a2))
+* **deploy:** add kubernetes cronjob manifests and deployment guide ([4e0d61a](https://github.com/divmora/gitlab-fleet-governor/commit/4e0d61a4a829c40d0a634f0e1b822ec9964a1290))
+
+
+### Bug Fixes
+
+* **audit:** resolve golangci-lint ineffectual assignment and staticcheck cutset warnings ([5e3117b](https://github.com/divmora/gitlab-fleet-governor/commit/5e3117be6bb67c34e8ae0931a1515f5154716408))
+
 ## [0.2.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.1.0...v0.2.0) (2026-09-05)
 
 
