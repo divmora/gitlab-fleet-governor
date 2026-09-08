@@ -70,7 +70,7 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 		webURL = project.Raw.WebURL
 	}
 	if webURL == "" {
-		webURL = fmt.Sprintf("%s/%s", strings.TrimRight(client.BaseURL(), "/api/v4"), project.PathWithNamespace)
+		webURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(strings.TrimSuffix(client.BaseURL(), "/api/v4"), "/"), project.PathWithNamespace)
 	}
 
 	findings := make([]UserAccessFinding, 0, len(allMembers))

@@ -287,11 +287,9 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", row), mm.Module)
 		_ = g.file.SetCellValue(sheet, fmt.Sprintf("C%d", row), mm.Count)
 		_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), g.metricKeyStyle)
-		valStyle := g.metricValStyle
+		valStyle := g.passStatusStyle
 		if mm.Count > 0 {
 			valStyle = g.highStatusStyle
-		} else {
-			valStyle = g.passStatusStyle
 		}
 		_ = g.file.SetCellStyle(sheet, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), valStyle)
 	}

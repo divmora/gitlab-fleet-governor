@@ -52,7 +52,7 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 		webURL = project.Raw.WebURL
 	}
 	if webURL == "" {
-		webURL = fmt.Sprintf("%s/%s", strings.TrimRight(client.BaseURL(), "/api/v4"), project.PathWithNamespace)
+		webURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(strings.TrimSuffix(client.BaseURL(), "/api/v4"), "/"), project.PathWithNamespace)
 	}
 
 	findings := make([]ProtectedEnvironmentFinding, 0, len(allEnvs))
