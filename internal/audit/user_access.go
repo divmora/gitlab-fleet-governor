@@ -13,7 +13,8 @@ import (
 
 // UserAccessAuditor audits project member permissions and expiration dates.
 type UserAccessAuditor struct {
-	registry *UserRegistry
+	registry   *UserRegistry
+	classifier *BotClassifier
 }
 
 // NewUserAccessAuditor instantiates a new user access audit module.
@@ -28,6 +29,11 @@ func NewUserAccessAuditor(registry ...*UserRegistry) *UserAccessAuditor {
 // SetUserRegistry binds a UserRegistry to the auditor.
 func (a *UserAccessAuditor) SetUserRegistry(r *UserRegistry) {
 	a.registry = r
+}
+
+// SetClassifier sets the BotClassifier used for account classification.
+func (a *UserAccessAuditor) SetClassifier(c *BotClassifier) {
+	a.classifier = c
 }
 
 // Name returns the module identifier.
@@ -110,7 +116,12 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 			membershipType = "Direct (Project)"
 		}
 
-		isBot := IsBotOrServiceAccount(m.Username, m.Name)
+		var isBot bool
+		if a.classifier != nil {
+			isBot = a.classifier.IsBot(m.ID, m.Username, m.Name, m.Email)
+		} else {
+			isBot = IsBotOrServiceAccount(m.Username, m.Name)
+		}
 		accountType := "Human"
 		if isBot {
 			accountType = "Service Account / Bot"

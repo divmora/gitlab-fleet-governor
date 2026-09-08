@@ -260,3 +260,33 @@ func TestAuditorCoordinator(t *testing.T) {
 	assert.Equal(t, 1, report.Summary.HighSeverityCount)
 	assert.Equal(t, 0, report.Summary.CriticalSeverityCount)
 }
+
+func TestBotClassifier(t *testing.T) {
+	classifier := audit.NewBotClassifier(
+		[]string{"custom-agent", "ops-bot@custom.org", "999"},
+		[]string{"*automation*", "*-ci@*"},
+	)
+
+	// 1. Explicit email match
+	assert.True(t, classifier.IsBot(10, "bob", "Bob", "ops-bot@custom.org"))
+
+	// 2. Explicit username match
+	assert.True(t, classifier.IsBot(11, "custom-agent", "Agent Smith", "agent@custom.org"))
+
+	// 3. Explicit numeric user ID match
+	assert.True(t, classifier.IsBot(999, "unknown_user", "Random", "random@domain.com"))
+
+	// 4. Custom pattern matches (wildcards in username/email)
+	assert.True(t, classifier.IsBot(12, "my-automation-runner", "Runner", "runner@company.com"))
+	assert.True(t, classifier.IsBot(13, "deployer", "Deployer", "deploy-ci@company.com"))
+
+	// 5. Universal GitLab token and built-in bot conventions
+	assert.True(t, classifier.IsBot(14, "project_101_bot_12345", "Token", ""))
+	assert.True(t, classifier.IsBot(15, "group_202_bot_67890", "Group Token", ""))
+	assert.True(t, classifier.IsBot(16, "renovate-bot", "Renovate", ""))
+	assert.True(t, classifier.IsBot(17, "gitlab-bot", "GitLab Bot", ""))
+
+	// 6. Regular humans (must NOT match)
+	assert.False(t, classifier.IsBot(1, "alice", "Alice Admin", "alice@company.com"))
+	assert.False(t, classifier.IsBot(2, "john.doe", "John Doe", "john.doe@company.com"))
+}

@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -325,27 +326,92 @@ func (r *AuditReport) SortFindings() {
 	})
 }
 
-// IsBotOrServiceAccount identifies machine, automation, bot, and token accounts.
-func IsBotOrServiceAccount(username, name string) bool {
+// BotClassifier classifies users as bots or service accounts based on explicit list, custom patterns, and GitLab standards.
+type BotClassifier struct {
+	explicitAccounts map[string]bool // lowercased usernames, emails, or numeric IDs
+	patterns         []string        // wildcard or substring patterns
+}
+
+// NewBotClassifier creates a new BotClassifier.
+func NewBotClassifier(serviceAccounts []string, patterns []string) *BotClassifier {
+	bc := &BotClassifier{
+		explicitAccounts: make(map[string]bool),
+		patterns:         patterns,
+	}
+	for _, a := range serviceAccounts {
+		trimmed := strings.ToLower(strings.TrimSpace(a))
+		if trimmed != "" {
+			bc.explicitAccounts[trimmed] = true
+		}
+	}
+	return bc
+}
+
+// IsBot checks whether a user is a bot or service account using explicit accounts, custom patterns, and standard GitLab formats.
+func (c *BotClassifier) IsBot(userID int, username, name, email string) bool {
 	u := strings.ToLower(strings.TrimSpace(username))
 	n := strings.ToLower(strings.TrimSpace(name))
+	e := strings.ToLower(strings.TrimSpace(email))
+	idStr := fmt.Sprintf("%d", userID)
 
+	// 1. Explicit service accounts match by username, email, or numeric user ID
+	if c != nil && len(c.explicitAccounts) > 0 {
+		if (u != "" && c.explicitAccounts[u]) || (e != "" && c.explicitAccounts[e]) || (userID > 0 && c.explicitAccounts[idStr]) {
+			return true
+		}
+	}
+
+	// 2. Custom patterns match against username, display name, or email
+	if c != nil && len(c.patterns) > 0 {
+		for _, p := range c.patterns {
+			pLower := strings.ToLower(strings.TrimSpace(p))
+			if pLower == "" {
+				continue
+			}
+			if matched, _ := filepath.Match(pLower, u); matched {
+				return true
+			}
+			if matched, _ := filepath.Match(pLower, e); matched {
+				return true
+			}
+			if strings.Contains(u, pLower) || strings.Contains(n, pLower) || strings.Contains(e, pLower) {
+				return true
+			}
+		}
+	}
+
+	// 3. Universal GitLab Conventions (Zero hardcoded company-specific strings)
+	// GitLab-managed Project & Group Access Tokens (project_*_bot_*, group_*_bot_*)
 	if strings.HasPrefix(u, "project_") || strings.HasPrefix(u, "group_") {
 		return true
 	}
-	if strings.HasSuffix(u, "_bot") || strings.HasSuffix(u, "-bot") || u == "gitlab-bot" {
+	// Common bot suffixes (e.g. dependabot, renovate-bot)
+	if strings.HasSuffix(u, "_bot") || strings.HasSuffix(u, "-bot") {
 		return true
 	}
-	if strings.Contains(u, "bot") || strings.Contains(u, "service") || strings.Contains(u, "token") {
+	// GitLab official built-in platform bots
+	if u == "gitlab-bot" || u == "support-bot" || u == "alert-bot" || u == "security-bot" {
 		return true
 	}
-	if strings.Contains(n, "bot") || strings.Contains(n, "token") || strings.Contains(n, "service account") {
+	// Standard service account / bot indicators in username, display name, or email
+	if strings.Contains(u, "bot") || strings.Contains(u, "service_account") || strings.Contains(u, "serviceaccount") {
 		return true
 	}
-	if u == "sonarqube-ce" || u == "pixelvide-operator" || u == "support-bot" || u == "automation" {
+	if strings.Contains(n, " bot") || strings.Contains(n, "token") || strings.Contains(n, "service account") {
 		return true
 	}
+	if strings.HasPrefix(e, "bot@") || strings.HasPrefix(e, "service@") || strings.HasPrefix(e, "automation@") {
+		return true
+	}
+
 	return false
+}
+
+// IsBotOrServiceAccount identifies machine, automation, bot, and token accounts.
+// Maintained for simple checks and backwards compatibility.
+func IsBotOrServiceAccount(username, name string) bool {
+	var bc *BotClassifier
+	return bc.IsBot(0, username, name, "")
 }
 
 // EvaluateProjectState checks whether a project is actively maintained, archived, or stale.

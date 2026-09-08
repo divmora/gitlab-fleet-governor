@@ -13,17 +13,30 @@ import (
 
 // UserRegistry manages thread-safe discovery, caching, and display formatting of all users across the fleet.
 type UserRegistry struct {
-	mu     sync.RWMutex
-	users  map[int]*UserInfo
-	client gl.GitLabClient
+	mu         sync.RWMutex
+	users      map[int]*UserInfo
+	client     gl.GitLabClient
+	classifier *BotClassifier
 }
 
 // NewUserRegistry creates an empty UserRegistry.
-func NewUserRegistry(client gl.GitLabClient) *UserRegistry {
-	return &UserRegistry{
-		users:  make(map[int]*UserInfo),
-		client: client,
+func NewUserRegistry(client gl.GitLabClient, classifier ...*BotClassifier) *UserRegistry {
+	var c *BotClassifier
+	if len(classifier) > 0 {
+		c = classifier[0]
 	}
+	return &UserRegistry{
+		users:      make(map[int]*UserInfo),
+		client:     client,
+		classifier: c,
+	}
+}
+
+// SetClassifier configures the BotClassifier for user categorization.
+func (r *UserRegistry) SetClassifier(c *BotClassifier) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.classifier = c
 }
 
 // Register adds or updates a user in the registry.
@@ -36,7 +49,12 @@ func (r *UserRegistry) Register(userID int, username, name, email, state, webURL
 
 	u, exists := r.users[userID]
 	if !exists {
-		isBot := IsBotOrServiceAccount(username, name)
+		var isBot bool
+		if r.classifier != nil {
+			isBot = r.classifier.IsBot(userID, username, name, email)
+		} else {
+			isBot = IsBotOrServiceAccount(username, name)
+		}
 		acctType := "Human"
 		if isBot {
 			acctType = "Service Account / Bot"

@@ -26,6 +26,10 @@ type auditFlags struct {
 	Timeout     time.Duration
 	Concurrency int
 
+	// Service Account & Bot Classification flags
+	ServiceAccounts string
+	BotPatterns     string
+
 	// SMTP flags
 	SMTPHost       string
 	SMTPPort       int
@@ -82,6 +86,8 @@ terminal tables, with automated SMTP email distribution.`,
 	cmd.Flags().StringVarP(&flags.OutputFile, "output-file", "o", "", "Destination file path for the audit report (e.g. audit.xlsx, report.json)")
 	cmd.Flags().IntVar(&flags.Concurrency, "concurrency", 10, "Number of concurrent worker goroutines for fleet audits")
 	cmd.Flags().DurationVar(&flags.Timeout, "timeout", 0, "Global execution timeout duration (e.g. 15m, 1h; default: no timeout)")
+	cmd.Flags().StringVar(&flags.ServiceAccounts, "service-accounts", os.Getenv("FLEET_SERVICE_ACCOUNTS"), "Comma-separated service account usernames, emails, or user IDs (env: FLEET_SERVICE_ACCOUNTS)")
+	cmd.Flags().StringVar(&flags.BotPatterns, "bot-patterns", os.Getenv("FLEET_BOT_PATTERNS"), "Comma-separated wildcard or substring patterns for bot/service accounts (env: FLEET_BOT_PATTERNS)")
 
 	// SMTP Distribution Flags
 	cmd.Flags().StringVar(&flags.SMTPHost, "smtp-host", os.Getenv("SMTP_HOST"), "SMTP relay host address (env: SMTP_HOST)")
@@ -145,17 +151,41 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		modules = audit.AllModuleNames()
 	}
 
-	// 4. Construct Auditor coordinator
+	// 4. Resolve service accounts and bot patterns (from config, CLI flags, or env)
+	var serviceAccounts []string
+	serviceAccounts = append(serviceAccounts, cfg.Settings.ServiceAccounts...)
+	if flags.ServiceAccounts != "" {
+		for _, sa := range strings.Split(flags.ServiceAccounts, ",") {
+			trimmed := strings.TrimSpace(sa)
+			if trimmed != "" {
+				serviceAccounts = append(serviceAccounts, trimmed)
+			}
+		}
+	}
+
+	var botPatterns []string
+	botPatterns = append(botPatterns, cfg.Settings.BotPatterns...)
+	if flags.BotPatterns != "" {
+		for _, bp := range strings.Split(flags.BotPatterns, ",") {
+			trimmed := strings.TrimSpace(bp)
+			if trimmed != "" {
+				botPatterns = append(botPatterns, trimmed)
+			}
+		}
+	}
+
+	// 5. Construct Auditor coordinator
 	auditor, err := audit.NewAuditor(client,
 		audit.WithAuditorConcurrency(concurrency),
 		audit.WithAuditorTargets(cfg.Targets),
 		audit.WithAuditorModules(modules),
+		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize auditor: %w", err)
 	}
 
-	// 5. Run fleet discovery and audits
+	// 6. Run fleet discovery and audits
 	reportData, err := auditor.Execute(ctx)
 	if err != nil {
 		return fmt.Errorf("audit execution failed: %w", err)

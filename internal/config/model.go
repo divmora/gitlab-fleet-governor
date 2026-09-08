@@ -53,6 +53,12 @@ type SettingsConfig struct {
 	// OutputFilePath optionally specifies a file destination for the summary report.
 	OutputFilePath string `yaml:"output_file_path,omitempty" json:"output_file_path,omitempty"`
 
+	// ServiceAccounts lists usernames, custom email addresses, or user IDs to classify as service accounts/bots.
+	ServiceAccounts []string `yaml:"service_accounts,omitempty" json:"service_accounts,omitempty"`
+
+	// BotPatterns defines wildcard or substring patterns matching usernames, display names, or emails as bots.
+	BotPatterns []string `yaml:"bot_patterns,omitempty" json:"bot_patterns,omitempty"`
+
 	// GitLab contains API connectivity and transport resilience parameters.
 	GitLab GitLabSettingsConfig `yaml:"gitlab,omitempty" json:"gitlab,omitempty"`
 }

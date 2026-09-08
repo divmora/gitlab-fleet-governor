@@ -18,6 +18,16 @@
         "log_level": { "type": "string", "enum": ["debug", "info", "warn", "error"], "default": "info" },
         "log_format": { "type": "string", "enum": ["text", "json"], "default": "text" },
         "report_format": { "type": "string", "enum": ["table", "summary", "json", "csv", "markdown"], "default": "table" },
+        "service_accounts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit usernames, emails, or user IDs to classify as service accounts / bots"
+        },
+        "bot_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Wildcard or substring patterns matching usernames, display names, or emails as bots"
+        },
         "gitlab": {
           "type": "object",
           "properties": {

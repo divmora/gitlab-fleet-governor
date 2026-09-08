@@ -39,6 +39,7 @@ type Auditor struct {
 	targets       config.TargetSelectors
 	concurrency   int
 	activeModules map[string]bool
+	classifier    *BotClassifier
 
 	userAccessAuditor  UserAccessModuleAuditor
 	protectedBranchAud ProtectedBranchesModuleAuditor
@@ -73,6 +74,20 @@ func WithAuditorModules(modules []string) AuditorOption {
 				a.activeModules[strings.ToLower(strings.TrimSpace(m))] = true
 			}
 		}
+	}
+}
+
+// WithAuditorClassifier sets a custom BotClassifier for account classification.
+func WithAuditorClassifier(c *BotClassifier) AuditorOption {
+	return func(a *Auditor) {
+		a.classifier = c
+	}
+}
+
+// WithAuditorServiceAccounts configures explicit service accounts and bot matching patterns.
+func WithAuditorServiceAccounts(serviceAccounts []string, botPatterns []string) AuditorOption {
+	return func(a *Auditor) {
+		a.classifier = NewBotClassifier(serviceAccounts, botPatterns)
 	}
 }
 
@@ -115,12 +130,19 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 		opt(a)
 	}
 
-	reg := NewUserRegistry(client)
+	reg := NewUserRegistry(client, a.classifier)
 
 	if a.userAccessAuditor == nil {
-		a.userAccessAuditor = NewUserAccessAuditor(reg)
-	} else if setter, ok := a.userAccessAuditor.(interface{ SetUserRegistry(*UserRegistry) }); ok {
-		setter.SetUserRegistry(reg)
+		ua := NewUserAccessAuditor(reg)
+		ua.SetClassifier(a.classifier)
+		a.userAccessAuditor = ua
+	} else {
+		if setter, ok := a.userAccessAuditor.(interface{ SetUserRegistry(*UserRegistry) }); ok {
+			setter.SetUserRegistry(reg)
+		}
+		if setter, ok := a.userAccessAuditor.(interface{ SetClassifier(*BotClassifier) }); ok {
+			setter.SetClassifier(a.classifier)
+		}
 	}
 
 	if a.protectedBranchAud == nil {
