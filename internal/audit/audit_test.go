@@ -285,6 +285,8 @@ func TestBotClassifier(t *testing.T) {
 	assert.True(t, classifier.IsBot(15, "group_202_bot_67890", "Group Token", ""))
 	assert.True(t, classifier.IsBot(16, "renovate-bot", "Renovate", ""))
 	assert.True(t, classifier.IsBot(17, "gitlab-bot", "GitLab Bot", ""))
+	assert.True(t, classifier.IsBot(18, "service_account_984f1a", "Service Account", "service_account_984f1a@noreply.gitlab.example.com"))
+	assert.True(t, classifier.IsBot(19, "ci_builder", "CI Builder", "service_account_customhash@noreply.mycompany.org"))
 
 	// 6. Regular humans (must NOT match)
 	assert.False(t, classifier.IsBot(1, "alice", "Alice Admin", "alice@company.com"))

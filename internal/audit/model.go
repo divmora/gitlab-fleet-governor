@@ -385,6 +385,20 @@ func (c *BotClassifier) IsBot(userID int, username, name, email string) bool {
 	if strings.HasPrefix(u, "project_") || strings.HasPrefix(u, "group_") {
 		return true
 	}
+	// GitLab Enterprise Service Accounts (e.g., service_account_<hash>, service-account-*)
+	if strings.HasPrefix(u, "service_account") || strings.HasPrefix(u, "service-account") {
+		return true
+	}
+	// GitLab Enterprise Service Account emails (e.g., service_account_<hash>@noreply.<domain>)
+	if strings.HasPrefix(e, "service_account") || strings.HasPrefix(e, "service-account") {
+		return true
+	}
+	if strings.Contains(e, "service_account") || strings.Contains(e, "serviceaccount") {
+		return true
+	}
+	if strings.Contains(e, "@noreply.") && (strings.Contains(e, "service_account") || strings.Contains(e, "bot") || strings.Contains(e, "project_") || strings.Contains(e, "group_")) {
+		return true
+	}
 	// Common bot suffixes (e.g. dependabot, renovate-bot)
 	if strings.HasSuffix(u, "_bot") || strings.HasSuffix(u, "-bot") {
 		return true
@@ -400,7 +414,7 @@ func (c *BotClassifier) IsBot(userID int, username, name, email string) bool {
 	if strings.Contains(n, " bot") || strings.Contains(n, "token") || strings.Contains(n, "service account") {
 		return true
 	}
-	if strings.HasPrefix(e, "bot@") || strings.HasPrefix(e, "service@") || strings.HasPrefix(e, "automation@") {
+	if strings.HasPrefix(e, "bot@") || strings.HasPrefix(e, "service@") || strings.HasPrefix(e, "automation@") || strings.HasPrefix(e, "ops-bot@") {
 		return true
 	}
 
