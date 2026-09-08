@@ -10,16 +10,16 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// XLSXReportGenerator renders formatted multi-sheet Excel workbooks from AuditReport.
+// XLSXReportGenerator encapsulates Excel document construction and styling.
 type XLSXReportGenerator struct {
 	file *excelize.File
 
-	headerStyle    int
-	subHeaderStyle int
-	sectionStyle   int
-	metricKeyStyle int
-	metricValStyle int
-
+	// Shared Cell Styles
+	headerStyle     int
+	subHeaderStyle  int
+	sectionStyle    int
+	metricKeyStyle  int
+	metricValStyle  int
 	dataCellStyle   int
 	centerCellStyle int
 	hyperlinkStyle  int
@@ -27,16 +27,21 @@ type XLSXReportGenerator struct {
 	highStatusStyle int
 	medStatusStyle  int
 	warnStatusStyle int
+	cardHeaderStyle int
+	cardValStyle    int
+	cardDangerStyle int
 }
 
-// GenerateXLSX creates an Excel workbook representing the audit report and writes it to w.
+// GenerateXLSX writes a multi-sheet Excel compliance audit report to w.
 func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
+	if report == nil {
+		return fmt.Errorf("audit report cannot be nil")
+	}
+
 	gen := &XLSXReportGenerator{
 		file: excelize.NewFile(),
 	}
-	defer func() {
-		_ = gen.file.Close()
-	}()
+	defer func() { _ = gen.file.Close() }()
 
 	if err := gen.initStyles(); err != nil {
 		return fmt.Errorf("failed to initialize excel styles: %w", err)
@@ -44,22 +49,32 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 
 	// 1. Executive Summary Sheet
 	if err := gen.buildExecutiveSummarySheet(report); err != nil {
-		return fmt.Errorf("failed to build summary sheet: %w", err)
+		return fmt.Errorf("failed to build executive summary sheet: %w", err)
 	}
 
-	// 2. User Access Sheet
+	// 2. User Access Sheet (Humans)
 	if err := gen.buildUserAccessSheet(report); err != nil {
 		return fmt.Errorf("failed to build user access sheet: %w", err)
 	}
 
-	// 3. Protected Branch Access Sheet
+	// 3. Bots & Service Accounts Sheet
+	if err := gen.buildBotAccessSheet(report); err != nil {
+		return fmt.Errorf("failed to build bots & service accounts sheet: %w", err)
+	}
+
+	// 4. Protected Branch Access Sheet
 	if err := gen.buildProtectedBranchesSheet(report); err != nil {
 		return fmt.Errorf("failed to build protected branches sheet: %w", err)
 	}
 
-	// 4. Protected Environments Access Sheet
+	// 5. Protected Environments Access Sheet
 	if err := gen.buildProtectedEnvironmentsSheet(report); err != nil {
 		return fmt.Errorf("failed to build protected environments sheet: %w", err)
+	}
+
+	// 6. User Directory Sheet
+	if err := gen.buildUserDirectorySheet(report); err != nil {
+		return fmt.Errorf("failed to build user directory sheet: %w", err)
 	}
 
 	// Remove default "Sheet1" created by excelize
@@ -86,8 +101,8 @@ func (g *XLSXReportGenerator) initStyles() error {
 		{Type: "bottom", Color: "D3D3D3", Style: 1},
 	}
 
-	// Header Style (Navy Blue #1F497D with white bold font)
 	var err error
+	// Header Style (Navy Blue #1F497D with white bold font)
 	g.headerStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "FFFFFF", Size: 11, Family: "Segoe UI"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#1F497D"}, Pattern: 1},
@@ -139,7 +154,7 @@ func (g *XLSXReportGenerator) initStyles() error {
 		return err
 	}
 
-	// Data Cell Style (Regular left-aligned wrapped text)
+	// Data Cell Style
 	g.dataCellStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Color: "222222", Size: 10, Family: "Segoe UI"},
 		Alignment: &excelize.Alignment{Horizontal: "left", Vertical: "center", WrapText: true},
@@ -169,7 +184,7 @@ func (g *XLSXReportGenerator) initStyles() error {
 		return err
 	}
 
-	// Semantic Pass Status (Green Fill #D4EFDF with Dark Green Text #145A32)
+	// Semantic Pass Status (Green)
 	g.passStatusStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "145A32", Size: 10, Family: "Segoe UI"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#D4EFDF"}, Pattern: 1},
@@ -180,7 +195,7 @@ func (g *XLSXReportGenerator) initStyles() error {
 		return err
 	}
 
-	// Semantic Critical / High Status (Red Fill #FADBD8 with Dark Red Text #78281F)
+	// Semantic High / Critical Status (Red)
 	g.highStatusStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "78281F", Size: 10, Family: "Segoe UI"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#FADBD8"}, Pattern: 1},
@@ -191,7 +206,7 @@ func (g *XLSXReportGenerator) initStyles() error {
 		return err
 	}
 
-	// Semantic Medium Status (Yellow Fill #FCF3CF with Amber Text #7D6608)
+	// Semantic Medium Status (Yellow)
 	g.medStatusStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "7D6608", Size: 10, Family: "Segoe UI"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#FCF3CF"}, Pattern: 1},
@@ -202,10 +217,41 @@ func (g *XLSXReportGenerator) initStyles() error {
 		return err
 	}
 
-	// Semantic Low / Warning Status
+	// Semantic Low/Warn Status (Orange)
 	g.warnStatusStyle, err = g.file.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "6E2C00", Size: 10, Family: "Segoe UI"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#FDEBD0"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border:    thinBorder,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Card Header Style
+	g.cardHeaderStyle, err = g.file.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "555555", Size: 9, Family: "Segoe UI"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#EAEDED"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border:    thinBorder,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Card Value Style
+	g.cardValStyle, err = g.file.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "1F497D", Size: 16, Family: "Segoe UI"},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border:    thinBorder,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Card Danger Value Style
+	g.cardDangerStyle, err = g.file.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "900C3F", Size: 16, Family: "Segoe UI"},
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 		Border:    thinBorder,
 	})
@@ -232,7 +278,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 
 	// Overview KPIs Table
 	startRow := 5
-	_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", startRow), "Fleet Governance Summary")
+	_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", startRow), "Fleet Governance KPI Indicator")
 	_ = g.file.SetCellValue(sheet, fmt.Sprintf("C%d", startRow), "Metric Value")
 	_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", startRow), fmt.Sprintf("C%d", startRow), g.headerStyle)
 
@@ -241,6 +287,8 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		Value any
 	}{
 		{"Total Target Repositories Scanned", report.Summary.TotalProjectsScanned},
+		{"Active Repositories (Governance Priority)", report.Summary.ActiveProjectsCount},
+		{"Archived Repositories (De-prioritized)", report.Summary.ArchivedProjectsCount},
 		{"Fully Compliant Repositories", report.Summary.CompliantProjectsCount},
 		{"Non-Compliant Repositories (Drift/Risk Detected)", report.Summary.NonCompliantProjectsCount},
 		{"Total Audit Violations Detected", report.Summary.TotalViolations},
@@ -248,6 +296,9 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		{"High Severity Violations", report.Summary.HighSeverityCount},
 		{"Medium Severity Violations", report.Summary.MediumSeverityCount},
 		{"Low Severity Violations", report.Summary.LowSeverityCount},
+		{"Human Member Access Violations", report.Summary.HumanUserViolations},
+		{"Bot / Service Account Indefinite Access", report.Summary.BotUserViolations},
+		{"Total Unique Fleet Users Discovered", len(report.UserDirectory)},
 	}
 
 	for i, m := range metrics {
@@ -311,13 +362,14 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 	headers := []string{
 		"Project ID",
 		"Project Name",
+		"Project State",
 		"Project URL",
 		"Username",
 		"Member Name",
 		"Email",
 		"Access Role",
 		"Access Level",
-		"Direct?",
+		"Membership Type",
 		"Expiration Date",
 		"Status",
 		"Violation Type",
@@ -332,7 +384,6 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
-	// Populate findings
 	type projectSpan struct {
 		ProjectID int
 		StartRow  int
@@ -361,25 +412,36 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 			currentSpan.EndRow = row
 		}
 
-		directStr := "Inherited"
-		if f.IsDirect {
-			directStr = "Direct"
-		}
 		expStr := "Indefinite (None)"
 		if f.HasExpiration {
 			expStr = f.ExpiresAt
 		}
 
+		projState := f.ProjectStatus
+		if projState == "" {
+			projState = "Active"
+		}
+
+		memType := f.MembershipType
+		if memType == "" {
+			if f.IsDirect {
+				memType = "Direct (Project)"
+			} else {
+				memType = "Inherited (Group)"
+			}
+		}
+
 		values := []any{
 			f.ProjectID,
 			f.ProjectName,
+			projState,
 			f.ProjectWebURL,
 			"@" + f.Username,
 			f.Name,
 			f.Email,
 			f.AccessRoleName,
 			f.AccessLevel,
-			directStr,
+			memType,
 			expStr,
 			string(f.Severity),
 			f.ViolationType,
@@ -398,18 +460,17 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 				}
 			}
 
-			// Styling per column
 			switch colIdx {
-			case 0, 7, 8: // ID, Level, Direct
+			case 0, 2, 8, 9:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
-			case 2: // Hyperlink
+			case 3: // Hyperlink
 				if f.ProjectWebURL != "" {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
 				}
-			case 10: // Status
+			case 11: // Status
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
 			default:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
@@ -423,10 +484,156 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 		spans = append(spans, *currentSpan)
 	}
 
-	// Automatic Merging of contiguous duplicate project metadata rows (Project ID, Name, URL)
+	// Automatic Merging of contiguous duplicate project metadata rows (Project ID, Name, State, URL)
 	for _, span := range spans {
 		if span.StartRow < span.EndRow {
-			for col := 1; col <= 3; col++ {
+			for col := 1; col <= 4; col++ {
+				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
+				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
+				_ = g.file.MergeCell(sheet, topCell, bottomCell)
+			}
+		}
+	}
+
+	g.applyColumnWidths(sheet, maxColLengths)
+	return nil
+}
+
+func (g *XLSXReportGenerator) buildBotAccessSheet(report *audit.AuditReport) error {
+	sheet := "Bots & Service Accounts"
+	_, err := g.file.NewSheet(sheet)
+	if err != nil {
+		return err
+	}
+
+	headers := []string{
+		"Project ID",
+		"Project Name",
+		"Project State",
+		"Project URL",
+		"Bot / Account",
+		"Bot Name / Description",
+		"Email",
+		"Access Role",
+		"Access Level",
+		"Membership Type",
+		"Expiration Date",
+		"Status",
+		"Violation Type",
+		"Details",
+		"Remediation",
+	}
+
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	type projectSpan struct {
+		ProjectID int
+		StartRow  int
+		EndRow    int
+	}
+	var spans []projectSpan
+	var currentSpan *projectSpan
+
+	maxColLengths := make([]int, len(headers))
+	for i, h := range headers {
+		maxColLengths[i] = len(h)
+	}
+
+	row := 2
+	for _, f := range report.BotAccessFindings {
+		if currentSpan == nil || currentSpan.ProjectID != f.ProjectID {
+			if currentSpan != nil {
+				spans = append(spans, *currentSpan)
+			}
+			currentSpan = &projectSpan{
+				ProjectID: f.ProjectID,
+				StartRow:  row,
+				EndRow:    row,
+			}
+		} else {
+			currentSpan.EndRow = row
+		}
+
+		expStr := "Indefinite (None)"
+		if f.HasExpiration {
+			expStr = f.ExpiresAt
+		}
+
+		projState := f.ProjectStatus
+		if projState == "" {
+			projState = "Active"
+		}
+
+		memType := f.MembershipType
+		if memType == "" {
+			if f.IsDirect {
+				memType = "Direct (Project)"
+			} else {
+				memType = "Inherited (Group)"
+			}
+		}
+
+		values := []any{
+			f.ProjectID,
+			f.ProjectName,
+			projState,
+			f.ProjectWebURL,
+			"@" + f.Username,
+			f.Name,
+			f.Email,
+			f.AccessRoleName,
+			f.AccessLevel,
+			memType,
+			expStr,
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
+			_ = g.file.SetCellValue(sheet, cell, val)
+
+			strVal := fmt.Sprintf("%v", val)
+			for _, line := range strings.Split(strVal, "\n") {
+				if len(line) > maxColLengths[colIdx] {
+					maxColLengths[colIdx] = len(line)
+				}
+			}
+
+			switch colIdx {
+			case 0, 2, 8, 9:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
+			case 3: // Hyperlink
+				if f.ProjectWebURL != "" {
+					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
+				} else {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+				}
+			case 11: // Status
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
+			default:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+			}
+		}
+
+		row++
+	}
+
+	if currentSpan != nil {
+		spans = append(spans, *currentSpan)
+	}
+
+	for _, span := range spans {
+		if span.StartRow < span.EndRow {
+			for col := 1; col <= 4; col++ {
 				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
 				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
 				_ = g.file.MergeCell(sheet, topCell, bottomCell)
@@ -448,6 +655,7 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 	headers := []string{
 		"Project ID",
 		"Project Name",
+		"Project State",
 		"Project URL",
 		"Branch Name",
 		"Default?",
@@ -512,9 +720,15 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 			codeOwnerStr = "NO (Missing)"
 		}
 
+		projState := f.ProjectStatus
+		if projState == "" {
+			projState = "Active"
+		}
+
 		values := []any{
 			f.ProjectID,
 			f.ProjectName,
+			projState,
 			f.ProjectWebURL,
 			f.BranchName,
 			boolToYesNo(f.IsDefaultBranch),
@@ -541,34 +755,34 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 			}
 
 			switch colIdx {
-			case 0, 4, 5:
+			case 0, 2, 5, 6:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
-			case 2: // URL
+			case 3: // URL
 				if f.ProjectWebURL != "" {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
 				}
-			case 6: // Force push
+			case 7: // Force push
 				if f.AllowForcePush {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.highStatusStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.passStatusStyle)
 				}
-			case 7: // Code Owner
+			case 8: // Code Owner
 				if !f.CodeOwnerApprovalRequired {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.highStatusStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.passStatusStyle)
 				}
-			case 9: // Direct user push
+			case 10: // Direct user push
 				if len(f.DirectUserPushGrants) > 0 {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.highStatusStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 				}
-			case 11: // Status
+			case 12: // Status
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
 			default:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
@@ -582,10 +796,10 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 		spans = append(spans, *currentSpan)
 	}
 
-	// Contiguous row merging
+	// Contiguous row merging across columns 1..4
 	for _, span := range spans {
 		if span.StartRow < span.EndRow {
-			for col := 1; col <= 3; col++ {
+			for col := 1; col <= 4; col++ {
 				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
 				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
 				_ = g.file.MergeCell(sheet, topCell, bottomCell)
@@ -607,6 +821,7 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 	headers := []string{
 		"Project ID",
 		"Project Name",
+		"Project State",
 		"Project URL",
 		"Environment Name",
 		"Production Tier?",
@@ -663,9 +878,15 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 			directGroupsStr = strings.Join(f.DirectGroupDeployGrants, ", ")
 		}
 
+		projState := f.ProjectStatus
+		if projState == "" {
+			projState = "Active"
+		}
+
 		values := []any{
 			f.ProjectID,
 			f.ProjectName,
+			projState,
 			f.ProjectWebURL,
 			f.EnvironmentName,
 			boolToYesNo(f.IsProduction),
@@ -690,22 +911,22 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 			}
 
 			switch colIdx {
-			case 0, 4, 5:
+			case 0, 2, 5, 6:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
-			case 2: // URL
+			case 3: // URL
 				if f.ProjectWebURL != "" {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
 				}
-			case 7: // Direct user deploy
+			case 8: // Direct user deploy
 				if len(f.DirectUserDeployGrants) > 0 {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.highStatusStyle)
 				} else {
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 				}
-			case 9: // Status
+			case 10: // Status
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
 			default:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
@@ -719,15 +940,103 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 		spans = append(spans, *currentSpan)
 	}
 
-	// Contiguous row merging
+	// Contiguous row merging across columns 1..4
 	for _, span := range spans {
 		if span.StartRow < span.EndRow {
-			for col := 1; col <= 3; col++ {
+			for col := 1; col <= 4; col++ {
 				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
 				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
 				_ = g.file.MergeCell(sheet, topCell, bottomCell)
 			}
 		}
+	}
+
+	g.applyColumnWidths(sheet, maxColLengths)
+	return nil
+}
+
+func (g *XLSXReportGenerator) buildUserDirectorySheet(report *audit.AuditReport) error {
+	sheet := "User Directory"
+	_, err := g.file.NewSheet(sheet)
+	if err != nil {
+		return err
+	}
+
+	headers := []string{
+		"User ID",
+		"Username",
+		"Full Name",
+		"Email",
+		"Account Type",
+		"State",
+		"Projects Accessible",
+		"Profile URL",
+	}
+
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	maxColLengths := make([]int, len(headers))
+	for i, h := range headers {
+		maxColLengths[i] = len(h)
+	}
+
+	row := 2
+	for _, u := range report.UserDirectory {
+		email := u.Email
+		if email == "" {
+			email = "N/A"
+		}
+		state := u.State
+		if state == "" {
+			state = "active"
+		}
+
+		values := []any{
+			u.ID,
+			"@" + u.Username,
+			u.Name,
+			email,
+			u.AccountType,
+			state,
+			u.ProjectsCount,
+			u.WebURL,
+		}
+
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
+			_ = g.file.SetCellValue(sheet, cell, val)
+
+			strVal := fmt.Sprintf("%v", val)
+			if len(strVal) > maxColLengths[colIdx] {
+				maxColLengths[colIdx] = len(strVal)
+			}
+
+			switch colIdx {
+			case 0, 5, 6:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
+			case 4: // Account Type
+				if u.IsBot {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.warnStatusStyle)
+				} else {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.passStatusStyle)
+				}
+			case 7: // URL
+				if u.WebURL != "" {
+					_ = g.file.SetCellHyperLink(sheet, cell, u.WebURL, "External")
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
+				} else {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+				}
+			default:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+			}
+		}
+		row++
 	}
 
 	g.applyColumnWidths(sheet, maxColLengths)

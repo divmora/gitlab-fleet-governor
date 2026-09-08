@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
@@ -11,11 +12,22 @@ import (
 )
 
 // ProtectedEnvironmentsAuditor audits deployment access controls and approvals.
-type ProtectedEnvironmentsAuditor struct{}
+type ProtectedEnvironmentsAuditor struct {
+	registry *UserRegistry
+}
 
 // NewProtectedEnvironmentsAuditor instantiates a new protected environments auditor.
-func NewProtectedEnvironmentsAuditor() *ProtectedEnvironmentsAuditor {
-	return &ProtectedEnvironmentsAuditor{}
+func NewProtectedEnvironmentsAuditor(registry ...*UserRegistry) *ProtectedEnvironmentsAuditor {
+	var reg *UserRegistry
+	if len(registry) > 0 {
+		reg = registry[0]
+	}
+	return &ProtectedEnvironmentsAuditor{registry: reg}
+}
+
+// SetUserRegistry binds a UserRegistry to the auditor.
+func (a *ProtectedEnvironmentsAuditor) SetUserRegistry(r *UserRegistry) {
+	a.registry = r
 }
 
 // Name returns the module identifier.
@@ -28,6 +40,13 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 	if client == nil || project == nil {
 		return nil, nil
 	}
+
+	// Project active/archived/inactive state
+	var lastAct *time.Time
+	if project.Raw != nil {
+		lastAct = project.Raw.LastActivityAt
+	}
+	projState, isArchived, isInactive := EvaluateProjectState(project.Archived, lastAct)
 
 	var allEnvs []*gitlab.ProtectedEnvironment
 	page := 1
@@ -67,30 +86,34 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 			strings.Contains(nameLower, "live") ||
 			strings.Contains(nameLower, "production")
 
-		deploySummary, directUsers, directGroups := summarizeEnvAccessLevels(env.DeployAccessLevels)
+		deploySummary, directUsers, directGroups := summarizeEnvAccessLevels(ctx, env.DeployAccessLevels, a.registry)
 
 		var violations []string
+		var remediations []string
 		severity := SeverityPass
 
 		// 1. Unconstrained production deployment (Zero required approvals on production environment)
 		if isProd && env.RequiredApprovalCount == 0 {
 			violations = append(violations, "Production environment requires zero deployment approvals (required_approval_count = 0)")
+			remediations = append(remediations, fmt.Sprintf("Configure required_approval_count >= 1 for production environment '%s'", env.Name))
 			severity = SeverityCritical
 		}
 
 		// 2. Direct user deploy access grants
 		if len(directUsers) > 0 {
 			violations = append(violations, fmt.Sprintf("Direct user deployment access granted to: %s", strings.Join(directUsers, ", ")))
+			remediations = append(remediations, "Remove individual user deploy access; restrict deployment to role-based group tiers")
 			if severity != SeverityCritical {
 				severity = SeverityHigh
 			}
 		}
 
-		// 3. Permissive role access on production (e.g. Developer or Reporter can deploy directly without approvals)
+		// 3. Permissive role access on production
 		if isProd && env.RequiredApprovalCount == 0 {
 			for _, acc := range env.DeployAccessLevels {
 				if acc != nil && acc.AccessLevel <= gitlab.DeveloperPermissions && acc.AccessLevel > 0 {
 					violations = append(violations, fmt.Sprintf("Unrestricted deploy permissions: role %s can deploy directly to production", AccessLevelToName(int(acc.AccessLevel))))
+					remediations = append(remediations, "Restrict deploy roles on production to Maintainers or approved CI deployment service accounts")
 					severity = SeverityCritical
 					break
 				}
@@ -101,7 +124,16 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 		remediation := "No action required"
 		if len(violations) > 0 {
 			details = strings.Join(violations, "; ")
-			remediation = "Require at least 1 or 2 deployment approvals, remove direct user deploy access, and restrict deployment roles to Maintainers or authorized deployment groups"
+			remediation = strings.Join(remediations, "; ")
+		}
+
+		// De-prioritize archived or inactive projects
+		severity = AdjustSeverityForProject(severity, isArchived, isInactive)
+		if isArchived {
+			details = fmt.Sprintf("[ARCHIVED PROJECT] %s", details)
+			remediation = "Repository is archived; verify environment deployment policies"
+		} else if isInactive {
+			details = fmt.Sprintf("[%s] %s", projState, details)
 		}
 
 		findings = append(findings, ProtectedEnvironmentFinding{
@@ -109,6 +141,7 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 			ProjectName:               project.Name,
 			ProjectPath:               project.PathWithNamespace,
 			ProjectWebURL:             webURL,
+			ProjectStatus:             projState,
 			EnvironmentName:           env.Name,
 			IsProduction:              isProd,
 			RequiredApprovalCount:     env.RequiredApprovalCount,
@@ -125,7 +158,7 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 	return findings, nil
 }
 
-func summarizeEnvAccessLevels(levels []*gitlab.EnvironmentAccessDescription) (summary string, directUsers []string, directGroups []string) {
+func summarizeEnvAccessLevels(ctx context.Context, levels []*gitlab.EnvironmentAccessDescription, reg *UserRegistry) (summary string, directUsers []string, directGroups []string) {
 	if len(levels) == 0 {
 		return "No deployment access configured", nil, nil
 	}
@@ -136,7 +169,12 @@ func summarizeEnvAccessLevels(levels []*gitlab.EnvironmentAccessDescription) (su
 			continue
 		}
 		if l.UserID > 0 {
-			uStr := fmt.Sprintf("User ID %d", l.UserID)
+			var uStr string
+			if reg != nil {
+				uStr = reg.FormatUser(ctx, l.UserID)
+			} else {
+				uStr = fmt.Sprintf("User ID %d", l.UserID)
+			}
 			directUsers = append(directUsers, uStr)
 			parts = append(parts, uStr)
 		} else if l.GroupID > 0 {

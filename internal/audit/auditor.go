@@ -115,14 +115,24 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 		opt(a)
 	}
 
+	reg := NewUserRegistry(client)
+
 	if a.userAccessAuditor == nil {
-		a.userAccessAuditor = NewUserAccessAuditor()
+		a.userAccessAuditor = NewUserAccessAuditor(reg)
+	} else if setter, ok := a.userAccessAuditor.(interface{ SetUserRegistry(*UserRegistry) }); ok {
+		setter.SetUserRegistry(reg)
 	}
+
 	if a.protectedBranchAud == nil {
-		a.protectedBranchAud = NewProtectedBranchesAuditor()
+		a.protectedBranchAud = NewProtectedBranchesAuditor(reg)
+	} else if setter, ok := a.protectedBranchAud.(interface{ SetUserRegistry(*UserRegistry) }); ok {
+		setter.SetUserRegistry(reg)
 	}
+
 	if a.protectedEnvAud == nil {
-		a.protectedEnvAud = NewProtectedEnvironmentsAuditor()
+		a.protectedEnvAud = NewProtectedEnvironmentsAuditor(reg)
+	} else if setter, ok := a.protectedEnvAud.(interface{ SetUserRegistry(*UserRegistry) }); ok {
+		setter.SetUserRegistry(reg)
 	}
 
 	return a, nil
@@ -149,16 +159,35 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		"matched_projects", len(projects),
 	)
 
+	activeCount := 0
+	archivedCount := 0
+	for _, p := range projects {
+		if p.Archived {
+			archivedCount++
+		} else {
+			activeCount++
+		}
+	}
+
 	report := &AuditReport{
 		Title:         "GitLab Fleet Compliance & Security Audit Report",
 		GeneratedAt:   startTime,
 		ActiveModules: a.activeModuleList(),
 		Summary: SummaryMetrics{
-			TotalProjectsScanned: len(projects),
+			TotalProjectsScanned:  len(projects),
+			ActiveProjectsCount:   activeCount,
+			ArchivedProjectsCount: archivedCount,
 		},
 		UserAccessFindings:      make([]UserAccessFinding, 0),
+		BotAccessFindings:       make([]UserAccessFinding, 0),
 		ProtectedBranchFindings: make([]ProtectedBranchFinding, 0),
 		ProtectedEnvFindings:    make([]ProtectedEnvironmentFinding, 0),
+	}
+
+	// Register user registry on modules
+	var reg *UserRegistry
+	if uAud, ok := a.userAccessAuditor.(*UserAccessAuditor); ok {
+		reg = uAud.registry
 	}
 
 	if len(projects) == 0 {
@@ -196,8 +225,12 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			}
 
 			mu.Lock()
-			if len(uFindings) > 0 {
-				report.UserAccessFindings = append(report.UserAccessFindings, uFindings...)
+			for _, uf := range uFindings {
+				if uf.IsBot {
+					report.BotAccessFindings = append(report.BotAccessFindings, uf)
+				} else {
+					report.UserAccessFindings = append(report.UserAccessFindings, uf)
+				}
 			}
 			if len(bFindings) > 0 {
 				report.ProtectedBranchFindings = append(report.ProtectedBranchFindings, bFindings...)
@@ -211,7 +244,12 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 
 	wg.Wait()
 
-	// 3. Finalize report metadata and metrics
+	// 3. Populate fleet-wide user directory
+	if reg != nil {
+		report.UserDirectory = reg.AllUsers()
+	}
+
+	// 4. Finalize report metadata and metrics
 	report.SortFindings()
 	report.ComputeSummary()
 	report.Duration = time.Since(startTime)

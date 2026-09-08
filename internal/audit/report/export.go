@@ -81,14 +81,16 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	w := csv.NewWriter(out)
 	defer w.Flush()
 
-	// Consolidated CSV Header
 	headers := []string{
-		"Module",
+		"Category",
 		"Project ID",
 		"Project Name",
 		"Project Path",
+		"Project State",
 		"Project URL",
 		"Entity Name",
+		"Role / Branch / Env",
+		"Account Type",
 		"Status",
 		"Violation Type",
 		"Details",
@@ -104,8 +106,32 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			strconv.Itoa(f.ProjectID),
 			f.ProjectName,
 			f.ProjectPath,
+			f.ProjectStatus,
 			f.ProjectWebURL,
-			"@" + f.Username + " (" + f.AccessRoleName + ")",
+			"@" + f.Username + " (" + f.Name + ")",
+			f.AccessRoleName,
+			f.AccountType,
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
+	for _, f := range report.BotAccessFindings {
+		row := []string{
+			"bots_and_service_accounts",
+			strconv.Itoa(f.ProjectID),
+			f.ProjectName,
+			f.ProjectPath,
+			f.ProjectStatus,
+			f.ProjectWebURL,
+			"@" + f.Username + " (" + f.Name + ")",
+			f.AccessRoleName,
+			f.AccountType,
 			string(f.Severity),
 			f.ViolationType,
 			f.Details,
@@ -122,8 +148,11 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			strconv.Itoa(f.ProjectID),
 			f.ProjectName,
 			f.ProjectPath,
+			f.ProjectStatus,
 			f.ProjectWebURL,
 			f.BranchName,
+			f.PushAccessLevelsSummary,
+			"N/A",
 			string(f.Severity),
 			strings.Join(f.Violations, "; "),
 			f.Details,
@@ -140,8 +169,11 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			strconv.Itoa(f.ProjectID),
 			f.ProjectName,
 			f.ProjectPath,
+			f.ProjectStatus,
 			f.ProjectWebURL,
 			f.EnvironmentName,
+			f.DeployAccessLevelsSummary,
+			"N/A",
 			string(f.Severity),
 			strings.Join(f.Violations, "; "),
 			f.Details,
@@ -166,36 +198,58 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("| Metric | Value |\n")
 	sb.WriteString("|---|---:|\n")
 	sb.WriteString(fmt.Sprintf("| Total Repositories Scanned | %d |\n", report.Summary.TotalProjectsScanned))
+	sb.WriteString(fmt.Sprintf("| Active Repositories | %d |\n", report.Summary.ActiveProjectsCount))
+	sb.WriteString(fmt.Sprintf("| Archived Repositories | %d |\n", report.Summary.ArchivedProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Fully Compliant Repositories | %d |\n", report.Summary.CompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Non-Compliant Repositories | %d |\n", report.Summary.NonCompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Total Audit Violations | **%d** |\n", report.Summary.TotalViolations))
 	sb.WriteString(fmt.Sprintf("| Critical Severity Violations | **%d** |\n", report.Summary.CriticalSeverityCount))
 	sb.WriteString(fmt.Sprintf("| High Severity Violations | **%d** |\n", report.Summary.HighSeverityCount))
 	sb.WriteString(fmt.Sprintf("| Medium Severity Violations | %d |\n", report.Summary.MediumSeverityCount))
-	sb.WriteString(fmt.Sprintf("| Low Severity Violations | %d |\n\n", report.Summary.LowSeverityCount))
+	sb.WriteString(fmt.Sprintf("| Low Severity Violations | %d |\n", report.Summary.LowSeverityCount))
+	sb.WriteString(fmt.Sprintf("| Human User Violations | %d |\n", report.Summary.HumanUserViolations))
+	sb.WriteString(fmt.Sprintf("| Bot / Service Account Violations | %d |\n", report.Summary.BotUserViolations))
+	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
-	// User Access Section
+	// Human User Access Section
 	if len(report.UserAccessFindings) > 0 {
-		sb.WriteString("## 1. User Access & Expiration Audit (`user_access`)\n\n")
-		sb.WriteString("| Project | Username | Role | Expiration | Status | Violation / Details |\n")
-		sb.WriteString("|---|---|---|---|:---:|---|\n")
+		sb.WriteString("## 1. Human User Access & Expiration Audit (`user_access`)\n\n")
+		sb.WriteString("| Project | State | Username | Role | Expiration | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|---|---|:---:|---|---|\n")
 		for _, f := range report.UserAccessFindings {
 			exp := "None (Indefinite)"
 			if f.HasExpiration {
 				exp = f.ExpiresAt
 			}
 			badge := formatBadge(f.Severity)
-			sb.WriteString(fmt.Sprintf("| [%s](%s) | @%s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details)))
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s | %s | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Bots & Service Accounts Section
+	if len(report.BotAccessFindings) > 0 {
+		sb.WriteString("## 2. Bots & Service Accounts Audit\n\n")
+		sb.WriteString("| Project | State | Bot / Account | Role | Expiration | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|---|---|:---:|---|---|\n")
+		for _, f := range report.BotAccessFindings {
+			exp := "None (Indefinite)"
+			if f.HasExpiration {
+				exp = f.ExpiresAt
+			}
+			badge := formatBadge(f.Severity)
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s (%s) | %s | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.Username, escapeMD(f.Name), f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
 
 	// Protected Branches Section
 	if len(report.ProtectedBranchFindings) > 0 {
-		sb.WriteString("## 2. Protected Branches Compliance Audit (`protected_branches`)\n\n")
-		sb.WriteString("| Project | Branch | Force Push | Code Owner | Push Access | Status | Details |\n")
-		sb.WriteString("|---|---|:---:|:---:|---|:---:|---|\n")
+		sb.WriteString("## 3. Protected Branches Compliance Audit (`protected_branches`)\n\n")
+		sb.WriteString("| Project | State | Branch | Force Push | Code Owner | Push Access | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|:---:|:---:|---|:---:|---|---|\n")
 		for _, f := range report.ProtectedBranchFindings {
 			fp := "No"
 			if f.AllowForcePush {
@@ -206,25 +260,37 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 				co = "**NO**"
 			}
 			badge := formatBadge(f.Severity)
-			sb.WriteString(fmt.Sprintf("| [%s](%s) | `%s` | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details)))
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
 
 	// Protected Environments Section
 	if len(report.ProtectedEnvFindings) > 0 {
-		sb.WriteString("## 3. Protected Environments Deployment Audit (`protected_environments`)\n\n")
-		sb.WriteString("| Project | Environment | Prod? | Approvals Required | Deploy Access | Status | Details |\n")
-		sb.WriteString("|---|---|:---:|:---:|---|:---:|---|\n")
+		sb.WriteString("## 4. Protected Environments Deployment Audit (`protected_environments`)\n\n")
+		sb.WriteString("| Project | State | Environment | Prod? | Approvals Required | Deploy Access | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|:---:|:---:|---|:---:|---|---|\n")
 		for _, f := range report.ProtectedEnvFindings {
 			prod := "No"
 			if f.IsProduction {
 				prod = "**Yes**"
 			}
 			badge := formatBadge(f.Severity)
-			sb.WriteString(fmt.Sprintf("| [%s](%s) | `%s` | %s | %d | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details)))
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %d | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
+	// User Directory Section
+	if len(report.UserDirectory) > 0 {
+		sb.WriteString("## 5. Fleet User Directory\n\n")
+		sb.WriteString("| ID | Username | Full Name | Account Type | State | Projects Access |\n")
+		sb.WriteString("|---|---|---|---|---|---:|\n")
+		for _, u := range report.UserDirectory {
+			sb.WriteString(fmt.Sprintf("| %d | [@%s](%s) | %s | %s | %s | %d |\n",
+				u.ID, u.Username, u.WebURL, escapeMD(u.Name), u.AccountType, u.State, u.ProjectsCount))
 		}
 		sb.WriteString("\n")
 	}
@@ -242,11 +308,11 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 <title>GitLab Fleet Compliance & Security Audit</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 30px; color: #24292e; background-color: #f6f8fa; }
-  .container { max-width: 1200px; margin: 0 auto; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 6px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
-  h1 { color: #1f497d; margin-top: 0; border-bottom: 2px solid #eaecef; padding-bottom: 12px; }
-  h2 { color: #24292e; margin-top: 28px; border-bottom: 1px solid #eaecef; padding-bottom: 8px; }
-  .meta { color: #586069; font-size: 14px; margin-bottom: 24px; }
-  .badge { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 3px; text-transform: uppercase; }
+  .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  h1 { color: #1f497d; margin-top: 0; }
+  h2 { color: #2c3e50; border-bottom: 2px solid #eaecef; padding-bottom: 8px; margin-top: 32px; }
+  .meta { color: #586069; font-size: 14px; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 700; border-radius: 12px; text-transform: uppercase; }
   .badge-critical { background-color: #fadbd8; color: #78281f; border: 1px solid #f5b7b1; }
   .badge-high { background-color: #fadbd8; color: #78281f; border: 1px solid #f5b7b1; }
   .badge-medium { background-color: #fcf3cf; color: #7d6608; border: 1px solid #f9e79f; }
@@ -271,18 +337,22 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 
 <div class="stat-grid">
   <div class="stat-card"><div>Repositories Scanned</div><div class="stat-val">` + strconv.Itoa(report.Summary.TotalProjectsScanned) + `</div></div>
+  <div class="stat-card"><div>Active Repositories</div><div class="stat-val">` + strconv.Itoa(report.Summary.ActiveProjectsCount) + `</div></div>
+  <div class="stat-card"><div>Archived Repositories</div><div class="stat-val">` + strconv.Itoa(report.Summary.ArchivedProjectsCount) + `</div></div>
   <div class="stat-card"><div>Fully Compliant</div><div class="stat-val">` + strconv.Itoa(report.Summary.CompliantProjectsCount) + `</div></div>
   <div class="stat-card"><div>Total Violations</div><div class="stat-val ` + dangerClass(report.Summary.TotalViolations) + `">` + strconv.Itoa(report.Summary.TotalViolations) + `</div></div>
   <div class="stat-card"><div>Critical Severity</div><div class="stat-val ` + dangerClass(report.Summary.CriticalSeverityCount) + `">` + strconv.Itoa(report.Summary.CriticalSeverityCount) + `</div></div>
   <div class="stat-card"><div>High Severity</div><div class="stat-val ` + dangerClass(report.Summary.HighSeverityCount) + `">` + strconv.Itoa(report.Summary.HighSeverityCount) + `</div></div>
+  <div class="stat-card"><div>Human Violations</div><div class="stat-val ` + dangerClass(report.Summary.HumanUserViolations) + `">` + strconv.Itoa(report.Summary.HumanUserViolations) + `</div></div>
+  <div class="stat-card"><div>Bot / Token Violations</div><div class="stat-val">` + strconv.Itoa(report.Summary.BotUserViolations) + `</div></div>
 </div>
 `)
 
 	if len(report.UserAccessFindings) > 0 {
-		sb.WriteString(`<h2>User Access & Expiration Audit</h2>
+		sb.WriteString(`<h2>Human User Access & Expiration Audit</h2>
 <table>
   <thead>
-    <tr><th>Project</th><th>Username</th><th>Role</th><th>Expiration</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
+    <tr><th>Project</th><th>State</th><th>Username</th><th>Role</th><th>Expiration</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
   </thead>
   <tbody>`)
 		for _, f := range report.UserAccessFindings {
@@ -292,13 +362,40 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
   <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
   <td>@%s</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.Username, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.Username, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+		}
+		sb.WriteString(`</tbody></table>`)
+	}
+
+	if len(report.BotAccessFindings) > 0 {
+		sb.WriteString(`<h2>Bots & Service Accounts Audit</h2>
+<table>
+  <thead>
+    <tr><th>Project</th><th>State</th><th>Bot / Account</th><th>Role</th><th>Expiration</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
+  </thead>
+  <tbody>`)
+		for _, f := range report.BotAccessFindings {
+			exp := "Indefinite"
+			if f.HasExpiration {
+				exp = f.ExpiresAt
+			}
+			sb.WriteString(fmt.Sprintf(`<tr>
+  <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
+  <td>@%s (%s)</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.Username, f.Name, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -307,7 +404,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`<h2>Protected Branches Compliance Audit</h2>
 <table>
   <thead>
-    <tr><th>Project</th><th>Branch</th><th>Force Push</th><th>Code Owner</th><th>Push Access</th><th>Status</th><th>Details</th></tr>
+    <tr><th>Project</th><th>State</th><th>Branch</th><th>Force Push</th><th>Code Owner</th><th>Push Access</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
   </thead>
   <tbody>`)
 		for _, f := range report.ProtectedBranchFindings {
@@ -321,13 +418,15 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
   <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
   <td><code>%s</code></td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.BranchName, fp, co, f.PushAccessLevelsSummary, htmlBadge(f.Severity), f.Details))
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.BranchName, fp, co, f.PushAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -336,7 +435,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`<h2>Protected Environments Deployment Audit</h2>
 <table>
   <thead>
-    <tr><th>Project</th><th>Environment</th><th>Production?</th><th>Approvals Required</th><th>Deploy Access</th><th>Status</th><th>Details</th></tr>
+    <tr><th>Project</th><th>State</th><th>Environment</th><th>Production?</th><th>Approvals Required</th><th>Deploy Access</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
   </thead>
   <tbody>`)
 		for _, f := range report.ProtectedEnvFindings {
@@ -346,13 +445,15 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
   <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
   <td><code>%s</code></td>
   <td>%s</td>
   <td>%d</td>
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.EnvironmentName, prod, f.RequiredApprovalCount, f.DeployAccessLevelsSummary, htmlBadge(f.Severity), f.Details))
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, f.DeployAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -368,17 +469,40 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("                  GITLAB FLEET COMPLIANCE & SECURITY AUDIT\n")
 	sb.WriteString("================================================================================\n")
 	sb.WriteString(fmt.Sprintf("Scan Completed : %s (Duration: %s)\n", report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
-	sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d | Compliant: %d | Non-Compliant: %d\n",
-		report.Summary.TotalProjectsScanned, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
+	sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d) | Compliant: %d | Non-Compliant: %d\n",
+		report.Summary.TotalProjectsScanned, report.Summary.ActiveProjectsCount, report.Summary.ArchivedProjectsCount, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("Violations     : Total: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
 		report.Summary.TotalViolations, report.Summary.CriticalSeverityCount, report.Summary.HighSeverityCount, report.Summary.MediumSeverityCount, report.Summary.LowSeverityCount))
+	sb.WriteString(fmt.Sprintf("Account Types  : Human Violations: %d | Bot/Service Account Violations: %d\n",
+		report.Summary.HumanUserViolations, report.Summary.BotUserViolations))
 	sb.WriteString("================================================================================\n\n")
 
 	if len(report.UserAccessFindings) > 0 {
-		sb.WriteString("[USER ACCESS & EXPIRATION FINDINGS]\n")
+		sb.WriteString("[HUMAN USER ACCESS & EXPIRATION FINDINGS]\n")
 		sb.WriteString(fmt.Sprintf("%-28s %-16s %-16s %-12s %-10s %s\n", "PROJECT", "USER", "ROLE", "EXPIRATION", "STATUS", "DETAILS"))
 		sb.WriteString(strings.Repeat("-", 105) + "\n")
 		for _, f := range report.UserAccessFindings {
+			exp := "Indefinite"
+			if f.HasExpiration {
+				exp = f.ExpiresAt
+			}
+			sb.WriteString(fmt.Sprintf("%-28s %-16s %-16s %-12s %-10s %s\n",
+				truncate(f.ProjectPath, 27),
+				truncate("@"+f.Username, 15),
+				truncate(f.AccessRoleName, 15),
+				truncate(exp, 11),
+				f.Severity,
+				truncate(f.Details, 40),
+			))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.BotAccessFindings) > 0 {
+		sb.WriteString("[BOTS & SERVICE ACCOUNTS ACCESS FINDINGS]\n")
+		sb.WriteString(fmt.Sprintf("%-28s %-16s %-16s %-12s %-10s %s\n", "PROJECT", "BOT / ACCOUNT", "ROLE", "EXPIRATION", "STATUS", "DETAILS"))
+		sb.WriteString(strings.Repeat("-", 105) + "\n")
+		for _, f := range report.BotAccessFindings {
 			exp := "Indefinite"
 			if f.HasExpiration {
 				exp = f.ExpiresAt
@@ -453,27 +577,27 @@ func formatBadge(s audit.Severity) string {
 		return "🟠 `HIGH`"
 	case audit.SeverityMedium:
 		return "🟡 `MEDIUM`"
-	case audit.SeverityLow, audit.SeverityInfo:
+	case audit.SeverityLow:
 		return "🔵 `LOW`"
 	case audit.SeverityPass:
 		return "🟢 `PASS`"
 	default:
-		return string(s)
+		return fmt.Sprintf("`%s`", s)
 	}
 }
 
 func htmlBadge(s audit.Severity) string {
 	switch s {
 	case audit.SeverityCritical:
-		return `<span class="badge badge-critical">CRITICAL</span>`
+		return `<span class="badge badge-critical">Critical</span>`
 	case audit.SeverityHigh:
-		return `<span class="badge badge-high">HIGH</span>`
+		return `<span class="badge badge-high">High</span>`
 	case audit.SeverityMedium:
-		return `<span class="badge badge-medium">MEDIUM</span>`
-	case audit.SeverityLow, audit.SeverityInfo:
-		return `<span class="badge badge-low">LOW</span>`
+		return `<span class="badge badge-medium">Medium</span>`
+	case audit.SeverityLow:
+		return `<span class="badge badge-low">Low</span>`
 	case audit.SeverityPass:
-		return `<span class="badge badge-pass">PASS</span>`
+		return `<span class="badge badge-pass">Pass</span>`
 	default:
 		return string(s)
 	}
@@ -486,10 +610,6 @@ func dangerClass(count int) string {
 	return ""
 }
 
-func escapeMD(s string) string {
-	return strings.ReplaceAll(s, "|", "\\|")
-}
-
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
@@ -498,4 +618,9 @@ func truncate(s string, max int) string {
 		return s[:max]
 	}
 	return s[:max-3] + "..."
+}
+
+func escapeMD(s string) string {
+	s = strings.ReplaceAll(s, "|", "\\|")
+	return strings.ReplaceAll(s, "\n", " ")
 }

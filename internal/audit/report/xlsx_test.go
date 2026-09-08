@@ -132,8 +132,10 @@ func TestGenerateXLSX(t *testing.T) {
 	sheetList := xlFile.GetSheetList()
 	assert.Contains(t, sheetList, "Executive Summary")
 	assert.Contains(t, sheetList, "User Access")
+	assert.Contains(t, sheetList, "Bots & Service Accounts")
 	assert.Contains(t, sheetList, "Protected Branch Access")
 	assert.Contains(t, sheetList, "Protected Environments Access")
+	assert.Contains(t, sheetList, "User Directory")
 
 	// Verify Executive Summary Content
 	titleVal, err := xlFile.GetCellValue("Executive Summary", "B2")
@@ -145,11 +147,11 @@ func TestGenerateXLSX(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Project ID", h1)
 
-	userVal, err := xlFile.GetCellValue("User Access", "D2")
+	userVal, err := xlFile.GetCellValue("User Access", "E2")
 	require.NoError(t, err)
 	assert.Equal(t, "@alice", userVal)
 
-	statusVal, err := xlFile.GetCellValue("User Access", "K3")
+	statusVal, err := xlFile.GetCellValue("User Access", "L3")
 	require.NoError(t, err)
 	assert.Equal(t, "CRITICAL", statusVal)
 
@@ -168,16 +170,16 @@ func TestGenerateXLSX(t *testing.T) {
 	assert.True(t, hasMergedProject, "Expected project metadata cells A2:A3 to be merged for project 101")
 
 	// Verify Protected Branch Access Content
-	branchVal, err := xlFile.GetCellValue("Protected Branch Access", "D2")
+	branchVal, err := xlFile.GetCellValue("Protected Branch Access", "E2")
 	require.NoError(t, err)
 	assert.Equal(t, "main", branchVal)
 
-	forcePushVal, err := xlFile.GetCellValue("Protected Branch Access", "G2")
+	forcePushVal, err := xlFile.GetCellValue("Protected Branch Access", "H2")
 	require.NoError(t, err)
-	assert.Contains(t, forcePushVal, "YES")
+	assert.Equal(t, "YES (Violation)", forcePushVal)
 
 	// Verify Protected Environments Access Content
-	envVal, err := xlFile.GetCellValue("Protected Environments Access", "D2")
+	envVal, err := xlFile.GetCellValue("Protected Environments Access", "E2")
 	require.NoError(t, err)
 	assert.Equal(t, "production", envVal)
 }

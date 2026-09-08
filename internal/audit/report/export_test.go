@@ -62,7 +62,7 @@ func TestExportFormats(t *testing.T) {
 		require.NoError(t, err)
 
 		csvContent := buf.String()
-		assert.Contains(t, csvContent, "Module,Project ID,Project Name")
+		assert.Contains(t, csvContent, "Category,Project ID,Project Name")
 		assert.Contains(t, csvContent, "user_access,101,payments-api")
 		assert.Contains(t, csvContent, "protected_branches,101,payments-api")
 		assert.Contains(t, csvContent, "protected_environments,101,payments-api")
@@ -76,9 +76,9 @@ func TestExportFormats(t *testing.T) {
 		mdContent := buf.String()
 		assert.Contains(t, mdContent, "# GitLab Fleet Compliance & Security Audit Report")
 		assert.Contains(t, mdContent, "## Executive Summary")
-		assert.Contains(t, mdContent, "## 1. User Access & Expiration Audit (`user_access`)")
-		assert.Contains(t, mdContent, "## 2. Protected Branches Compliance Audit (`protected_branches`)")
-		assert.Contains(t, mdContent, "## 3. Protected Environments Deployment Audit (`protected_environments`)")
+		assert.Contains(t, mdContent, "## 1. Human User Access & Expiration Audit (`user_access`)")
+		assert.Contains(t, mdContent, "## 3. Protected Branches Compliance Audit (`protected_branches`)")
+		assert.Contains(t, mdContent, "## 4. Protected Environments Deployment Audit (`protected_environments`)")
 		assert.Contains(t, mdContent, "🔴 `CRITICAL`")
 	})
 
@@ -101,7 +101,7 @@ func TestExportFormats(t *testing.T) {
 
 		tableContent := buf.String()
 		assert.Contains(t, tableContent, "GITLAB FLEET COMPLIANCE & SECURITY AUDIT")
-		assert.Contains(t, tableContent, "[USER ACCESS & EXPIRATION FINDINGS]")
+		assert.Contains(t, tableContent, "[HUMAN USER ACCESS & EXPIRATION FINDINGS]")
 		assert.Contains(t, tableContent, "[PROTECTED BRANCHES FINDINGS]")
 		assert.Contains(t, tableContent, "[PROTECTED ENVIRONMENTS FINDINGS]")
 		assert.Contains(t, tableContent, "payments-api")
