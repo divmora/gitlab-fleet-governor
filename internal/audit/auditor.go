@@ -11,6 +11,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ProjectModuleAuditor is the interface implemented by audit modules.
@@ -191,14 +192,58 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		}
 	}
 
+	// Determine authenticated token user identity
+	var authUser *UserInfo
+	var auditedBy string
+	if a.client != nil && a.client.Users() != nil {
+		currentUser, _, err := a.client.Users().CurrentUser(gitlab.WithContext(ctx))
+		if err != nil {
+			slog.Debug("Unable to retrieve authenticated token user", "error", err)
+		} else if currentUser != nil {
+			isBot := false
+			acctType := "Human"
+			if a.classifier != nil && a.classifier.IsBot(currentUser.ID, currentUser.Username, currentUser.Name, currentUser.Email) {
+				isBot = true
+				acctType = "Service Account / Bot"
+			}
+			authUser = &UserInfo{
+				ID:          currentUser.ID,
+				Username:    currentUser.Username,
+				Name:        currentUser.Name,
+				Email:       currentUser.Email,
+				State:       currentUser.State,
+				WebURL:      currentUser.WebURL,
+				IsBot:       isBot,
+				AccountType: acctType,
+			}
+			auditedBy = fmt.Sprintf("@%s", currentUser.Username)
+			if currentUser.Name != "" && currentUser.Name != currentUser.Username {
+				auditedBy += fmt.Sprintf(" (%s)", currentUser.Name)
+			}
+			if currentUser.Email != "" {
+				auditedBy += fmt.Sprintf(" <%s>", currentUser.Email)
+			}
+			if currentUser.ID > 0 {
+				auditedBy += fmt.Sprintf(" [ID: %d]", currentUser.ID)
+			}
+			slog.Info("Audit running under authenticated identity",
+				"identity", auditedBy,
+				"username", currentUser.Username,
+				"id", currentUser.ID,
+			)
+		}
+	}
+
 	report := &AuditReport{
-		Title:         "GitLab Fleet Compliance & Security Audit Report",
-		GeneratedAt:   startTime,
-		ActiveModules: a.activeModuleList(),
+		Title:             "GitLab Fleet Compliance & Security Audit Report",
+		GeneratedAt:       startTime,
+		AuthenticatedUser: authUser,
+		ActiveModules:     a.activeModuleList(),
 		Summary: SummaryMetrics{
 			TotalProjectsScanned:  len(projects),
 			ActiveProjectsCount:   activeCount,
 			ArchivedProjectsCount: archivedCount,
+			AuditedBy:             auditedBy,
 		},
 		UserAccessFindings:      make([]UserAccessFinding, 0),
 		BotAccessFindings:       make([]UserAccessFinding, 0),

@@ -608,6 +608,9 @@ func (s *defaultMembersService) ListAllGroupMembers(gid any, opt *gitlab.ListGro
 
 type defaultUsersService struct{ client *gitlab.Client }
 
+func (s *defaultUsersService) CurrentUser(options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error) {
+	return s.client.Users.CurrentUser(options...)
+}
 func (s *defaultUsersService) ListUsers(opt *gitlab.ListUsersOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.User, *gitlab.Response, error) {
 	return s.client.Users.ListUsers(opt, options...)
 }

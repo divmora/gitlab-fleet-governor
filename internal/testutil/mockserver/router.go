@@ -73,6 +73,8 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rt.routeRunners(w, r, strings.TrimPrefix(subPath, "/runners"))
 	case strings.HasPrefix(subPath, "/users"):
 		rt.routeUsers(w, r, strings.TrimPrefix(subPath, "/users"))
+	case subPath == "/user" || subPath == "/user/":
+		rt.handleCurrentUser(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -1120,6 +1122,26 @@ func (rt *Router) routeUsers(w http.ResponseWriter, r *http.Request, sub string)
 		return
 	}
 	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+}
+
+func (rt *Router) handleCurrentUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	users := rt.state.ListUsers()
+	if len(users) > 0 {
+		_ = json.NewEncoder(w).Encode(users[0])
+		return
+	}
+	// Fallback mock user if no users exist in state
+	mockUser := &gitlab.User{
+		ID:       1,
+		Username: "admin",
+		Name:     "Administrator",
+		Email:    "admin@example.com",
+	}
+	_ = json.NewEncoder(w).Encode(mockUser)
 }
 
 // ----------------------------------------------------------------------------

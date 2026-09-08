@@ -135,6 +135,7 @@ type SummaryMetrics struct {
 	UserAccessViolations      int              `json:"user_access_violations"`
 	ProtectedBranchViolations int              `json:"protected_branch_violations"`
 	ProtectedEnvViolations    int              `json:"protected_env_violations"`
+	AuditedBy                 string           `json:"audited_by,omitempty"`
 	SeverityBreakdown         map[Severity]int `json:"severity_breakdown"`
 	ModuleViolations          map[string]int   `json:"module_violations"`
 }
@@ -145,6 +146,7 @@ type AuditReport struct {
 	GeneratedAt             time.Time                     `json:"generated_at"`
 	Duration                time.Duration                 `json:"duration"`
 	DurationString          string                        `json:"duration_human"`
+	AuthenticatedUser       *UserInfo                     `json:"authenticated_user,omitempty"`
 	ActiveModules           []string                      `json:"active_modules"`
 	Summary                 SummaryMetrics                `json:"summary"`
 	UserAccessFindings      []UserAccessFinding           `json:"user_access_findings,omitempty"`
@@ -286,6 +288,27 @@ func AccessLevelToName(level int) string {
 	default:
 		return fmt.Sprintf("Level %d", level)
 	}
+}
+
+// InitiatorDescription returns a descriptive identity string for the user who initiated the audit.
+func (r *AuditReport) InitiatorDescription() string {
+	if r.AuthenticatedUser != nil {
+		desc := fmt.Sprintf("@%s", r.AuthenticatedUser.Username)
+		if r.AuthenticatedUser.Name != "" && r.AuthenticatedUser.Name != r.AuthenticatedUser.Username {
+			desc += fmt.Sprintf(" (%s)", r.AuthenticatedUser.Name)
+		}
+		if r.AuthenticatedUser.Email != "" {
+			desc += fmt.Sprintf(" <%s>", r.AuthenticatedUser.Email)
+		}
+		if r.AuthenticatedUser.ID > 0 {
+			desc += fmt.Sprintf(" [ID: %d]", r.AuthenticatedUser.ID)
+		}
+		return desc
+	}
+	if r.Summary.AuditedBy != "" {
+		return r.Summary.AuditedBy
+	}
+	return "System / Anonymous"
 }
 
 // SortFindings orders findings deterministically for report reproducibility.

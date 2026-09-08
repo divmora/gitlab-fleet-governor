@@ -310,6 +310,7 @@ func BuildAuditEmail(report *audit.AuditReport, xlsxData []byte, filename string
 ================================================================================
 Generated At       : %s
 Duration           : %s
+Audited By         : %s
 Repositories       : Scanned: %d | Compliant: %d | Non-Compliant: %d
 Total Violations   : %d (Critical: %d, High: %d, Medium: %d, Low: %d)
 
@@ -322,6 +323,7 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 `,
 		report.GeneratedAt.UTC().Format(time.RFC1123),
 		report.DurationString,
+		report.InitiatorDescription(),
 		report.Summary.TotalProjectsScanned,
 		report.Summary.CompliantProjectsCount,
 		report.Summary.NonCompliantProjectsCount,
@@ -341,7 +343,7 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; margin: 20px;">
   <div style="max-width: 650px; margin: auto; border: 1px solid #e1e4e8; border-radius: 6px; padding: 24px; background: #ffffff;">
     <h2 style="color: #1f497d; margin-top: 0; border-bottom: 2px solid #eaecef; padding-bottom: 8px;">GitLab Fleet Compliance & Security Audit</h2>
-    <p style="color: #666666; font-size: 13px;"><b>Generated:</b> %s | <b>Scan Duration:</b> %s</p>
+    <p style="color: #666666; font-size: 13px;"><b>Generated:</b> %s | <b>Scan Duration:</b> %s | <b>Audited By:</b> %s</p>
     
     <table style="width: 100%%; border-collapse: collapse; margin: 16px 0;">
       <tr style="background: #f6f8fa;"><th style="padding: 8px; border: 1px solid #d1d5da; text-align: left;">Metric</th><th style="padding: 8px; border: 1px solid #d1d5da; text-align: right;">Count</th></tr>
@@ -358,6 +360,7 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 </html>`,
 		report.GeneratedAt.UTC().Format(time.RFC1123),
 		report.DurationString,
+		report.InitiatorDescription(),
 		report.Summary.TotalProjectsScanned,
 		report.Summary.CompliantProjectsCount,
 		report.Summary.NonCompliantProjectsCount,

@@ -276,8 +276,11 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 	_ = g.file.SetCellValue(sheet, "B3", fmt.Sprintf("Report Generated: %s | Scan Duration: %s",
 		report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
 
+	initiator := report.InitiatorDescription()
+	_ = g.file.SetCellValue(sheet, "B4", fmt.Sprintf("Audit Initiated By (Token User): %s", initiator))
+
 	// Overview KPIs Table
-	startRow := 5
+	startRow := 6
 	_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", startRow), "Fleet Governance KPI Indicator")
 	_ = g.file.SetCellValue(sheet, fmt.Sprintf("C%d", startRow), "Metric Value")
 	_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", startRow), fmt.Sprintf("C%d", startRow), g.headerStyle)
@@ -286,6 +289,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		Label string
 		Value any
 	}{
+		{"Audit Initiator (Token Identity)", initiator},
 		{"Total Target Repositories Scanned", report.Summary.TotalProjectsScanned},
 		{"Active Repositories (Governance Priority)", report.Summary.ActiveProjectsCount},
 		{"Archived Repositories (De-prioritized)", report.Summary.ArchivedProjectsCount},

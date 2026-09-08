@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"strconv"
 	"strings"
@@ -192,11 +193,13 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("# GitLab Fleet Compliance & Security Audit Report\n\n")
 	sb.WriteString(fmt.Sprintf("**Generated At**: %s  \n", report.GeneratedAt.UTC().Format(time.RFC1123)))
 	sb.WriteString(fmt.Sprintf("**Scan Duration**: %s  \n", report.DurationString))
+	sb.WriteString(fmt.Sprintf("**Audited By**: %s  \n", escapeMD(report.InitiatorDescription())))
 	sb.WriteString(fmt.Sprintf("**Active Modules**: `%s`  \n\n", strings.Join(report.ActiveModules, "`, `")))
 
 	sb.WriteString("## Executive Summary\n\n")
 	sb.WriteString("| Metric | Value |\n")
 	sb.WriteString("|---|---:|\n")
+	sb.WriteString(fmt.Sprintf("| Audit Initiator (Token Identity) | %s |\n", escapeMD(report.InitiatorDescription())))
 	sb.WriteString(fmt.Sprintf("| Total Repositories Scanned | %d |\n", report.Summary.TotalProjectsScanned))
 	sb.WriteString(fmt.Sprintf("| Active Repositories | %d |\n", report.Summary.ActiveProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Archived Repositories | %d |\n", report.Summary.ArchivedProjectsCount))
@@ -333,7 +336,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 <body>
 <div class="container">
 <h1>GitLab Fleet Compliance & Security Audit</h1>
-<div class="meta">Generated: ` + report.GeneratedAt.UTC().Format(time.RFC1123) + ` | Scan Duration: ` + report.DurationString + `</div>
+<div class="meta">Generated: ` + report.GeneratedAt.UTC().Format(time.RFC1123) + ` | Scan Duration: ` + report.DurationString + ` | Audited By: ` + html.EscapeString(report.InitiatorDescription()) + `</div>
 
 <div class="stat-grid">
   <div class="stat-card"><div>Repositories Scanned</div><div class="stat-val">` + strconv.Itoa(report.Summary.TotalProjectsScanned) + `</div></div>
@@ -469,6 +472,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("                  GITLAB FLEET COMPLIANCE & SECURITY AUDIT\n")
 	sb.WriteString("================================================================================\n")
 	sb.WriteString(fmt.Sprintf("Scan Completed : %s (Duration: %s)\n", report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
+	sb.WriteString(fmt.Sprintf("Audited By     : %s\n", report.InitiatorDescription()))
 	sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d) | Compliant: %d | Non-Compliant: %d\n",
 		report.Summary.TotalProjectsScanned, report.Summary.ActiveProjectsCount, report.Summary.ArchivedProjectsCount, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("Violations     : Total: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
