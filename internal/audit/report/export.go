@@ -185,6 +185,27 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 		}
 	}
 
+	for _, f := range report.PipelineRetentionFindings {
+		row := []string{
+			"Pipeline Retention",
+			strconv.Itoa(f.ProjectID),
+			f.ProjectName,
+			f.ProjectPath,
+			f.ProjectStatus,
+			f.ProjectWebURL,
+			fmt.Sprintf("Retention: %dd (%ds)", f.RetentionDays, f.RetentionSeconds),
+			fmt.Sprintf("Stale: %d (Oldest: #%d)", f.StalePipelinesCount, f.OldestPipelineID),
+			"N/A",
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -212,6 +233,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Low Severity Violations | %d |\n", report.Summary.LowSeverityCount))
 	sb.WriteString(fmt.Sprintf("| Human User Violations | %d |\n", report.Summary.HumanUserViolations))
 	sb.WriteString(fmt.Sprintf("| Bot / Service Account Violations | %d |\n", report.Summary.BotUserViolations))
+	sb.WriteString(fmt.Sprintf("| Pipeline Retention Violations | %d |\n", report.Summary.PipelineRetentionViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
 	// Human User Access Section
@@ -286,9 +308,30 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("\n")
 	}
 
+	// Pipeline Retention Section
+	if len(report.PipelineRetentionFindings) > 0 {
+		sb.WriteString("## 5. Pipeline Retention & Cleanup Audit (`pipeline_retention`)\n\n")
+		sb.WriteString("| Project | State | Retention Policy | Stale Pipelines | Oldest Pipeline | Status | Violation Type | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|:---:|---|:---:|---|---|---|\n")
+		for _, f := range report.PipelineRetentionFindings {
+			policy := "Disabled (0s)"
+			if f.HasRetentionConfigured {
+				policy = fmt.Sprintf("%dd (%ds)", f.RetentionDays, f.RetentionSeconds)
+			}
+			oldest := "-"
+			if f.OldestPipelineID > 0 {
+				oldest = fmt.Sprintf("#%d (%dd old)", f.OldestPipelineID, f.OldestPipelineAgeDays)
+			}
+			badge := formatBadge(f.Severity)
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %d | %s | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
 	// User Directory Section
 	if len(report.UserDirectory) > 0 {
-		sb.WriteString("## 5. Fleet User Directory\n\n")
+		sb.WriteString("## 6. Fleet User Directory\n\n")
 		sb.WriteString("| ID | Username | Full Name | Account Type | State | Projects Access |\n")
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
@@ -348,6 +391,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <div class="stat-card"><div>High Severity</div><div class="stat-val ` + dangerClass(report.Summary.HighSeverityCount) + `">` + strconv.Itoa(report.Summary.HighSeverityCount) + `</div></div>
   <div class="stat-card"><div>Human Violations</div><div class="stat-val ` + dangerClass(report.Summary.HumanUserViolations) + `">` + strconv.Itoa(report.Summary.HumanUserViolations) + `</div></div>
   <div class="stat-card"><div>Bot / Token Violations</div><div class="stat-val">` + strconv.Itoa(report.Summary.BotUserViolations) + `</div></div>
+  <div class="stat-card"><div>Retention Violations</div><div class="stat-val ` + dangerClass(report.Summary.PipelineRetentionViolations) + `">` + strconv.Itoa(report.Summary.PipelineRetentionViolations) + `</div></div>
 </div>
 `)
 
@@ -461,6 +505,36 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`</tbody></table>`)
 	}
 
+	if len(report.PipelineRetentionFindings) > 0 {
+		sb.WriteString(`<h2>Pipeline Retention & Cleanup Audit</h2>
+<table>
+  <thead>
+    <tr><th>Project</th><th>State</th><th>Retention Policy</th><th>Stale Pipelines</th><th>Oldest Pipeline</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
+  </thead>
+  <tbody>`)
+		for _, f := range report.PipelineRetentionFindings {
+			policy := "Disabled (0s)"
+			if f.HasRetentionConfigured {
+				policy = fmt.Sprintf("%dd (%ds)", f.RetentionDays, f.RetentionSeconds)
+			}
+			oldest := "-"
+			if f.OldestPipelineID > 0 {
+				oldest = fmt.Sprintf("#%d (%dd old)", f.OldestPipelineID, f.OldestPipelineAgeDays)
+			}
+			sb.WriteString(fmt.Sprintf(`<tr>
+  <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%d</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, htmlBadge(f.Severity), f.Details, f.Remediation))
+		}
+		sb.WriteString(`</tbody></table>`)
+	}
+
 	sb.WriteString(`</div></body></html>`)
 	_, err := io.WriteString(out, sb.String())
 	return err
@@ -479,6 +553,8 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		report.Summary.TotalViolations, report.Summary.CriticalSeverityCount, report.Summary.HighSeverityCount, report.Summary.MediumSeverityCount, report.Summary.LowSeverityCount))
 	sb.WriteString(fmt.Sprintf("Account Types  : Human Violations: %d | Bot/Service Account Violations: %d\n",
 		report.Summary.HumanUserViolations, report.Summary.BotUserViolations))
+	sb.WriteString(fmt.Sprintf("Pipeline Audit : Retention & Cleanup Violations: %d\n",
+		report.Summary.PipelineRetentionViolations))
 	sb.WriteString("================================================================================\n\n")
 
 	if len(report.UserAccessFindings) > 0 {
@@ -562,6 +638,31 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				truncate(f.EnvironmentName, 15),
 				prod,
 				f.RequiredApprovalCount,
+				f.Severity,
+				truncate(f.Details, 40),
+			))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.PipelineRetentionFindings) > 0 {
+		sb.WriteString("[PIPELINE RETENTION & CLEANUP FINDINGS]\n")
+		sb.WriteString(fmt.Sprintf("%-28s %-16s %-12s %-16s %-10s %s\n", "PROJECT", "RETENTION", "STALE COUNT", "OLDEST PIPELINE", "STATUS", "DETAILS"))
+		sb.WriteString(strings.Repeat("-", 105) + "\n")
+		for _, f := range report.PipelineRetentionFindings {
+			retStr := "Disabled"
+			if f.HasRetentionConfigured {
+				retStr = fmt.Sprintf("%dd", f.RetentionDays)
+			}
+			oldest := "-"
+			if f.OldestPipelineID > 0 {
+				oldest = fmt.Sprintf("#%d (%dd)", f.OldestPipelineID, f.OldestPipelineAgeDays)
+			}
+			sb.WriteString(fmt.Sprintf("%-28s %-16s %-12s %-16s %-10s %s\n",
+				truncate(f.ProjectPath, 27),
+				truncate(retStr, 15),
+				truncate(strconv.Itoa(f.StalePipelinesCount), 11),
+				truncate(oldest, 15),
 				f.Severity,
 				truncate(f.Details, 40),
 			))

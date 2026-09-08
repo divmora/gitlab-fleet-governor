@@ -318,6 +318,7 @@ Audit Breakdown:
 - User Access & Expiration Violations         : %d
 - Protected Branches Compliance Violations    : %d
 - Protected Environments Deployment Violations: %d
+- Pipeline Retention & Cleanup Violations     : %d
 ================================================================================
 Please inspect the attached Excel workbook (%s) for detailed repository findings.
 `,
@@ -335,6 +336,7 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 		report.Summary.UserAccessViolations,
 		report.Summary.ProtectedBranchViolations,
 		report.Summary.ProtectedEnvViolations,
+		report.Summary.PipelineRetentionViolations,
 		filename,
 	)
 

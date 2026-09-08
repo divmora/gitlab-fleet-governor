@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
@@ -159,6 +160,8 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 		rt.handleProjectHooks(w, r, unescapedID, hookIDStr)
 	case "members":
 		rt.handleProjectMembers(w, r, unescapedID)
+	case "pipelines":
+		rt.handleProjectPipelines(w, r, unescapedID)
 	default:
 		http.NotFound(w, r)
 	}
@@ -781,6 +784,66 @@ func (rt *Router) handleProjectMembers(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+}
+
+func (rt *Router) handleProjectPipelines(w http.ResponseWriter, r *http.Request, idOrPath string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	pipelines := rt.state.ListProjectPipelines(idOrPath)
+	if pipelines == nil {
+		// Project might exist with no pipelines, or project doesn't exist
+		if _, found := rt.state.GetProject(idOrPath); !found {
+			http.NotFound(w, r)
+			return
+		}
+		pipelines = []*gitlab.PipelineInfo{}
+	}
+
+	// Filter by updated_before if provided
+	q := r.URL.Query()
+	if ubStr := q.Get("updated_before"); ubStr != "" {
+		if t, err := time.Parse(time.RFC3339, ubStr); err == nil {
+			filtered := make([]*gitlab.PipelineInfo, 0)
+			for _, p := range pipelines {
+				if p.UpdatedAt != nil && p.UpdatedAt.Before(t) {
+					filtered = append(filtered, p)
+				} else if p.UpdatedAt == nil && p.CreatedAt != nil && p.CreatedAt.Before(t) {
+					filtered = append(filtered, p)
+				}
+			}
+			pipelines = filtered
+		}
+	}
+
+	// Filter by updated_after if provided
+	if uaStr := q.Get("updated_after"); uaStr != "" {
+		if t, err := time.Parse(time.RFC3339, uaStr); err == nil {
+			filtered := make([]*gitlab.PipelineInfo, 0)
+			for _, p := range pipelines {
+				if p.UpdatedAt != nil && p.UpdatedAt.After(t) {
+					filtered = append(filtered, p)
+				}
+			}
+			pipelines = filtered
+		}
+	}
+
+	// Sort pipelines
+	sortDir := strings.ToLower(q.Get("sort"))
+	if sortDir == "asc" {
+		sort.Slice(pipelines, func(i, j int) bool {
+			return pipelines[i].ID < pipelines[j].ID
+		})
+	} else if sortDir == "desc" {
+		sort.Slice(pipelines, func(i, j int) bool {
+			return pipelines[i].ID > pipelines[j].ID
+		})
+	}
+
+	rt.paginate(w, r, len(pipelines), func(i int) any { return pipelines[i] })
 }
 
 // ----------------------------------------------------------------------------

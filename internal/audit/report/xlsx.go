@@ -72,7 +72,12 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 		return fmt.Errorf("failed to build protected environments sheet: %w", err)
 	}
 
-	// 6. User Directory Sheet
+	// 6. Pipeline Retention Sheet
+	if err := gen.buildPipelineRetentionSheet(report); err != nil {
+		return fmt.Errorf("failed to build pipeline retention sheet: %w", err)
+	}
+
+	// 7. User Directory Sheet
 	if err := gen.buildUserDirectorySheet(report); err != nil {
 		return fmt.Errorf("failed to build user directory sheet: %w", err)
 	}
@@ -335,6 +340,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		{"User Access & Expiration Auditor (user_access)", report.Summary.UserAccessViolations},
 		{"Protected Branches Compliance Auditor (protected_branches)", report.Summary.ProtectedBranchViolations},
 		{"Protected Environments Deployment Auditor (protected_environments)", report.Summary.ProtectedEnvViolations},
+		{"Pipeline Retention & Cleanup Auditor (pipeline_retention)", report.Summary.PipelineRetentionViolations},
 	}
 
 	for i, mm := range modMetrics {
@@ -931,6 +937,164 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 				}
 			case 10: // Status
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
+			default:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+			}
+		}
+
+		row++
+	}
+
+	if currentSpan != nil {
+		spans = append(spans, *currentSpan)
+	}
+
+	// Contiguous row merging across columns 1..4
+	for _, span := range spans {
+		if span.StartRow < span.EndRow {
+			for col := 1; col <= 4; col++ {
+				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
+				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
+				_ = g.file.MergeCell(sheet, topCell, bottomCell)
+			}
+		}
+	}
+
+	g.applyColumnWidths(sheet, maxColLengths)
+	return nil
+}
+
+func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditReport) error {
+	sheet := "Pipeline Retention"
+	_, err := g.file.NewSheet(sheet)
+	if err != nil {
+		return err
+	}
+
+	headers := []string{
+		"Project ID",
+		"Project Name",
+		"Project State",
+		"Project URL",
+		"Retention Policy",
+		"Retention (Days)",
+		"Stale Pipelines Found",
+		"Oldest Pipeline ID",
+		"Oldest Pipeline Ref",
+		"Oldest Pipeline Created",
+		"Oldest Age (Days)",
+		"Status",
+		"Violation Type",
+		"Details",
+		"Remediation",
+	}
+
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	type projectSpan struct {
+		ProjectID int
+		StartRow  int
+		EndRow    int
+	}
+	var spans []projectSpan
+	var currentSpan *projectSpan
+
+	maxColLengths := make([]int, len(headers))
+	for i, h := range headers {
+		maxColLengths[i] = len(h)
+	}
+
+	row := 2
+	for _, f := range report.PipelineRetentionFindings {
+		if currentSpan == nil || currentSpan.ProjectID != f.ProjectID {
+			if currentSpan != nil {
+				spans = append(spans, *currentSpan)
+			}
+			currentSpan = &projectSpan{
+				ProjectID: f.ProjectID,
+				StartRow:  row,
+				EndRow:    row,
+			}
+		} else {
+			currentSpan.EndRow = row
+		}
+
+		projState := f.ProjectStatus
+		if projState == "" {
+			projState = "Active"
+		}
+
+		policyStr := "Disabled (0s)"
+		if f.HasRetentionConfigured {
+			policyStr = fmt.Sprintf("Configured (%dd / %ds)", f.RetentionDays, f.RetentionSeconds)
+		}
+
+		oldestIDStr := "-"
+		if f.OldestPipelineID > 0 {
+			oldestIDStr = fmt.Sprintf("#%d", f.OldestPipelineID)
+		}
+
+		oldestRefStr := "-"
+		if f.OldestPipelineRef != "" {
+			oldestRefStr = f.OldestPipelineRef
+		}
+
+		oldestCreatedStr := "-"
+		if f.OldestPipelineCreated != "" {
+			oldestCreatedStr = f.OldestPipelineCreated
+		}
+
+		oldestAgeStr := "-"
+		if f.OldestPipelineAgeDays > 0 {
+			oldestAgeStr = fmt.Sprintf("%dd", f.OldestPipelineAgeDays)
+		}
+
+		values := []any{
+			f.ProjectID,
+			f.ProjectName,
+			projState,
+			f.ProjectWebURL,
+			policyStr,
+			f.RetentionDays,
+			f.StalePipelinesCount,
+			oldestIDStr,
+			oldestRefStr,
+			oldestCreatedStr,
+			oldestAgeStr,
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
+			_ = g.file.SetCellValue(sheet, cell, val)
+
+			strVal := fmt.Sprintf("%v", val)
+			for _, line := range strings.Split(strVal, "\n") {
+				if len(line) > maxColLengths[colIdx] {
+					maxColLengths[colIdx] = len(line)
+				}
+			}
+
+			switch colIdx {
+			case 0, 2, 5, 6, 7, 8, 9, 10:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
+			case 3: // URL
+				if f.ProjectWebURL != "" {
+					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
+				} else {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+				}
+			case 11: // Status
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
 			default:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)

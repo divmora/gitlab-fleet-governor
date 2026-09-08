@@ -19,6 +19,7 @@ type State struct {
 	projects          map[int]*gitlab.Project
 	projectByPath     map[string]int // path_with_namespace -> ID
 	pipelineRetention map[int]int    // projectID -> ci_delete_pipelines_in_seconds
+	pipelines         map[int][]*gitlab.PipelineInfo
 	nextProjectID     int
 
 	// Groups: key is group ID
@@ -95,6 +96,7 @@ func (s *State) Reset() {
 	s.projects = make(map[int]*gitlab.Project)
 	s.projectByPath = make(map[string]int)
 	s.pipelineRetention = make(map[int]int)
+	s.pipelines = make(map[int][]*gitlab.PipelineInfo)
 	s.nextProjectID = 1
 
 	s.groups = make(map[int]*gitlab.Group)
@@ -277,6 +279,22 @@ func cloneUser(u *gitlab.User) *gitlab.User {
 	return &cp
 }
 
+func clonePipeline(p *gitlab.PipelineInfo) *gitlab.PipelineInfo {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.CreatedAt != nil {
+		t := *p.CreatedAt
+		cp.CreatedAt = &t
+	}
+	if p.UpdatedAt != nil {
+		t := *p.UpdatedAt
+		cp.UpdatedAt = &t
+	}
+	return &cp
+}
+
 func cloneRunner(r *gitlab.Runner) *gitlab.Runner {
 	if r == nil {
 		return nil
@@ -381,6 +399,37 @@ func (s *State) GetProjectPipelineRetention(projectID int) (int, bool) {
 	defer s.mu.RUnlock()
 	sec, ok := s.pipelineRetention[projectID]
 	return sec, ok
+}
+
+func (s *State) AddPipeline(idOrPath any, p *gitlab.PipelineInfo) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p == nil {
+		return false
+	}
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return false
+	}
+	cp := clonePipeline(p)
+	cp.ProjectID = id
+	s.pipelines[id] = append(s.pipelines[id], cp)
+	return true
+}
+
+func (s *State) ListProjectPipelines(idOrPath any) []*gitlab.PipelineInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil
+	}
+	raw := s.pipelines[id]
+	result := make([]*gitlab.PipelineInfo, len(raw))
+	for i, p := range raw {
+		result[i] = clonePipeline(p)
+	}
+	return result
 }
 
 func (s *State) resolveProjectIDLocked(idOrPath any) (int, bool) {

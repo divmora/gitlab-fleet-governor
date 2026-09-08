@@ -52,7 +52,8 @@ func newAuditCmd() *cobra.Command {
 		Short: "Execute fleet-wide compliance & security audits with multi-sheet Excel and email distribution",
 		Long: `Audit runs read-only, non-mutating compliance inspections across target groups
 and projects. It evaluates user access expiration hygiene, protected branch
-configurations, and protected environment deployment constraints, rendering
+configurations, protected environment deployment constraints, and CI/CD pipeline
+retention policies & unpruned stale pipeline accumulation, rendering
 executive multi-sheet Excel (.xlsx) workbooks, JSON, CSV, Markdown, HTML, or
 terminal tables, with automated SMTP email distribution.`,
 		Example: `  # Audit fleet and display terminal report
@@ -62,7 +63,7 @@ terminal tables, with automated SMTP email distribution.`,
   gitlab-fleet-governor audit -c config.yaml -o audit-report.xlsx --concurrency=20
 
   # Audit specific modules with JSON export
-  gitlab-fleet-governor audit -c config.yaml --modules=user_access,protected_branches --format=json -o audit.json
+  gitlab-fleet-governor audit -c config.yaml --modules=user_access,protected_branches,pipeline_retention --format=json -o audit.json
 
   # Audit fleet and automatically email multi-sheet Excel report via SMTP
   gitlab-fleet-governor audit -c config.yaml -o audit-report.xlsx \
@@ -81,7 +82,7 @@ terminal tables, with automated SMTP email distribution.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&flags.Modules, "modules", strings.Join(audit.AllModuleNames(), ","), "Comma-separated audit modules to execute (user_access, protected_branches, protected_environments)")
+	cmd.Flags().StringVar(&flags.Modules, "modules", strings.Join(audit.AllModuleNames(), ","), "Comma-separated audit modules to execute (user_access, protected_branches, protected_environments, pipeline_retention)")
 	cmd.Flags().StringVar(&flags.Format, "format", "", "Audit report presentation format (xlsx, json, csv, markdown, html, table)")
 	cmd.Flags().StringVarP(&flags.OutputFile, "output-file", "o", "", "Destination file path for the audit report (e.g. audit.xlsx, report.json)")
 	cmd.Flags().IntVar(&flags.Concurrency, "concurrency", 10, "Number of concurrent worker goroutines for fleet audits")

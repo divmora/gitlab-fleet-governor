@@ -20,6 +20,7 @@ type GitLabClient interface {
 	Members() MembersService
 	Users() UsersService
 	ProtectedEnvironments() ProtectedEnvironmentsService
+	Pipelines() PipelinesService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -135,4 +136,9 @@ type UsersService interface {
 	CurrentUser(options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error)
 	ListUsers(opt *gitlab.ListUsersOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.User, *gitlab.Response, error)
 	GetUser(user int, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error)
+}
+
+// PipelinesService abstracts project pipeline queries.
+type PipelinesService interface {
+	ListProjectPipelines(pid any, opt *gitlab.ListProjectPipelinesOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.PipelineInfo, *gitlab.Response, error)
 }

@@ -33,6 +33,7 @@ type Client struct {
 	members               MembersService
 	users                 UsersService
 	protectedEnvironments ProtectedEnvironmentsService
+	pipelines             PipelinesService
 }
 
 // ClientOption defines functional configuration options for Client.
@@ -154,6 +155,11 @@ func WithProtectedEnvironmentsService(s ProtectedEnvironmentsService) ClientOpti
 	return func(c *Client) { c.protectedEnvironments = s }
 }
 
+// WithPipelinesService overrides the default PipelinesService.
+func WithPipelinesService(s PipelinesService) ClientOption {
+	return func(c *Client) { c.pipelines = s }
+}
+
 // NewClient constructs a new GitLabClient wrapper from resolved authentication.
 func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if auth == nil {
@@ -244,6 +250,9 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.protectedEnvironments == nil {
 		c.protectedEnvironments = &defaultProtectedEnvironmentsService{client: rawClient}
 	}
+	if c.pipelines == nil {
+		c.pipelines = &defaultPipelinesService{client: rawClient}
+	}
 
 	return c, nil
 }
@@ -301,6 +310,7 @@ func (c *Client) Webhooks() WebhooksService                           { return c
 func (c *Client) Members() MembersService                             { return c.members }
 func (c *Client) Users() UsersService                                 { return c.users }
 func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c.protectedEnvironments }
+func (c *Client) Pipelines() PipelinesService                         { return c.pipelines }
 func (c *Client) BaseURL() string                                     { return c.baseURL }
 func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
 
@@ -616,4 +626,10 @@ func (s *defaultUsersService) ListUsers(opt *gitlab.ListUsersOptions, options ..
 }
 func (s *defaultUsersService) GetUser(user int, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error) {
 	return s.client.Users.GetUser(user, opt, options...)
+}
+
+type defaultPipelinesService struct{ client *gitlab.Client }
+
+func (s *defaultPipelinesService) ListProjectPipelines(pid any, opt *gitlab.ListProjectPipelinesOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.PipelineInfo, *gitlab.Response, error) {
+	return s.client.Pipelines.ListProjectPipelines(pid, opt, options...)
 }

@@ -27,6 +27,7 @@ const (
 	ModuleUserAccess            ModuleName = "user_access"
 	ModuleProtectedBranches     ModuleName = "protected_branches"
 	ModuleProtectedEnvironments ModuleName = "protected_environments"
+	ModulePipelineRetention     ModuleName = "pipeline_retention"
 )
 
 // AllModuleNames returns the canonical list of supported audit modules.
@@ -35,6 +36,7 @@ func AllModuleNames() []string {
 		string(ModuleUserAccess),
 		string(ModuleProtectedBranches),
 		string(ModuleProtectedEnvironments),
+		string(ModulePipelineRetention),
 	}
 }
 
@@ -118,42 +120,66 @@ type ProtectedEnvironmentFinding struct {
 	Remediation               string   `json:"remediation"`
 }
 
+// PipelineRetentionFinding captures pipeline retention configurations and stale unpruned pipeline audit observations.
+type PipelineRetentionFinding struct {
+	ProjectID              int      `json:"project_id"`
+	ProjectName            string   `json:"project_name"`
+	ProjectPath            string   `json:"project_path"`
+	ProjectWebURL          string   `json:"project_web_url"`
+	ProjectStatus          string   `json:"project_status"` // "Active", "Archived", "Inactive (X days)"
+	RetentionSeconds       int      `json:"retention_seconds"`
+	RetentionDays          int      `json:"retention_days"`
+	HasRetentionConfigured bool     `json:"has_retention_configured"`
+	OldestPipelineID       int      `json:"oldest_pipeline_id,omitempty"`
+	OldestPipelineRef      string   `json:"oldest_pipeline_ref,omitempty"`
+	OldestPipelineStatus   string   `json:"oldest_pipeline_status,omitempty"`
+	OldestPipelineCreated  string   `json:"oldest_pipeline_created,omitempty"`
+	OldestPipelineAgeDays  int      `json:"oldest_pipeline_age_days,omitempty"`
+	StalePipelinesCount    int      `json:"stale_pipelines_count"`
+	Severity               Severity `json:"severity"`
+	ViolationType          string   `json:"violation_type"`
+	Details                string   `json:"details"`
+	Remediation            string   `json:"remediation"`
+}
+
 // SummaryMetrics captures aggregate statistical breakdown of audit findings across the fleet.
 type SummaryMetrics struct {
-	TotalProjectsScanned      int              `json:"total_projects_scanned"`
-	ActiveProjectsCount       int              `json:"active_projects_count"`
-	ArchivedProjectsCount     int              `json:"archived_projects_count"`
-	CompliantProjectsCount    int              `json:"compliant_projects_count"`
-	NonCompliantProjectsCount int              `json:"non_compliant_projects_count"`
-	TotalViolations           int              `json:"total_violations"`
-	CriticalSeverityCount     int              `json:"critical_severity_count"`
-	HighSeverityCount         int              `json:"high_severity_count"`
-	MediumSeverityCount       int              `json:"medium_severity_count"`
-	LowSeverityCount          int              `json:"low_severity_count"`
-	HumanUserViolations       int              `json:"human_user_violations"`
-	BotUserViolations         int              `json:"bot_user_violations"`
-	UserAccessViolations      int              `json:"user_access_violations"`
-	ProtectedBranchViolations int              `json:"protected_branch_violations"`
-	ProtectedEnvViolations    int              `json:"protected_env_violations"`
-	AuditedBy                 string           `json:"audited_by,omitempty"`
-	SeverityBreakdown         map[Severity]int `json:"severity_breakdown"`
-	ModuleViolations          map[string]int   `json:"module_violations"`
+	TotalProjectsScanned        int              `json:"total_projects_scanned"`
+	ActiveProjectsCount         int              `json:"active_projects_count"`
+	ArchivedProjectsCount       int              `json:"archived_projects_count"`
+	CompliantProjectsCount      int              `json:"compliant_projects_count"`
+	NonCompliantProjectsCount   int              `json:"non_compliant_projects_count"`
+	TotalViolations             int              `json:"total_violations"`
+	CriticalSeverityCount       int              `json:"critical_severity_count"`
+	HighSeverityCount           int              `json:"high_severity_count"`
+	MediumSeverityCount         int              `json:"medium_severity_count"`
+	LowSeverityCount            int              `json:"low_severity_count"`
+	HumanUserViolations         int              `json:"human_user_violations"`
+	BotUserViolations           int              `json:"bot_user_violations"`
+	UserAccessViolations        int              `json:"user_access_violations"`
+	ProtectedBranchViolations   int              `json:"protected_branch_violations"`
+	ProtectedEnvViolations      int              `json:"protected_env_violations"`
+	PipelineRetentionViolations int              `json:"pipeline_retention_violations"`
+	AuditedBy                   string           `json:"audited_by,omitempty"`
+	SeverityBreakdown           map[Severity]int `json:"severity_breakdown"`
+	ModuleViolations            map[string]int   `json:"module_violations"`
 }
 
 // AuditReport is the canonical composite audit output model.
 type AuditReport struct {
-	Title                   string                        `json:"title"`
-	GeneratedAt             time.Time                     `json:"generated_at"`
-	Duration                time.Duration                 `json:"duration"`
-	DurationString          string                        `json:"duration_human"`
-	AuthenticatedUser       *UserInfo                     `json:"authenticated_user,omitempty"`
-	ActiveModules           []string                      `json:"active_modules"`
-	Summary                 SummaryMetrics                `json:"summary"`
-	UserAccessFindings      []UserAccessFinding           `json:"user_access_findings,omitempty"`
-	BotAccessFindings       []UserAccessFinding           `json:"bot_access_findings,omitempty"`
-	ProtectedBranchFindings []ProtectedBranchFinding      `json:"protected_branch_findings,omitempty"`
-	ProtectedEnvFindings    []ProtectedEnvironmentFinding `json:"protected_env_findings,omitempty"`
-	UserDirectory           []*UserInfo                   `json:"user_directory,omitempty"`
+	Title                     string                        `json:"title"`
+	GeneratedAt               time.Time                     `json:"generated_at"`
+	Duration                  time.Duration                 `json:"duration"`
+	DurationString            string                        `json:"duration_human"`
+	AuthenticatedUser         *UserInfo                     `json:"authenticated_user,omitempty"`
+	ActiveModules             []string                      `json:"active_modules"`
+	Summary                   SummaryMetrics                `json:"summary"`
+	UserAccessFindings        []UserAccessFinding           `json:"user_access_findings,omitempty"`
+	BotAccessFindings         []UserAccessFinding           `json:"bot_access_findings,omitempty"`
+	ProtectedBranchFindings   []ProtectedBranchFinding      `json:"protected_branch_findings,omitempty"`
+	ProtectedEnvFindings      []ProtectedEnvironmentFinding `json:"protected_env_findings,omitempty"`
+	PipelineRetentionFindings []PipelineRetentionFinding    `json:"pipeline_retention_findings,omitempty"`
+	UserDirectory             []*UserInfo                   `json:"user_directory,omitempty"`
 }
 
 // ComputeSummary recalculates summary metrics based on findings.
@@ -171,6 +197,7 @@ func (r *AuditReport) ComputeSummary() {
 	r.Summary.UserAccessViolations = 0
 	r.Summary.ProtectedBranchViolations = 0
 	r.Summary.ProtectedEnvViolations = 0
+	r.Summary.PipelineRetentionViolations = 0
 
 	nonCompliantProjects := make(map[int]struct{})
 
@@ -256,9 +283,30 @@ func (r *AuditReport) ComputeSummary() {
 		}
 	}
 
+	// Process Pipeline Retention findings
+	for _, f := range r.PipelineRetentionFindings {
+		if f.Severity != SeverityPass && f.Severity != SeverityInfo {
+			r.Summary.TotalViolations++
+			r.Summary.PipelineRetentionViolations++
+			r.Summary.SeverityBreakdown[f.Severity]++
+			nonCompliantProjects[f.ProjectID] = struct{}{}
+			switch f.Severity {
+			case SeverityCritical:
+				r.Summary.CriticalSeverityCount++
+			case SeverityHigh:
+				r.Summary.HighSeverityCount++
+			case SeverityMedium:
+				r.Summary.MediumSeverityCount++
+			case SeverityLow:
+				r.Summary.LowSeverityCount++
+			}
+		}
+	}
+
 	r.Summary.ModuleViolations[string(ModuleUserAccess)] = r.Summary.UserAccessViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedBranches)] = r.Summary.ProtectedBranchViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedEnvironments)] = r.Summary.ProtectedEnvViolations
+	r.Summary.ModuleViolations[string(ModulePipelineRetention)] = r.Summary.PipelineRetentionViolations
 
 	r.Summary.NonCompliantProjectsCount = len(nonCompliantProjects)
 	compliant := r.Summary.TotalProjectsScanned - r.Summary.NonCompliantProjectsCount
@@ -339,6 +387,13 @@ func (r *AuditReport) SortFindings() {
 			return r.ProtectedEnvFindings[i].ProjectPath < r.ProtectedEnvFindings[j].ProjectPath
 		}
 		return r.ProtectedEnvFindings[i].EnvironmentName < r.ProtectedEnvFindings[j].EnvironmentName
+	})
+
+	sort.Slice(r.PipelineRetentionFindings, func(i, j int) bool {
+		if r.PipelineRetentionFindings[i].ProjectPath != r.PipelineRetentionFindings[j].ProjectPath {
+			return r.PipelineRetentionFindings[i].ProjectPath < r.PipelineRetentionFindings[j].ProjectPath
+		}
+		return r.PipelineRetentionFindings[i].OldestPipelineID < r.PipelineRetentionFindings[j].OldestPipelineID
 	})
 
 	sort.Slice(r.UserDirectory, func(i, j int) bool {

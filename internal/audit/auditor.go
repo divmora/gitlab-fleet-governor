@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -34,6 +35,11 @@ type ProtectedEnvironmentsModuleAuditor interface {
 	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject) ([]ProtectedEnvironmentFinding, error)
 }
 
+// PipelineRetentionModuleAuditor defines project audit for pipeline retention policies.
+type PipelineRetentionModuleAuditor interface {
+	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject) ([]PipelineRetentionFinding, error)
+}
+
 // Auditor coordinates fleet discovery and parallel module audits.
 type Auditor struct {
 	client        gl.GitLabClient
@@ -42,9 +48,10 @@ type Auditor struct {
 	activeModules map[string]bool
 	classifier    *BotClassifier
 
-	userAccessAuditor  UserAccessModuleAuditor
-	protectedBranchAud ProtectedBranchesModuleAuditor
-	protectedEnvAud    ProtectedEnvironmentsModuleAuditor
+	userAccessAuditor    UserAccessModuleAuditor
+	protectedBranchAud   ProtectedBranchesModuleAuditor
+	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
+	pipelineRetentionAud PipelineRetentionModuleAuditor
 }
 
 // AuditorOption provides functional configuration for Auditor.
@@ -97,6 +104,7 @@ func WithAuditorSubModules(
 	userAccess UserAccessModuleAuditor,
 	protectedBranches ProtectedBranchesModuleAuditor,
 	protectedEnvironments ProtectedEnvironmentsModuleAuditor,
+	pipelineRetention ...PipelineRetentionModuleAuditor,
 ) AuditorOption {
 	return func(a *Auditor) {
 		if userAccess != nil {
@@ -107,6 +115,18 @@ func WithAuditorSubModules(
 		}
 		if protectedEnvironments != nil {
 			a.protectedEnvAud = protectedEnvironments
+		}
+		if len(pipelineRetention) > 0 && pipelineRetention[0] != nil {
+			a.pipelineRetentionAud = pipelineRetention[0]
+		}
+	}
+}
+
+// WithPipelineRetentionAuditor allows injecting a custom pipeline retention auditor.
+func WithPipelineRetentionAuditor(aud PipelineRetentionModuleAuditor) AuditorOption {
+	return func(a *Auditor) {
+		if aud != nil {
+			a.pipelineRetentionAud = aud
 		}
 	}
 }
@@ -156,6 +176,10 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 		a.protectedEnvAud = NewProtectedEnvironmentsAuditor(reg)
 	} else if setter, ok := a.protectedEnvAud.(interface{ SetUserRegistry(*UserRegistry) }); ok {
 		setter.SetUserRegistry(reg)
+	}
+
+	if a.pipelineRetentionAud == nil {
+		a.pipelineRetentionAud = NewPipelineRetentionAuditor()
 	}
 
 	return a, nil
@@ -245,10 +269,11 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			ArchivedProjectsCount: archivedCount,
 			AuditedBy:             auditedBy,
 		},
-		UserAccessFindings:      make([]UserAccessFinding, 0),
-		BotAccessFindings:       make([]UserAccessFinding, 0),
-		ProtectedBranchFindings: make([]ProtectedBranchFinding, 0),
-		ProtectedEnvFindings:    make([]ProtectedEnvironmentFinding, 0),
+		UserAccessFindings:        make([]UserAccessFinding, 0),
+		BotAccessFindings:         make([]UserAccessFinding, 0),
+		ProtectedBranchFindings:   make([]ProtectedBranchFinding, 0),
+		ProtectedEnvFindings:      make([]ProtectedEnvironmentFinding, 0),
+		PipelineRetentionFindings: make([]PipelineRetentionFinding, 0),
 	}
 
 	// Register user registry on modules
@@ -282,13 +307,12 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			uFindings, bFindings, eFindings, err := a.auditSingleProject(ctx, p)
+			uFindings, bFindings, eFindings, rFindings, err := a.auditSingleProject(ctx, p)
 			if err != nil {
-				slog.Warn("Failed to audit project", "project", p.PathWithNamespace, "error", err)
+				slog.Warn("Encountered warning or error auditing project", "project", p.PathWithNamespace, "error", err)
 				mu.Lock()
 				auditErrors = append(auditErrors, fmt.Errorf("project %s: %w", p.PathWithNamespace, err))
 				mu.Unlock()
-				return
 			}
 
 			mu.Lock()
@@ -304,6 +328,9 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			}
 			if len(eFindings) > 0 {
 				report.ProtectedEnvFindings = append(report.ProtectedEnvFindings, eFindings...)
+			}
+			if len(rFindings) > 0 {
+				report.PipelineRetentionFindings = append(report.PipelineRetentionFindings, rFindings...)
 			}
 			mu.Unlock()
 		}(proj)
@@ -337,40 +364,60 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 	[]UserAccessFinding,
 	[]ProtectedBranchFinding,
 	[]ProtectedEnvironmentFinding,
+	[]PipelineRetentionFinding,
 	error,
 ) {
 	var uFindings []UserAccessFinding
 	var bFindings []ProtectedBranchFinding
 	var eFindings []ProtectedEnvironmentFinding
+	var rFindings []PipelineRetentionFinding
+	var errs []error
 
 	// User Access Module
 	if a.isModuleActive(string(ModuleUserAccess)) && a.userAccessAuditor != nil {
 		findings, err := a.userAccessAuditor.AuditProject(ctx, a.client, p)
 		if err != nil {
-			return nil, nil, nil, err
+			errs = append(errs, fmt.Errorf("user_access: %w", err))
+		} else {
+			uFindings = findings
 		}
-		uFindings = findings
 	}
 
 	// Protected Branches Module
 	if a.isModuleActive(string(ModuleProtectedBranches)) && a.protectedBranchAud != nil {
 		findings, err := a.protectedBranchAud.AuditProject(ctx, a.client, p)
 		if err != nil {
-			return nil, nil, nil, err
+			errs = append(errs, fmt.Errorf("protected_branches: %w", err))
+		} else {
+			bFindings = findings
 		}
-		bFindings = findings
 	}
 
 	// Protected Environments Module
 	if a.isModuleActive(string(ModuleProtectedEnvironments)) && a.protectedEnvAud != nil {
 		findings, err := a.protectedEnvAud.AuditProject(ctx, a.client, p)
 		if err != nil {
-			return nil, nil, nil, err
+			errs = append(errs, fmt.Errorf("protected_environments: %w", err))
+		} else {
+			eFindings = findings
 		}
-		eFindings = findings
 	}
 
-	return uFindings, bFindings, eFindings, nil
+	// Pipeline Retention Module
+	if a.isModuleActive(string(ModulePipelineRetention)) && a.pipelineRetentionAud != nil {
+		findings, err := a.pipelineRetentionAud.AuditProject(ctx, a.client, p)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("pipeline_retention: %w", err))
+		} else {
+			rFindings = findings
+		}
+	}
+
+	var combinedErr error
+	if len(errs) > 0 {
+		combinedErr = errors.Join(errs...)
+	}
+	return uFindings, bFindings, eFindings, rFindings, combinedErr
 }
 
 func (a *Auditor) isModuleActive(mod string) bool {
