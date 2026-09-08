@@ -37,6 +37,9 @@ type State struct {
 	// Protected Branches: projectID -> branchName -> *gitlab.ProtectedBranch
 	protectedBranches map[int]map[string]*gitlab.ProtectedBranch
 
+	// Protected Environments: projectID -> envName -> *gitlab.ProtectedEnvironment
+	protectedEnvironments map[int]map[string]*gitlab.ProtectedEnvironment
+
 	// Merge Request Approvals
 	projectApprovals     map[int]*gitlab.ProjectApprovals
 	projectApprovalRules map[int]map[int]*gitlab.ProjectApprovalRule // projectID -> ruleID -> rule
@@ -105,6 +108,7 @@ func (s *State) Reset() {
 	s.groupPushRules = make(map[int]*gitlab.GroupPushRules)
 
 	s.protectedBranches = make(map[int]map[string]*gitlab.ProtectedBranch)
+	s.protectedEnvironments = make(map[int]map[string]*gitlab.ProtectedEnvironment)
 	s.projectApprovals = make(map[int]*gitlab.ProjectApprovals)
 	s.projectApprovalRules = make(map[int]map[int]*gitlab.ProjectApprovalRule)
 	s.nextApprovalRuleID = 1
@@ -643,6 +647,56 @@ func (s *State) GetProtectedBranch(idOrPath any, branch string) (*gitlab.Protect
 		return nil, false
 	}
 	return cloneProtectedBranch(b), true
+}
+
+// ----------------------------------------------------------------------------
+// Protected Environments Operations
+// ----------------------------------------------------------------------------
+
+func (s *State) ListProtectedEnvironments(idOrPath any) []*gitlab.ProtectedEnvironment {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil
+	}
+	envs := s.protectedEnvironments[id]
+	res := make([]*gitlab.ProtectedEnvironment, 0, len(envs))
+	for _, env := range envs {
+		res = append(res, env)
+	}
+	return res
+}
+
+func (s *State) ProtectEnvironment(idOrPath any, pe *gitlab.ProtectedEnvironment) (*gitlab.ProtectedEnvironment, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.protectedEnvironments[id] == nil {
+		s.protectedEnvironments[id] = make(map[string]*gitlab.ProtectedEnvironment)
+	}
+	s.protectedEnvironments[id][pe.Name] = pe
+	return pe, true
+}
+
+func (s *State) GetProtectedEnvironment(idOrPath any, envName string) (*gitlab.ProtectedEnvironment, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.protectedEnvironments[id] == nil {
+		return nil, false
+	}
+	pe, found := s.protectedEnvironments[id][envName]
+	if !found {
+		return nil, false
+	}
+	return pe, true
 }
 
 // ----------------------------------------------------------------------------

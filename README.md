@@ -55,6 +55,8 @@ Managing security baselines, branch protections, push rules, and compliance stan
   9. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
   10. **Member & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
 - ⚡ **High Resilience & Concurrency**: Bounded worker pool, token-bucket rate limiting, reactive 429 backoff with full jitter, keyset streaming pagination.
+- 🔍 **Fleet-Wide Compliance & Security Auditing**: Dedicated non-mutating `audit` command inspecting user access expiration hygiene, protected branch security posture, and protected environment deployment approval gates.
+- 📑 **Multi-Sheet Excel (.xlsx) & Headless SMTP Dispatch**: Generates executive workbooks with auto-filtered sheets, contiguous row merging, and semantic color badges, with optional direct TLS / STARTTLS email delivery.
 - ☁️ **Dual Runtime & AWS Lambda**: Auto-detects `AWS_LAMBDA_FUNCTION_NAME` and handles EventBridge cron, S3 Put Object, and direct JSON events.
 - 📊 **Multi-Format Summary Reports**: ASCII terminal tables, structured JSON, CSV, and Markdown audit reports.
 
@@ -120,6 +122,25 @@ gitlab-fleet-governor run -c policies/enterprise.yaml --dry-run=false
 
 # Output Markdown report to file
 gitlab-fleet-governor run -c policies/enterprise.yaml --report-format markdown --output-file report.md
+```
+
+#### `audit`
+Executes read-only fleet compliance and security audits with multi-sheet Excel reports and optional email distribution:
+```bash
+# Terminal summary audit
+gitlab-fleet-governor audit -c policies/enterprise.yaml
+
+# Generate an executive multi-sheet Excel workbook (.xlsx)
+gitlab-fleet-governor audit -c policies/enterprise.yaml -o fleet-audit.xlsx --concurrency=20
+
+# Run specific modules and export to structured JSON
+gitlab-fleet-governor audit -c policies/enterprise.yaml --modules=user_access,protected_branches --format=json -o audit.json
+
+# Audit fleet and automatically email the .xlsx report via SMTP
+gitlab-fleet-governor audit -c policies/enterprise.yaml -o fleet-audit.xlsx \
+  --smtp-host=smtp.mailgun.org --smtp-port=587 \
+  --smtp-username=postmaster@example.com --smtp-password=secret \
+  --smtp-from=security@example.com --smtp-to=compliance-team@example.com
 ```
 
 #### `validate`

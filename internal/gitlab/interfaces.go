@@ -19,6 +19,7 @@ type GitLabClient interface {
 	Webhooks() WebhooksService
 	Members() MembersService
 	Users() UsersService
+	ProtectedEnvironments() ProtectedEnvironmentsService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -49,6 +50,12 @@ type ProtectedBranchesService interface {
 	ProtectRepositoryBranches(pid any, opt *gitlab.ProtectRepositoryBranchesOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
 	UnprotectRepositoryBranches(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 	UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
+}
+
+// ProtectedEnvironmentsService abstracts project protected environments.
+type ProtectedEnvironmentsService interface {
+	ListProtectedEnvironments(pid any, opt *gitlab.ListProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedEnvironment, *gitlab.Response, error)
+	GetProtectedEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
 }
 
 // PushRulesService abstracts project-level and group-level push rules.

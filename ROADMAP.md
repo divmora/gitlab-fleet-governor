@@ -82,27 +82,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 
 ## 5. Compliance, Audit Trails & Standards
 
-- [ ] **Fleet-Wide Compliance & Security Audit Command (`gitlab-fleet-governor audit`)**
-  - Add a dedicated `audit` CLI subcommand (`internal/cli/audit.go`) providing read-only, non-mutating compliance auditing and multi-sheet reporting across enterprise GitLab fleets.
-  - **Audit Modules & Security Evaluation**:
-    - **User Access & Expiration Auditor (`user_access`)**: Traverse direct and inherited group/project memberships (`/projects/:id/members/all`), map access levels (Guest through Owner), and flag security risks such as non-owner members with indefinite access (missing expiration dates flagged as high-risk anomalies).
-    - **Protected Branches Compliance Auditor (`protected_branches`)**: Inspect branch protection configurations across all fleet repositories; segregate role-based permissions (Maintainers) from individual user grants; flag direct user push access, unrestricted push permissions, enabled force pushes (`allow_force_push = true`), and absent Code Owner approval requirements (`code_owner_approval_required = false`).
-    - **Protected Environments & Deployment Access Auditor (`protected_environments`)**: Inspect deployment targets (`/projects/:id/protected_environments`), auditing deploy access levels to identify authorized roles versus direct user/group grants and flagging unconstrained production deployment tiers.
-  - **Native Go Excel (`.xlsx`) & Multi-Format Reporting Engine**:
-    - Implement a pure Go spreadsheet generator (using `github.com/xuri/excelize/v2`) generating formatted, multi-sheet workbooks (`User Access`, `Protected Branch Access`, `Protected Environments Access`) without external runtime dependencies.
-    - Professional styling: dynamic column width calculation with padding for multi-line values, text-wrapped and vertically/horizontally centered cells, and thin cell borders.
-    - Visual hierarchy: automatic merging of contiguous duplicate project metadata rows (Project ID, Project Name, Project URL) and blue clickable hyperlinks for GitLab project URLs.
-    - Semantic conditional formatting: red highlights for high-risk policy violations (indefinite non-owner access, force push enabled, direct user push access, missing code owner approvals) and green highlights for enforced controls.
-    - Support additional export formats (`json`, `csv`, `markdown`, `html`).
-  - **Automated Distribution via Native Universal SMTP**:
-    - Built-in headless email dispatcher utilizing Go's standard library SMTP (`net/smtp`) with TLS/STARTTLS support and standard authentication (PLAIN/LOGIN).
-    - Universal compatibility without vendor SDK lock-in: users can route audit reports through any SMTP provider (AWS SES SMTP endpoints, SendGrid, Mailgun, Postmark, Google Workspace, Microsoft 365, or private on-premise mail relays).
-    - MIME multipart email formatting featuring structured HTML/plain-text summary bodies and automatic `.xlsx` attachment handling.
-    - Dynamic group-based recipient routing to dispatch localized audit reports directly to designated group owners, project leads, or compliance teams based on numeric group IDs or namespace hierarchy.
-  - **High-Performance Fleet Traversal**:
-    - Reuses the core BFS discovery engine with cycle detection, keyset pagination, and bounded-concurrency worker pools (`--concurrency=N`).
-    - Integrates with the existing token-bucket proactive rate limiter (`rate_limit_rps`, `rate_limit_burst`) and jittered exponential backoff to audit thousands of fleet repositories without triggering GitLab API 429 throttling.
-
 - [ ] **SARIF & CycloneDX Compliance Export**
   - Add `--report-format sarif` to output non-compliance findings (e.g., over-privileged maintainers, missing branch protections, unmasked secrets) in OASIS SARIF format for ingestion into GitLab Security Dashboards and GitHub Advanced Security.
 

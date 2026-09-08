@@ -10,7 +10,7 @@ GitLab Fleet Governor is a high-performance Go-based policy engine engineered to
 - [Getting Started](https://divmora.github.io/gitlab-fleet-governor/getting-started/): Installation via Homebrew, Docker, binaries, and basic CLI usage.
 - [Policy Studio (Interactive Playground)](https://divmora.github.io/gitlab-fleet-governor/playground/): Visual policy builder, validator, and template generator.
 - [Configuration Reference](https://divmora.github.io/gitlab-fleet-governor/configuration/): Complete YAML and JSON schema specification with environment variable expansion.
-- [Operations Suite](https://divmora.github.io/gitlab-fleet-governor/operations/): Deep dive into all 10 governance reconcilers (Push Rules, Protected Branches, Approval Rules, Settings, Retention, Variables, Runners, Compliance, Webhooks, Members).
+- [Operations Suite](https://divmora.github.io/gitlab-fleet-governor/operations/): Deep dive into all 10 governance reconcilers and the Fleet Compliance & Security Audit Suite (User Access, Protected Branches, Protected Environments, Multi-Sheet Excel, Headless SMTP).
 - [AWS Lambda & Serverless](https://divmora.github.io/gitlab-fleet-governor/lambda/): EventBridge scheduled triggers, S3 event dispatch, and serverless execution.
 - [CI/CD Pipelines](https://divmora.github.io/gitlab-fleet-governor/ci-cd/): GitLab CI and GitHub Actions automation recipes.
 - [Architecture](https://divmora.github.io/gitlab-fleet-governor/architecture/): Multi-agent role topology, graph traversal, concurrency semaphores, and rate-limiting protocols.

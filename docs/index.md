@@ -29,6 +29,8 @@
 - **Resilient API Engine**: Built on `gitlab.com/gitlab-org/api/client-go` with proactive token-bucket rate limiting (RPS/burst), reactive exponential backoff with full jitter for HTTP 429/5xx, and transparent keyset (`id_after`) streaming pagination.
 - **Dual Runtime Architecture**: Runs seamlessly as a local/CI CLI binary, a multi-arch container (`ghcr.io/divmora/gitlab-fleet-governor`), or an AWS Lambda function with runtime auto-detection.
 - **Safety by Default**: Simulates changes via `--dry-run` (default: `true`), producing granular attribute-level diffs ($S_D \ominus S_L$) before applying mutations.
+- **Fleet-Wide Compliance & Security Auditing**: Non-mutating `audit` command inspecting user access expiration hygiene, protected branch security posture, and protected environment deployment gates.
+- **Multi-Sheet Excel (.xlsx) & Headless SMTP Dispatch**: Generates executive workbooks with contiguous merged rows and semantic badges, plus automated TLS/STARTTLS email delivery.
 - **Rich Multi-Format Reporting**: Outputs colored ASCII terminal tables, structured JSON, CSV, and Markdown audit summaries.
 
 ---
@@ -60,7 +62,7 @@ flowchart TD
 
 - [Getting Started](getting-started.md): Installation, authentication, and running your first simulation.
 - [Configuration Guide](configuration.md): Complete reference for policy YAML/JSON schemas.
-- [Operations Guide](operations.md): In-depth mechanics of all 10 governance reconcilers.
+- [Operations Guide](operations.md): In-depth mechanics of all 10 governance reconcilers and the Security Audit Suite.
 - [AWS Lambda Deployment](lambda.md): Serverless cron and event-driven automation.
 - [CI/CD Integration](ci-cd.md): Automated governance in GitLab CI and GitHub Actions.
 - [Architecture Details](architecture.md): Internal concurrency, rate limiting, and design principles.

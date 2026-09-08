@@ -16,22 +16,23 @@ import (
 // Client is the concrete high-level GitLab governance client implementation
 // wrapping *gitlab.Client and providing mockable service implementations.
 type Client struct {
-	raw               *gitlab.Client
-	baseURL           string
-	auth              *ResolvedAuth
-	httpClient        *http.Client
-	transportConfig   *GovernorTransportConfig
-	projects          ProjectsService
-	groups            GroupsService
-	protectedBranches ProtectedBranchesService
-	pushRules         PushRulesService
-	approvalRules     ApprovalRulesService
-	variables         VariablesService
-	runners           RunnersService
-	compliance        ComplianceService
-	webhooks          WebhooksService
-	members           MembersService
-	users             UsersService
+	raw                   *gitlab.Client
+	baseURL               string
+	auth                  *ResolvedAuth
+	httpClient            *http.Client
+	transportConfig       *GovernorTransportConfig
+	projects              ProjectsService
+	groups                GroupsService
+	protectedBranches     ProtectedBranchesService
+	pushRules             PushRulesService
+	approvalRules         ApprovalRulesService
+	variables             VariablesService
+	runners               RunnersService
+	compliance            ComplianceService
+	webhooks              WebhooksService
+	members               MembersService
+	users                 UsersService
+	protectedEnvironments ProtectedEnvironmentsService
 }
 
 // ClientOption defines functional configuration options for Client.
@@ -148,6 +149,11 @@ func WithUsersService(s UsersService) ClientOption {
 	return func(c *Client) { c.users = s }
 }
 
+// WithProtectedEnvironmentsService overrides the default ProtectedEnvironmentsService.
+func WithProtectedEnvironmentsService(s ProtectedEnvironmentsService) ClientOption {
+	return func(c *Client) { c.protectedEnvironments = s }
+}
+
 // NewClient constructs a new GitLabClient wrapper from resolved authentication.
 func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if auth == nil {
@@ -235,6 +241,9 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.users == nil {
 		c.users = &defaultUsersService{client: rawClient}
 	}
+	if c.protectedEnvironments == nil {
+		c.protectedEnvironments = &defaultProtectedEnvironmentsService{client: rawClient}
+	}
 
 	return c, nil
 }
@@ -280,19 +289,20 @@ func NewClientFromConfig(cfg *config.GitLabSettingsConfig, lookup ...EnvLookupFu
 
 // Accessor methods implementing GitLabClient interface:
 
-func (c *Client) Projects() ProjectsService                   { return c.projects }
-func (c *Client) Groups() GroupsService                       { return c.groups }
-func (c *Client) ProtectedBranches() ProtectedBranchesService { return c.protectedBranches }
-func (c *Client) PushRules() PushRulesService                 { return c.pushRules }
-func (c *Client) ApprovalRules() ApprovalRulesService         { return c.approvalRules }
-func (c *Client) Variables() VariablesService                 { return c.variables }
-func (c *Client) Runners() RunnersService                     { return c.runners }
-func (c *Client) Compliance() ComplianceService               { return c.compliance }
-func (c *Client) Webhooks() WebhooksService                   { return c.webhooks }
-func (c *Client) Members() MembersService                     { return c.members }
-func (c *Client) Users() UsersService                         { return c.users }
-func (c *Client) BaseURL() string                             { return c.baseURL }
-func (c *Client) RawClient() *gitlab.Client                   { return c.raw }
+func (c *Client) Projects() ProjectsService                           { return c.projects }
+func (c *Client) Groups() GroupsService                               { return c.groups }
+func (c *Client) ProtectedBranches() ProtectedBranchesService         { return c.protectedBranches }
+func (c *Client) PushRules() PushRulesService                         { return c.pushRules }
+func (c *Client) ApprovalRules() ApprovalRulesService                 { return c.approvalRules }
+func (c *Client) Variables() VariablesService                         { return c.variables }
+func (c *Client) Runners() RunnersService                             { return c.runners }
+func (c *Client) Compliance() ComplianceService                       { return c.compliance }
+func (c *Client) Webhooks() WebhooksService                           { return c.webhooks }
+func (c *Client) Members() MembersService                             { return c.members }
+func (c *Client) Users() UsersService                                 { return c.users }
+func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c.protectedEnvironments }
+func (c *Client) BaseURL() string                                     { return c.baseURL }
+func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
 
 // ----------------------------------------------------------------------------
 // Default Concrete SDK Service Adapters
@@ -359,6 +369,16 @@ func (s *defaultProtectedBranchesService) UnprotectRepositoryBranches(pid any, b
 }
 func (s *defaultProtectedBranchesService) UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error) {
 	return s.client.ProtectedBranches.UpdateProtectedBranch(pid, branch, opt, options...)
+}
+
+type defaultProtectedEnvironmentsService struct{ client *gitlab.Client }
+
+func (s *defaultProtectedEnvironmentsService) ListProtectedEnvironments(pid any, opt *gitlab.ListProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedEnvironment, *gitlab.Response, error) {
+	return s.client.ProtectedEnvironments.ListProtectedEnvironments(pid, opt, options...)
+}
+
+func (s *defaultProtectedEnvironmentsService) GetProtectedEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error) {
+	return s.client.ProtectedEnvironments.GetProtectedEnvironment(pid, environment, options...)
 }
 
 type defaultPushRulesService struct{ client *gitlab.Client }

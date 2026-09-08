@@ -91,6 +91,7 @@ and pipeline retention across fleets of GitLab projects and groups.`,
 
 	// Register subcommands
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newAuditCmd())
 	rootCmd.AddCommand(newValidateCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLambdaCmd())

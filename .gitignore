@@ -50,6 +50,9 @@ drift-report.md
 report.md
 report.json
 report.csv
+*.xlsx
+audit-report.*
+fleet-audit.*
 
 # Agent configuration
 .agents/

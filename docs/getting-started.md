@@ -142,6 +142,29 @@ gitlab-fleet-governor run -c governance.yaml --dry-run=false
 
 ---
 
+## Running Fleet Security & Compliance Audits
+
+Before or alongside policy reconciliation, you can execute comprehensive, read-only compliance inspections using the `audit` command. It evaluates member expiration hygiene, protected branch security, and protected environment deployment gates across your targeted groups and projects:
+
+```bash
+# Terminal summary table
+gitlab-fleet-governor audit -c governance.yaml
+
+# Generate an executive multi-sheet Excel report (.xlsx)
+gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx --concurrency=20
+
+# Run specific audit modules and export to JSON
+gitlab-fleet-governor audit -c governance.yaml --modules=user_access,protected_branches --format=json -o audit.json
+
+# Dispatch report via email to security & compliance teams
+gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx \
+  --smtp-host=smtp.example.com --smtp-port=587 \
+  --smtp-username=notifier@example.com --smtp-password=secret \
+  --smtp-from=governance@example.com --smtp-to=security-audit@example.com
+```
+
+---
+
 ## Next Steps
 
 - Explore [Configuration Reference](configuration.md) for full YAML/JSON schema details.

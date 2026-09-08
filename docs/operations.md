@@ -64,3 +64,64 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Over-Privileged Detection**: Identifies and reports users whose role exceeds `max_access_level` (e.g. unexpected Maintainer/Owner grants).
 - **Expiration Date Enforcement**: Verifies that every direct project member has an `expires_at` date configured within `max_expiration_days`.
 - **Inherited Maintainer Deduplication**: Identifies redundant direct project permissions where group inheritance already provides sufficient access.
+
+---
+
+## Fleet Compliance & Security Audit Suite
+
+In addition to the 10 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
+
+```bash
+gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx
+```
+
+### Audit Modules
+
+The audit framework executes read-only inspections in parallel across all targeted groups and projects, classifying findings into standardized severity levels: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, and `PASS`.
+
+#### 1. User Access Expiration Hygiene (`user_access`)
+- **Indefinite Expiration Anomaly Detection**: Audits direct project members to ensure access expiration dates (`expires_at`) are strictly enforced.
+  - **Maintainers / Admins** without expiration: `CRITICAL` finding.
+  - **Developers / Reporters** without expiration: `HIGH` finding.
+  - **Guests** without expiration: `MEDIUM` finding.
+  - Members with configured expiration: `PASS`.
+
+#### 2. Protected Branch Security Posture (`protected_branches`)
+- **Branch Protection Gaps**: Evaluates default branches and all branch protection rules:
+  - **Unprotected Default Branch**: `CRITICAL` finding if the project's default branch has no branch protection configured.
+  - **Force Push Allowed**: `HIGH` finding if branch protection permits force pushes (`allow_force_push: true`).
+  - **Code Owner Review Disabled**: `MEDIUM` finding if `code_owner_approval_required` is `false`.
+  - **Direct User Push Grants**: `MEDIUM` finding if individual users are granted direct push access instead of role-based group tiers.
+
+#### 3. Protected Environments Deployment Gates (`protected_environments`)
+- **Production Environment Hardening**: Inspects protected environments (matching `*prod*` / `production`):
+  - **Zero Approval Gate**: `CRITICAL` finding if a production environment has `required_approval_count: 0`.
+  - **Direct User Deploy Grants**: `MEDIUM` finding if individual users are granted direct deploy access without role-based access tiers.
+
+---
+
+## Executive Report Generation & Distribution
+
+### Multi-Sheet Excel Workbooks (`.xlsx`)
+When exported to `.xlsx` (default when `-o file.xlsx` is specified), GitLab Fleet Governor uses `excelize` to produce an executive workbook containing four distinct sheets:
+1. **Executive Summary**: KPI metrics cards (Projects Scanned, Total Findings, Critical, High, Medium, Low, Passing Counts), overall compliance health score badge, and module breakdown tables.
+2. **User Access**: Detailed direct membership audit with Project ID, Project Name, Project URL, Username, Role, Expiration Status, and Severity Badges. Contiguous rows for the same project are visually merged with clickable GitLab hyperlinks.
+3. **Protected Branch Access**: Branch names, push access levels, merge access levels, force push status, code owner requirement, and severity findings.
+4. **Protected Environments Access**: Environment names, deploy access tiers, approval thresholds, direct user deploy permissions, and findings.
+
+### Multi-Format Exporters
+Reports can be exported to multiple formats via `--format` or file extension detection:
+- `--format xlsx`: Formatted workbook with auto-filter headers, alternating rows, and column auto-sizing.
+- `--format json`: Machine-parseable JSON containing all findings and summary metrics.
+- `--format csv`: Tabular CSV output for spreadsheets and SIEM pipelines.
+- `--format markdown`: GitHub-flavored Markdown table with severity badges.
+- `--format html`: Standalone HTML report with responsive styling and metric cards.
+- `--format table`: Colored terminal table.
+
+### Headless SMTP Email Dispatcher
+Audit reports can be dispatched automatically to compliance officers, auditors, or distribution lists:
+- **Transport Security**: Direct TLS (port 465) or STARTTLS (port 587/25) with automatic fallback.
+- **Authentication**: Supports standard `PLAIN` and `LOGIN` authentication mechanisms.
+- **Attachment Packaging**: Generates and attaches the formatted `.xlsx` workbook to a rich multipart MIME message (HTML body + plain text alternative).
+- **Automation CLI**: Configurable via flags (`--smtp-host`, `--smtp-to`, etc.) or standard environment variables (`SMTP_HOST`, `SMTP_PASSWORD`, `SMTP_TO`).
+

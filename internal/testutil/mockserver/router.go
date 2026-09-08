@@ -127,6 +127,12 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 			branchName, _ = url.PathUnescape(strings.Join(parts[2:], "/"))
 		}
 		rt.handleProjectProtectedBranches(w, r, unescapedID, branchName)
+	case "protected_environments":
+		envName := ""
+		if len(parts) > 2 {
+			envName, _ = url.PathUnescape(strings.Join(parts[2:], "/"))
+		}
+		rt.handleProjectProtectedEnvironments(w, r, unescapedID, envName)
 	case "approvals":
 		rt.handleProjectApprovals(w, r, unescapedID)
 	case "approval_rules":
@@ -421,6 +427,43 @@ func (rt *Router) handleProjectProtectedBranches(w http.ResponseWriter, r *http.
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
+}
+
+func (rt *Router) handleProjectProtectedEnvironments(w http.ResponseWriter, r *http.Request, idOrPath, envName string) {
+	if envName == "" {
+		switch r.Method {
+		case http.MethodGet:
+			envs := rt.state.ListProtectedEnvironments(idOrPath)
+			rt.paginate(w, r, len(envs), func(i int) any { return envs[i] })
+		case http.MethodPost:
+			var pe gitlab.ProtectedEnvironment
+			if err := json.NewDecoder(r.Body).Decode(&pe); err != nil {
+				http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+				return
+			}
+			saved, ok := rt.state.ProtectEnvironment(idOrPath, &pe)
+			if !ok {
+				http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(saved)
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		pe, found := rt.state.GetProtectedEnvironment(idOrPath, envName)
+		if !found {
+			http.Error(w, `{"message":"404 Protected Environment Not Found"}`, http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(pe)
+		return
+	}
+	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 }
 
 func (rt *Router) handleProjectApprovals(w http.ResponseWriter, r *http.Request, idOrPath string) {

@@ -127,6 +127,7 @@ For automated periodic runs on AWS Lambda:
 | Syntax Check | `gitlab-fleet-governor validate -c policy.yaml --json` | `0` = Valid, `1` = Invalid / Error |
 | Dry Run Diff | `gitlab-fleet-governor run -c policy.yaml --dry-run --report-format json` | `0` = Success, `1` = Error |
 | Enforce Policy | `gitlab-fleet-governor run -c policy.yaml --dry-run=false --report-format json` | `0` = Success, `1` = Partial/Total Error |
+| Compliance Audit | `gitlab-fleet-governor audit -c policy.yaml --format json -o audit.json` | `0` = Success, `1` = Error |
 | Version Check | `gitlab-fleet-governor version --json` | `0` = Success |
 
 ### Structured Log Parsing
@@ -143,7 +144,8 @@ When running in automated environments, set `--log-format json` to stream newlin
 ```
 cmd/gitlab-fleet-governor/  # Dual-mode CLI and AWS Lambda entrypoint
 internal/
-  cli/                      # Cobra subcommands (run, validate, lambda, version)
+  audit/                    # Compliance & security audit engine, Excelize multi-sheet report generator, headless SMTP dispatcher
+  cli/                      # Cobra subcommands (run, audit, validate, lambda, version)
   config/                   # YAML/JSON policy parsing, envsubst substitution, schema validation
   discovery/                # Group BFS hierarchy traversal with cycle detection & project filtering
   engine/                   # Parallel worker pool reconciler & diff calculation engine
