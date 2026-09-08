@@ -43,6 +43,13 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
   - Automatically detect inactive, abandoned, or stale repositories based on configurable inactivity thresholds (e.g., no commits or pipeline runs for >180 days).
   - Declaratively enforce lifecycle transition actions: apply archived flags, mark project as read-only, transfer into an `archive/` namespace, or dispatch review notifications to repository owners.
 
+- [ ] **Stale & Merged / Unmerged Branch Lifecycle & Pruning Reconciler (`branch_pruning`)**
+  - Declaratively scan, audit, and clean up abandoned and stale Git branches across fleet repositories.
+  - Supports configurable inactivity age thresholds (e.g., `older_than_days: 30`, `older_than_days: 90`).
+  - Differentiates between merged branches (`merged: true`) and unmerged branches (`unmerged: true`) with independent retention policies and safety thresholds.
+  - Built-in safety rails: strictly exempts protected branches (`protected: true`), default branches (`main`/`master`), active release patterns, and branches associated with open Merge Requests.
+  - Supports dry-run simulation reporting and configurable lifecycle actions (audit warning, automated deletion via `DELETE /projects/:id/repository/branches/:branch`, or tag archiving prior to deletion).
+
 ---
 
 ## 2. Performance, Discovery & Fleet Onboarding
