@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.3.0...v0.4.0) (2026-09-09)
+
+
+### Features
+
+* add configurable greeting to audit SMTP email report ([67893b3](https://github.com/divmora/gitlab-fleet-governor/commit/67893b3777aadc4eca174d5a1446d6a46480d04f))
+* **audit:** add pipeline retention and unpruned pipeline audit module ([375892d](https://github.com/divmora/gitlab-fleet-governor/commit/375892d09784e858f3590d80a69be39e5cd57c7b))
+
 ## [0.3.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.2.0...v0.3.0) (2026-09-08)
 
 
