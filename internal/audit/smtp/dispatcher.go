@@ -29,6 +29,7 @@ type Config struct {
 	DirectTLS     bool     `yaml:"direct_tls" json:"direct_tls"`
 	SkipTLSVerify bool     `yaml:"skip_tls_verify" json:"skip_tls_verify"`
 	SendAttach    bool     `yaml:"send_attachment" json:"send_attachment"`
+	Greeting      string   `yaml:"greeting" json:"greeting"`
 }
 
 // SetDefaults assigns sensible default parameters.
@@ -305,8 +306,19 @@ func (d *Dispatcher) buildMIMEMessage(from string, to []string, subject string, 
 }
 
 // BuildAuditEmail creates a formatted Message with summary bodies and optional XLSX attachment.
-func BuildAuditEmail(report *audit.AuditReport, xlsxData []byte, filename string) *Message {
-	textBody := fmt.Sprintf(`GitLab Fleet Compliance & Security Audit Report
+// The greeting parameter prepends a salutation to both the plain text and HTML bodies;
+// when empty, a default greeting of "Hello Team," is used.
+func BuildAuditEmail(report *audit.AuditReport, xlsxData []byte, filename, greeting string) *Message {
+	if strings.TrimSpace(greeting) == "" {
+		greeting = "Hello Team,"
+	}
+
+	textBody := fmt.Sprintf(`%s
+
+Please find below the latest GitLab Fleet compliance and security audit summary.
+Review any critical or high severity findings and take corrective action as needed.
+================================================================================
+GitLab Fleet Compliance & Security Audit Report
 ================================================================================
 Generated At       : %s
 Duration           : %s
@@ -321,7 +333,9 @@ Audit Breakdown:
 - Pipeline Retention & Cleanup Violations     : %d
 ================================================================================
 Please inspect the attached Excel workbook (%s) for detailed repository findings.
-`,
+
+— GitLab Fleet Governor`,
+		greeting,
 		report.GeneratedAt.UTC().Format(time.RFC1123),
 		report.DurationString,
 		report.InitiatorDescription(),
@@ -344,7 +358,9 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 <html>
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; margin: 20px;">
   <div style="max-width: 650px; margin: auto; border: 1px solid #e1e4e8; border-radius: 6px; padding: 24px; background: #ffffff;">
-    <h2 style="color: #1f497d; margin-top: 0; border-bottom: 2px solid #eaecef; padding-bottom: 8px;">GitLab Fleet Compliance & Security Audit</h2>
+    <h2 style="color: #1f497d; margin-top: 0; border-bottom: 2px solid #eaecef; padding-bottom: 8px;">GitLab Fleet Compliance &amp; Security Audit</h2>
+    <p style="font-size: 14px;">%s</p>
+    <p style="color: #666666; font-size: 13px;">Please find below the latest GitLab Fleet compliance and security audit summary. Review any critical or high severity findings and take corrective action as needed.</p>
     <p style="color: #666666; font-size: 13px;"><b>Generated:</b> %s | <b>Scan Duration:</b> %s | <b>Audited By:</b> %s</p>
     
     <table style="width: 100%%; border-collapse: collapse; margin: 16px 0;">
@@ -357,9 +373,11 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
     </table>
 
     <p style="margin-top: 20px;">The detailed multi-sheet audit workbook <b>%s</b> is attached with complete field-level findings.</p>
+    <p style="margin-top: 24px; color: #888888; font-size: 12px; border-top: 1px solid #eaecef; padding-top: 12px;">— GitLab Fleet Governor</p>
   </div>
 </body>
 </html>`,
+		greeting,
 		report.GeneratedAt.UTC().Format(time.RFC1123),
 		report.DurationString,
 		report.InitiatorDescription(),

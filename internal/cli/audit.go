@@ -38,6 +38,7 @@ type auditFlags struct {
 	SMTPFrom       string
 	SMTPTo         string
 	SMTPSubject    string
+	SMTPGreeting   string
 	SMTPStartTLS   bool
 	SMTPDirectTLS  bool
 	SMTPSkipVerify bool
@@ -102,6 +103,7 @@ terminal tables, with automated SMTP email distribution.`,
 	cmd.Flags().BoolVar(&flags.SMTPDirectTLS, "smtp-direct-tls", false, "Use direct SSL/TLS (implicit TLS on port 465)")
 	cmd.Flags().BoolVar(&flags.SMTPSkipVerify, "smtp-skip-tls-verify", false, "Skip TLS certificate verification (insecure/dev only)")
 	cmd.Flags().BoolVar(&flags.SMTPSendAttach, "smtp-send-attachment", true, "Attach Excel (.xlsx) report to the dispatched email")
+	cmd.Flags().StringVar(&flags.SMTPGreeting, "smtp-greeting", os.Getenv("SMTP_GREETING"), "Greeting line prepended to the email body (env: SMTP_GREETING); defaults to 'Hello Team,' when empty")
 
 	return cmd
 }
@@ -314,7 +316,7 @@ func dispatchAuditEmail(
 		attachFilename = filepath.Base(outputFile)
 	}
 
-	emailMsg := auditsmtp.BuildAuditEmail(reportData, xlsxBytes, attachFilename)
+	emailMsg := auditsmtp.BuildAuditEmail(reportData, xlsxBytes, attachFilename, flags.SMTPGreeting)
 	emailMsg.From = flags.SMTPFrom
 	emailMsg.To = toRecipients
 	emailMsg.Subject = flags.SMTPSubject

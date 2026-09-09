@@ -33,14 +33,18 @@ func TestBuildAuditEmail(t *testing.T) {
 	}
 
 	attachmentData := []byte("PK\x03\x04mock_excel_data")
-	msg := smtp.BuildAuditEmail(rep, attachmentData, "fleet-audit.xlsx")
+	msg := smtp.BuildAuditEmail(rep, attachmentData, "fleet-audit.xlsx", "")
 
 	assert.NotEmpty(t, msg.TextBody)
+	assert.Contains(t, msg.TextBody, "Hello Team,")
 	assert.Contains(t, msg.TextBody, "Total Violations   : 3")
+	assert.Contains(t, msg.TextBody, "GitLab Fleet Governor")
 	assert.Contains(t, msg.TextBody, "fleet-audit.xlsx")
 
 	assert.NotEmpty(t, msg.HTMLBody)
-	assert.Contains(t, msg.HTMLBody, "GitLab Fleet Compliance & Security Audit")
+	assert.Contains(t, msg.HTMLBody, "Hello Team,")
+	assert.Contains(t, msg.HTMLBody, "GitLab Fleet Compliance &amp; Security Audit")
+	assert.Contains(t, msg.HTMLBody, "GitLab Fleet Governor")
 	assert.Contains(t, msg.HTMLBody, "fleet-audit.xlsx")
 
 	require.Len(t, msg.Attachments, 1)
