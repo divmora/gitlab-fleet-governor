@@ -89,6 +89,12 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 
 ## 5. Compliance, Audit Trails & Standards
 
+- [ ] **Protected Tags Compliance Audit & Multi-Sheet Report (`audit.protected_tags`)**
+  - Extend the compliance audit engine (`gitlab-fleet-governor audit`) to inspect and evaluate protected tag configurations across all fleet repositories (`GET /projects/:id/protected_tags`).
+  - Flag missing protection on release patterns (`v*`, `release-*`), unauthorized creation access levels (`allowed_to_create`), and permissive wildcard definitions that expose release artifacts to supply-chain tampering or deletion.
+  - Add a dedicated **Protected Tags** worksheet in the multi-tab Excelize compliance workbook with severity color coding, alongside findings export in JSON, Markdown, HTML, and terminal Table reports.
+  - Incorporate protected tag posture and violation metrics into the Executive Summary compliance scorecard.
+
 - [ ] **SARIF & CycloneDX Compliance Export**
   - Add `--report-format sarif` to output non-compliance findings (e.g., over-privileged maintainers, missing branch protections, unmasked secrets) in OASIS SARIF format for ingestion into GitLab Security Dashboards and GitHub Advanced Security.
 
