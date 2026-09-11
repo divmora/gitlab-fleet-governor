@@ -104,3 +104,15 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 
 - [ ] **Kubernetes Operator (CRD) & Helm Chart Packaging**
   - Package a native Kubernetes Operator with Custom Resource Definitions (`GitLabFleetPolicy`) and a Helm chart to complement the static CronJob manifests in `deploy/kubernetes/`.
+
+---
+
+## 7. Enterprise Licensing & Commercial Operations
+
+- [ ] **Cryptographic Offline License Verification Engine (BSL 1.1 Enforcement)**
+  - Implement an in-process, zero-network, Ed25519 asymmetric cryptographic license validator.
+  - Enforce the free 25-project production threshold and non-production dry-run exemptions.
+  - Provide a `gitlab-fleet-governor license status` command to display customer entitlements, capacity utilization, and expiration status.
+
+- [ ] **DIVMORA License Minting & Generator Utility (`cmd/fleet-license-gen`)**
+  - Administrative CLI tool for DIVMORA Technologies to issue, cryptographically sign, and inspect commercial customerare licenses.
