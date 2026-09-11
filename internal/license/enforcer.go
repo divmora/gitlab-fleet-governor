@@ -1,0 +1,210 @@
+package license
+
+import (
+	"crypto/ed25519"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
+)
+
+// EnforcementOptions encapsulates the operational parameters required to evaluate
+// compliance with the Business Source License 1.1 terms.
+type EnforcementOptions struct {
+	// DiscoveredProjects is the count of projects targeted in the current execution.
+	DiscoveredProjects int
+
+	// IsDryRun specifies whether non-destructive simulation is active.
+	IsDryRun bool
+
+	// GitLabBaseURL is the base URL or host of the target GitLab instance.
+	GitLabBaseURL string
+
+	// TargetPaths contains the discovered project paths (e.g. "org/repo") and group paths.
+	TargetPaths []string
+
+	// LicenseKey is the raw license token string.
+	LicenseKey string
+
+	// LicenseFile is the path to a file containing the license token.
+	LicenseFile string
+
+	// Command identifies the calling command (e.g. "run", "audit").
+	Command string
+
+	// PublicKey optionally overrides the default public key (primarily for testing).
+	PublicKey ed25519.PublicKey
+
+	// EvaluationTime optionally overrides current time (primarily for testing Change Date conversion).
+	EvaluationTime time.Time
+
+	// GitLabServerTime is the authoritative timestamp parsed from the GitLab server's HTTP Date response header.
+	// When provided, it serves as a tamper-resistant reference to detect local system clock manipulation.
+	GitLabServerTime time.Time
+}
+
+// ResolveToken determines the active license token from flags, file paths, or environment variables.
+func ResolveToken(key, file string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key != "" {
+		return key, nil
+	}
+
+	file = strings.TrimSpace(file)
+	if file != "" {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", fmt.Errorf("failed to read license file %s: %w", file, err)
+		}
+		return strings.TrimSpace(string(content)), nil
+	}
+
+	envKey := strings.TrimSpace(os.Getenv("FLEET_LICENSE_KEY"))
+	if envKey != "" {
+		return envKey, nil
+	}
+
+	envFile := strings.TrimSpace(os.Getenv("FLEET_LICENSE_FILE"))
+	if envFile != "" {
+		content, err := os.ReadFile(envFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read license file from FLEET_LICENSE_FILE (%s): %w", envFile, err)
+		}
+		return strings.TrimSpace(string(content)), nil
+	}
+
+	return "", nil
+}
+
+// Enforce evaluates the active execution context against the Business Source License 1.1 terms:
+// 1. Non-production / dry-run simulation: Permitted free of charge under Additional Use Grant (a).
+// 2. Production fleet size <= 25: Permitted free of charge under Additional Use Grant (b).
+// 3. Production fleet size > 25: Strictly requires a valid, unexpired commercial license with sufficient capacity.
+func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
+	evalTime := opts.EvaluationTime
+	if evalTime.IsZero() {
+		evalTime = time.Now().UTC()
+	}
+
+	// Layer 2: GitLab Server HTTP Date Header Attestation & Clock Skew Defense
+	vInfo := version.Get()
+	if !opts.GitLabServerTime.IsZero() {
+		serverTime := opts.GitLabServerTime.UTC()
+		// Detect forward clock tampering: local clock claims Apache 2.0 conversion,
+		// but authoritative GitLab server clock attests Change Date has not yet arrived.
+		if vInfo.IsApacheConverted(evalTime) && !vInfo.IsApacheConverted(serverTime) {
+			slog.Warn("SYSTEM CLOCK SKEW DETECTED: Local system clock indicates BSL 1.1 Change Date has passed, but authoritative GitLab server HTTP Date attests Change Date has not yet arrived. Enforcing BSL 1.1 based on server time.",
+				"local_clock", evalTime.Format(time.RFC3339),
+				"server_clock", serverTime.Format(time.RFC3339),
+			)
+			evalTime = serverTime
+		} else {
+			// Anchor to server time if evaluation clock drifts significantly (> 1 hour) from server time
+			drift := evalTime.Sub(serverTime)
+			if drift < -time.Hour || drift > time.Hour {
+				slog.Warn("SYSTEM CLOCK SKEW DETECTED: System clock drifts significantly from GitLab server time. Anchoring license evaluation to authoritative server time.",
+					"local_clock", evalTime.Format(time.RFC3339),
+					"server_clock", serverTime.Format(time.RFC3339),
+					"drift", drift.String(),
+				)
+				evalTime = serverTime
+			}
+		}
+	}
+
+	// 0. Automatic BSL 1.1 Change Date Check (Apache 2.0 Conversion after 3 years)
+	if vInfo.IsApacheConverted(evalTime) {
+		changeDate, _ := vInfo.ChangeDate()
+		slog.Info("BSL 1.1 Change Date reached: software has automatically converted to Apache License 2.0",
+			"version", vInfo.Version,
+			"released_at", vInfo.BuildDate,
+			"converted_at", changeDate.Format("2006-01-02"),
+			"command", opts.Command,
+		)
+		return &ValidationStatus{
+			Valid:   true,
+			Message: fmt.Sprintf("Automatically converted to Apache License 2.0 on %s under BSL 1.1 terms. Unrestricted usage permitted.", changeDate.Format("2006-01-02")),
+		}, nil
+	}
+
+	// 1. Non-Production & Dry-Run Simulation Exemption
+	if opts.IsDryRun {
+		slog.Debug("License check: execution is in dry-run simulation mode (permitted free of charge under BSL 1.1 Additional Use Grant a)",
+			"command", opts.Command,
+			"discovered_projects", opts.DiscoveredProjects,
+		)
+		return &ValidationStatus{
+			Valid:   true,
+			Message: "Simulation / dry-run mode exempted under BSL 1.1 Additional Use Grant (a)",
+		}, nil
+	}
+
+	// 2. Resolve token (from flags, files, or environment)
+	token, err := ResolveToken(opts.LicenseKey, opts.LicenseFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Free Production Fleet Tier (<= 25 Projects without commercial key)
+	if token == "" && opts.DiscoveredProjects <= FreeTierMaxProjects {
+		slog.Info("License tier: Free Community Tier active",
+			"managed_projects", opts.DiscoveredProjects,
+			"limit", FreeTierMaxProjects,
+		)
+		return &ValidationStatus{
+			Valid:   true,
+			Message: fmt.Sprintf("Free Community Tier (%d/%d managed projects)", opts.DiscoveredProjects, FreeTierMaxProjects),
+		}, nil
+	}
+
+	// 4. Production Fleet Size > 25 Projects without a license: Hard Block
+	if token == "" {
+		return nil, fmt.Errorf(`COMMERCIAL LICENSE REQUIRED: Governing %d projects in production exceeds the free Community Tier limit (%d projects) permitted under the Business Source License 1.1.
+
+To continue managing fleets of this size:
+  1. Obtain a commercial subscription at https://divmora.com or contact licensing@divmora.com
+  2. Set your license key via environment variable:
+       export FLEET_LICENSE_KEY="<token>"
+     or provide it via CLI flag:
+       --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
+	}
+
+	status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime)
+	if err != nil {
+		return status, fmt.Errorf("commercial license verification failed: %w", err)
+	}
+
+	// Enforce fleet capacity limit (if not unlimited)
+	if status.Claims.MaxProjects > 0 && opts.DiscoveredProjects > status.Claims.MaxProjects {
+		return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
+			opts.DiscoveredProjects, status.Claims.MaxProjects, status.Claims.Tier)
+	}
+
+	// Enforce GitLab host and group scope boundaries
+	if err := status.Claims.ValidateScope(opts.GitLabBaseURL, opts.TargetPaths); err != nil {
+		return status, err
+	}
+
+	// Log warnings if operating in grace period
+	if status.InGracePeriod {
+		slog.Warn("COMMERCIAL LICENSE NOTICE: License has expired but is operating within its grace period",
+			"customer", status.Claims.Customer.Name,
+			"expires_at", status.Claims.ExpiresAt.Format("2006-01-02"),
+			"days_remaining_in_grace", status.DaysRemaining,
+			"contact", "licensing@divmora.com",
+		)
+	} else {
+		slog.Info("Commercial enterprise license verified",
+			"tier", status.Claims.Tier,
+			"customer", status.Claims.Customer.Name,
+			"capacity", status.Claims.MaxProjects,
+			"active_projects", opts.DiscoveredProjects,
+			"days_remaining", status.DaysRemaining,
+		)
+	}
+
+	return status, nil
+}

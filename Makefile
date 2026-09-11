@@ -17,6 +17,7 @@ CMD_PKG      := ./cmd/gitlab-fleet-governor
 VERSION      ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE   ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+RELEASE_SIG  ?= none
 
 # Go Environment
 GO_MIN_VERSION := 1.26
@@ -26,7 +27,8 @@ GOFLAGS        ?=
 LDFLAGS := -s -w \
   -X $(MODULE)/pkg/version.Version=$(VERSION) \
   -X $(MODULE)/pkg/version.GitCommit=$(GIT_COMMIT) \
-  -X $(MODULE)/pkg/version.BuildDate=$(BUILD_DATE)
+  -X $(MODULE)/pkg/version.BuildDate=$(BUILD_DATE) \
+  -X $(MODULE)/pkg/version.ReleaseSignature=$(RELEASE_SIG)
 
 # Container Images
 DOCKER_REGISTRY      ?= ghcr.io/divmora
@@ -67,6 +69,13 @@ build: check-go-version ## Build CLI binary for host platform
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BIN_NAME) $(CMD_PKG)
 	@echo "Compiled binary: $(BIN_DIR)/$(BIN_NAME)"
+
+.PHONY: build-license-gen
+build-license-gen: check-go-version ## Compile fleet-license-gen administrative tool
+	@echo "==> Building fleet-license-gen ($(VERSION))"
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/fleet-license-gen ./cmd/fleet-license-gen
+	@echo "Compiled binary: $(BIN_DIR)/fleet-license-gen"
 
 .PHONY: build-all
 build-all: check-go-version ## Cross-compile binaries for Linux, macOS, and Windows (amd64/arm64)

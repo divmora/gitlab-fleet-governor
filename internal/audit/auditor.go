@@ -12,6 +12,8 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
@@ -52,10 +54,23 @@ type Auditor struct {
 	protectedBranchAud   ProtectedBranchesModuleAuditor
 	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
 	pipelineRetentionAud PipelineRetentionModuleAuditor
+
+	licenseKey  string
+	licenseFile string
+	dryRun      bool
 }
 
 // AuditorOption provides functional configuration for Auditor.
 type AuditorOption func(*Auditor)
+
+// WithAuditorLicense configures commercial license enforcement settings for the audit run.
+func WithAuditorLicense(key, file string, dryRun bool) AuditorOption {
+	return func(a *Auditor) {
+		a.licenseKey = key
+		a.licenseFile = file
+		a.dryRun = dryRun
+	}
+}
 
 // WithAuditorConcurrency sets the worker concurrency.
 func WithAuditorConcurrency(c int) AuditorOption {
@@ -206,6 +221,33 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		"matched_projects", len(projects),
 	)
 
+	// 2. License Enforcement Phase (BSL 1.1)
+	var targetPaths []string
+	for _, p := range projects {
+		targetPaths = append(targetPaths, p.PathWithNamespace)
+	}
+	baseURL := ""
+	var serverTime time.Time
+	if a.client != nil {
+		baseURL = a.client.BaseURL()
+		serverTime = a.client.ServerTime()
+	}
+	licStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: len(projects),
+		IsDryRun:           a.dryRun,
+		GitLabBaseURL:      baseURL,
+		GitLabServerTime:   serverTime,
+		TargetPaths:        targetPaths,
+		LicenseKey:         a.licenseKey,
+		LicenseFile:        a.licenseFile,
+		Command:            "audit",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	licenseAttestation := a.buildLicenseAttestation(licStatus, len(projects), serverTime)
+
 	activeCount := 0
 	archivedCount := 0
 	for _, p := range projects {
@@ -259,10 +301,11 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	}
 
 	report := &AuditReport{
-		Title:             "GitLab Fleet Compliance & Security Audit Report",
-		GeneratedAt:       startTime,
-		AuthenticatedUser: authUser,
-		ActiveModules:     a.activeModuleList(),
+		Title:              "GitLab Fleet Compliance & Security Audit Report",
+		GeneratedAt:        startTime,
+		AuthenticatedUser:  authUser,
+		ActiveModules:      a.activeModuleList(),
+		LicenseAttestation: licenseAttestation,
 		Summary: SummaryMetrics{
 			TotalProjectsScanned:  len(projects),
 			ActiveProjectsCount:   activeCount,
@@ -432,4 +475,73 @@ func (a *Auditor) activeModuleList() []string {
 		}
 	}
 	return list
+}
+
+func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, projectCount int, serverTime time.Time) *LicenseAttestation {
+	vInfo := version.Get()
+	changeDateStr := "Unknown"
+	if cd, ok := vInfo.ChangeDate(); ok {
+		changeDateStr = cd.Format("2006-01-02")
+	}
+
+	evalTime := time.Now().UTC()
+	if !serverTime.IsZero() {
+		evalTime = serverTime.UTC()
+	}
+
+	if vInfo.IsApacheConverted(evalTime) {
+		return &LicenseAttestation{
+			Status:               "APACHE_2_CONVERTED",
+			LicenseModel:         "Apache-2.0",
+			Tier:                 "OPEN-SOURCE",
+			LicensedTo:           "Open Source Commons",
+			MaxProjects:          0,
+			DiscoveredProjects:   projectCount,
+			ChangeDate:           changeDateStr,
+			AttestationStatement: fmt.Sprintf("Governed under the Apache License, Version 2.0 (converted on %s pursuant to BSL 1.1 Change Date terms). Unrestricted enterprise production governance permitted.", changeDateStr),
+		}
+	}
+
+	if a.dryRun {
+		return &LicenseAttestation{
+			Status:               "EXEMPTED_DRY_RUN",
+			LicenseModel:         "BSL-1.1",
+			Tier:                 "SIMULATION",
+			LicensedTo:           "Non-Production / Dry-Run Simulation",
+			MaxProjects:          0,
+			DiscoveredProjects:   projectCount,
+			ChangeDate:           changeDateStr,
+			AttestationStatement: "Audit execution performed in non-destructive dry-run simulation mode, permitted free of charge under Business Source License 1.1 Additional Use Grant (a).",
+		}
+	}
+
+	if status != nil && status.Claims != nil {
+		statusStr := "VALID_COMMERCIAL"
+		if status.InGracePeriod {
+			statusStr = "OPERATING_IN_GRACE_PERIOD"
+		}
+		return &LicenseAttestation{
+			Status:               statusStr,
+			LicenseModel:         "BSL-1.1",
+			Tier:                 strings.ToUpper(status.Claims.Tier),
+			LicensedTo:           status.Claims.Customer.Name,
+			LicenseID:            status.Claims.ID,
+			MaxProjects:          status.Claims.MaxProjects,
+			DiscoveredProjects:   projectCount,
+			ChangeDate:           changeDateStr,
+			AttestationStatement: fmt.Sprintf("Certified commercial governance under Business Source License 1.1. Licensed to %s (%s Tier, Capacity: %d projects, License ID: %s). Cryptographically attested via Ed25519 asymmetric signature.", status.Claims.Customer.Name, strings.ToUpper(status.Claims.Tier), status.Claims.MaxProjects, status.Claims.ID),
+		}
+	}
+
+	return &LicenseAttestation{
+		Status:               "COMMUNITY_TIER",
+		LicenseModel:         "BSL-1.1",
+		Tier:                 "COMMUNITY",
+		LicensedTo:           "Community Tier (Unlicensed)",
+		LicenseID:            "community",
+		MaxProjects:          license.FreeTierMaxProjects,
+		DiscoveredProjects:   projectCount,
+		ChangeDate:           changeDateStr,
+		AttestationStatement: fmt.Sprintf("Governed under Business Source License 1.1 Free Community Tier (governing %d/%d production projects). Unrestricted for fleets up to %d projects.", projectCount, license.FreeTierMaxProjects, license.FreeTierMaxProjects),
+	}
 }

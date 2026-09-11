@@ -48,7 +48,8 @@ All manifests enforce enterprise container security best practices:
 # Create the secret directly from your command line
 kubectl create secret generic gitlab-fleet-governor-secret \
   --from-literal=GITLAB_TOKEN="glpat-YOUR_ACCESS_TOKEN" \
-  --from-literal=GITLAB_BASE_URL="https://gitlab.com/api/v4"
+  --from-literal=GITLAB_BASE_URL="https://gitlab.com/api/v4" \
+  --from-literal=FLEET_LICENSE_KEY="YOUR_COMMERCIAL_LICENSE_TOKEN" # Optional: for >25 production projects
 ```
 
 ### 2. Customize the Policy ConfigMap

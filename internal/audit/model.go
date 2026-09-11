@@ -165,6 +165,21 @@ type SummaryMetrics struct {
 	ModuleViolations            map[string]int   `json:"module_violations"`
 }
 
+// LicenseAttestation captures legal and commercial licensing compliance metadata
+// under Business Source License 1.1 (BSL 1.1) and Apache 2.0 terms, providing a legally binding,
+// non-repudiable attestation record for enterprise SOC 2 / ISO 27001 compliance audits.
+type LicenseAttestation struct {
+	Status               string `json:"status"`
+	LicenseModel         string `json:"license_model"`
+	Tier                 string `json:"tier"`
+	LicensedTo           string `json:"licensed_to"`
+	LicenseID            string `json:"license_id,omitempty"`
+	MaxProjects          int    `json:"max_projects"`
+	DiscoveredProjects   int    `json:"discovered_projects"`
+	ChangeDate           string `json:"change_date,omitempty"`
+	AttestationStatement string `json:"attestation_statement"`
+}
+
 // AuditReport is the canonical composite audit output model.
 type AuditReport struct {
 	Title                     string                        `json:"title"`
@@ -174,6 +189,7 @@ type AuditReport struct {
 	AuthenticatedUser         *UserInfo                     `json:"authenticated_user,omitempty"`
 	ActiveModules             []string                      `json:"active_modules"`
 	Summary                   SummaryMetrics                `json:"summary"`
+	LicenseAttestation        *LicenseAttestation           `json:"license_attestation,omitempty"`
 	UserAccessFindings        []UserAccessFinding           `json:"user_access_findings,omitempty"`
 	BotAccessFindings         []UserAccessFinding           `json:"bot_access_findings,omitempty"`
 	ProtectedBranchFindings   []ProtectedBranchFinding      `json:"protected_branch_findings,omitempty"`

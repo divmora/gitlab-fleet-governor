@@ -3,6 +3,8 @@ package e2e_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/stretchr/testify/assert"
@@ -228,12 +231,34 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 
 	require.Equal(t, 45, len(activePrivateProjectIDs), "Should have seeded exactly 45 active private projects")
 
+	// Setup valid Enterprise commercial license for testing live apply on >25 projects
+	licPub, licPriv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	license.SetVerificationPublicKey(licPub)
+	t.Cleanup(license.ResetVerificationPublicKey)
+
+	licToken, err := license.SignLicense(&license.Claims{
+		ID: "lic_test_tier4_ent",
+		Customer: license.Customer{
+			Name:  "Enterprise Tier 4 Test Corp",
+			Email: "admin@enterprise.corp",
+		},
+		Tier:        "enterprise",
+		MaxProjects: 1000,
+		IssuedAt:    time.Now().UTC().Add(-1 * time.Hour),
+		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+	}, licPriv)
+	require.NoError(t, err)
+
 	// 4. Construct Full Declarative Enterprise Policy Config
 	cfg := &config.PolicyConfig{
 		Version: "v1",
 		Settings: config.SettingsConfig{
 			DryRun:      boolPtr(false),
 			Concurrency: 16,
+			License: config.LicenseSettingsConfig{
+				Key: licToken,
+			},
 			GitLab: config.GitLabSettingsConfig{
 				BaseURL: server.BaseURL(),
 				Token:   "enterprise-admin-token",

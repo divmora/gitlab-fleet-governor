@@ -12,6 +12,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/governance"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 )
 
 // Common engine errors.
@@ -381,6 +382,49 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	}
 
 	metrics.RecordDiscovery(fleet)
+
+	// 2. License Enforcement Phase (BSL 1.1)
+	licenseKey := cfg.Settings.License.Key
+	licenseFile := cfg.Settings.License.File
+	var targetPaths []string
+	for _, p := range fleet.Projects {
+		targetPaths = append(targetPaths, p.PathWithNamespace)
+	}
+	for _, g := range fleet.Groups {
+		targetPaths = append(targetPaths, g.FullPath)
+	}
+	var serverTime time.Time
+	if e.client != nil {
+		serverTime = e.client.ServerTime()
+	}
+	if _, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: len(fleet.Projects),
+		IsDryRun:           dryRun,
+		GitLabBaseURL:      cfg.Settings.GitLab.BaseURL,
+		GitLabServerTime:   serverTime,
+		TargetPaths:        targetPaths,
+		LicenseKey:         licenseKey,
+		LicenseFile:        licenseFile,
+		Command:            "run",
+	}); err != nil {
+		metrics.Finalize(time.Since(startTime))
+		snap := metrics.Snapshot()
+		return &ExecutionResult{
+			Mode:           mode,
+			DryRun:         dryRun,
+			Success:        false,
+			Fleet:          fleet,
+			GroupResults:   make([]*TargetResult, 0),
+			ProjectResults: make([]*TargetResult, 0),
+			TargetResults:  make([]*TargetResult, 0),
+			Metrics:        snap,
+			SummaryMetrics: snap,
+			Errors:         []error{err},
+			StartedAt:      startTime,
+			CompletedAt:    time.Now(),
+			Duration:       time.Since(startTime),
+		}, err
+	}
 
 	if fleet.IsEmpty() {
 		metrics.Finalize(time.Since(startTime))

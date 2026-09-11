@@ -3,13 +3,17 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +72,55 @@ func TestVersionCommand(t *testing.T) {
 		assert.NotEmpty(t, info.Version)
 		assert.NotEmpty(t, info.GoVersion)
 		assert.NotEmpty(t, info.Platform)
+		assert.NotEmpty(t, info.Provenance.Status)
+	})
+
+	t.Run("Verify Unattested Custom Build", func(t *testing.T) {
+		origSig := version.ReleaseSignature
+		version.ReleaseSignature = "none"
+		defer func() { version.ReleaseSignature = origSig }()
+
+		stdout, _, err := executeCommand(ctx, "version", "--verify")
+		require.Error(t, err)
+		assert.Contains(t, stdout, "UNVERIFIED")
+		assert.Contains(t, stdout, "UNATTESTED_CUSTOM_BUILD")
+	})
+
+	t.Run("Verify Cryptographically Signed Official Release", func(t *testing.T) {
+		pubRel, privRel, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		version.SetReleaseVerificationPublicKey(pubRel)
+		defer version.ResetReleaseVerificationPublicKey()
+
+		origSig := version.ReleaseSignature
+		origVer := version.Version
+		origCommit := version.GitCommit
+		origDate := version.BuildDate
+		defer func() {
+			version.ReleaseSignature = origSig
+			version.Version = origVer
+			version.GitCommit = origCommit
+			version.BuildDate = origDate
+		}()
+
+		version.Version = "0.5.0"
+		version.GitCommit = "4b825dc642cb"
+		version.BuildDate = "2026-09-11T12:00:00Z"
+
+		token, err := version.SignRelease(&version.ReleaseClaims{
+			Version:   "0.5.0",
+			GitCommit: "4b825dc642cb",
+			BuildDate: "2026-09-11T12:00:00Z",
+			Authority: "DIVMORA Technologies Release Authority",
+		}, privRel)
+		require.NoError(t, err)
+		version.ReleaseSignature = token
+
+		stdout, _, err := executeCommand(ctx, "version", "--verify")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "PASSED (Cryptographically verified official release)")
+		assert.Contains(t, stdout, "DIVMORA Technologies Release Authority")
+		assert.Contains(t, stdout, "VERIFIED_OFFICIAL_RELEASE")
 	})
 }
 
@@ -345,5 +398,129 @@ targets:
 		// 5. Module Filtering
 		_, _, err = executeCommand(ctx, "audit", "-c", configFile, "--modules=user_access", "--format=json", "-o", filepath.Join(tempDir, "user_access.json"))
 		require.NoError(t, err)
+	})
+}
+
+func TestLicenseCommand(t *testing.T) {
+	ctx := context.Background()
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	license.SetVerificationPublicKey(pub)
+	defer license.ResetVerificationPublicKey()
+
+	claims := &license.Claims{
+		ID: "lic_cli_test",
+		Customer: license.Customer{
+			Name:  "Test CLI Corp",
+			Email: "cli@test.com",
+		},
+		Tier:        "enterprise",
+		MaxProjects: 250,
+		Features:    []string{"all"},
+		IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
+		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+	}
+	validToken, err := license.SignLicense(claims, priv)
+	require.NoError(t, err)
+
+	t.Run("License Help", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "--help")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "license")
+		assert.Contains(t, stdout, "status")
+		assert.Contains(t, stdout, "check")
+	})
+
+	t.Run("License Status Without License (Free Tier)", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Free Community Tier")
+		assert.Contains(t, stdout, "25 managed projects")
+	})
+
+	t.Run("License Status JSON Without License", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"tier": "community"`)
+		assert.Contains(t, stdout, `"free_tier_limit": 25`)
+	})
+
+	t.Run("License Status With Valid Token Flag", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--license-key="+validToken)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Test CLI Corp")
+		assert.Contains(t, stdout, "ENTERPRISE")
+		assert.Contains(t, stdout, "250 Managed Projects")
+		assert.Contains(t, stdout, "VERIFIED (Ed25519")
+	})
+
+	t.Run("License Status JSON With Valid Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--license-key="+validToken, "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"valid": true`)
+		assert.Contains(t, stdout, `"tier": "enterprise"`)
+	})
+
+	t.Run("License Check Without Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "check")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "OK: No commercial license provided")
+	})
+
+	t.Run("License Check With Valid Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "check", "--license-key="+validToken)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "OK: License lic_cli_test is valid for Test CLI Corp")
+	})
+
+	t.Run("License Check With Invalid Token", func(t *testing.T) {
+		_, _, err := executeCommand(ctx, "license", "check", "--license-key=invalid.token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "license check failed")
+	})
+
+	t.Run("License Status When Converted to Apache 2.0", func(t *testing.T) {
+		origDate := version.BuildDate
+		origEpoch := version.ProductGenesisEpoch
+		origSig := version.ReleaseSignature
+		defer func() {
+			version.BuildDate = origDate
+			version.ProductGenesisEpoch = origEpoch
+			version.ReleaseSignature = origSig
+		}()
+		version.ProductGenesisEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+		fourYearsAgo := time.Now().UTC().AddDate(-4, 0, 0).Format(time.RFC3339)
+		version.BuildDate = fourYearsAgo
+
+		// Sign test release for this build
+		pubRel, privRel, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		version.SetReleaseVerificationPublicKey(pubRel)
+		defer version.ResetReleaseVerificationPublicKey()
+
+		token, err := version.SignRelease(&version.ReleaseClaims{
+			Version:   version.Version,
+			GitCommit: version.GitCommit,
+			BuildDate: fourYearsAgo,
+			Authority: "DIVMORA Technologies",
+		}, privRel)
+		require.NoError(t, err)
+		version.ReleaseSignature = token
+
+		stdout, _, err := executeCommand(ctx, "license", "status")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Apache License, Version 2.0")
+		assert.Contains(t, stdout, "100% Free & Open Source")
+
+		stdoutJSON, _, err := executeCommand(ctx, "license", "status", "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdoutJSON, `"status": "apache_2_converted"`)
+		assert.Contains(t, stdoutJSON, `"license": "Apache-2.0"`)
+
+		stdoutCheck, _, err := executeCommand(ctx, "license", "check")
+		require.NoError(t, err)
+		assert.Contains(t, stdoutCheck, "converted to Apache License 2.0")
 	})
 }

@@ -355,6 +355,52 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		_ = g.file.SetCellStyle(sheet, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), valStyle)
 	}
 
+	// Licensing & Statutory Compliance Attestation Table
+	if report.LicenseAttestation != nil {
+		att := report.LicenseAttestation
+		licRow := modRow + len(modMetrics) + 2
+		_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", licRow), "Commercial Licensing & Compliance Attestation (BSL 1.1 / SOC 2 / ISO 27001)")
+		_ = g.file.SetCellValue(sheet, fmt.Sprintf("C%d", licRow), "Attestation Value")
+		_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", licRow), fmt.Sprintf("C%d", licRow), g.headerStyle)
+
+		capStr := fmt.Sprintf("%d Projects", att.MaxProjects)
+		if att.MaxProjects == 0 {
+			capStr = "Unlimited Projects"
+		}
+
+		licRows := []struct {
+			Key string
+			Val string
+		}{
+			{"Governing License Model", att.LicenseModel},
+			{"Entitlement Status", att.Status},
+			{"Licensed Customer / Entity", att.LicensedTo},
+			{"Subscription Tier", att.Tier},
+			{"Fleet Project Capacity Limit", capStr},
+			{"Governed Projects in Audit", fmt.Sprintf("%d Projects", att.DiscoveredProjects)},
+			{"3-Year Apache 2.0 Change Date", att.ChangeDate},
+			{"Statutory Compliance Attestation", att.AttestationStatement},
+		}
+
+		for i, lr := range licRows {
+			row := licRow + 1 + i
+			_ = g.file.SetCellValue(sheet, fmt.Sprintf("B%d", row), lr.Key)
+			_ = g.file.SetCellValue(sheet, fmt.Sprintf("C%d", row), lr.Val)
+			_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), g.metricKeyStyle)
+			valStyle := g.dataCellStyle
+			if lr.Key == "Entitlement Status" {
+				if att.Status == "VALID_COMMERCIAL" || att.Status == "APACHE_2_CONVERTED" || att.Status == "EXEMPTED_DRY_RUN" {
+					valStyle = g.passStatusStyle
+				} else if att.Status == "OPERATING_IN_GRACE_PERIOD" {
+					valStyle = g.warnStatusStyle
+				} else {
+					valStyle = g.centerCellStyle
+				}
+			}
+			_ = g.file.SetCellStyle(sheet, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), valStyle)
+		}
+	}
+
 	_ = g.file.SetColWidth(sheet, "A", "A", 4)
 	_ = g.file.SetColWidth(sheet, "B", "B", 65)
 	_ = g.file.SetColWidth(sheet, "C", "C", 25)

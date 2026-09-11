@@ -113,6 +113,13 @@ spec:
                       name: gitlab-fleet-governor-secret
                       key: SMTP_BCC
                       optional: true
+                # Optional commercial license key (required for production audit of >25 projects)
+                - name: FLEET_LICENSE_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: gitlab-fleet-governor-secret
+                      key: FLEET_LICENSE_KEY
+                      optional: true
               resources:
                 requests:
                   cpu: 250m

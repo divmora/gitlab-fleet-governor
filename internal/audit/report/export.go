@@ -236,6 +236,26 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Pipeline Retention Violations | %d |\n", report.Summary.PipelineRetentionViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
+	// Commercial Licensing & Statutory Attestation Section
+	if report.LicenseAttestation != nil {
+		att := report.LicenseAttestation
+		sb.WriteString("## Commercial Licensing & Statutory Attestation\n\n")
+		sb.WriteString("| Attestation Property | Record Value |\n")
+		sb.WriteString("|---|---|\n")
+		sb.WriteString(fmt.Sprintf("| **Governing License Model** | `%s` |\n", att.LicenseModel))
+		sb.WriteString(fmt.Sprintf("| **Entitlement Status** | `%s` |\n", att.Status))
+		sb.WriteString(fmt.Sprintf("| **Licensed Customer / Entity** | %s |\n", escapeMD(att.LicensedTo)))
+		sb.WriteString(fmt.Sprintf("| **Subscription Tier** | %s |\n", att.Tier))
+		capStr := fmt.Sprintf("%d Projects", att.MaxProjects)
+		if att.MaxProjects == 0 {
+			capStr = "Unlimited Projects"
+		}
+		sb.WriteString(fmt.Sprintf("| **Fleet Capacity Limit** | %s |\n", capStr))
+		sb.WriteString(fmt.Sprintf("| **Governed Projects in Audit** | %d Projects |\n", att.DiscoveredProjects))
+		sb.WriteString(fmt.Sprintf("| **Apache 2.0 Change Date** | %s |\n", att.ChangeDate))
+		sb.WriteString(fmt.Sprintf("| **Statutory Compliance Attestation** | *%s* |\n\n", escapeMD(att.AttestationStatement)))
+	}
+
 	// Human User Access Section
 	if len(report.UserAccessFindings) > 0 {
 		sb.WriteString("## 1. Human User Access & Expiration Audit (`user_access`)\n\n")
@@ -394,6 +414,31 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <div class="stat-card"><div>Retention Violations</div><div class="stat-val ` + dangerClass(report.Summary.PipelineRetentionViolations) + `">` + strconv.Itoa(report.Summary.PipelineRetentionViolations) + `</div></div>
 </div>
 `)
+
+	if report.LicenseAttestation != nil {
+		att := report.LicenseAttestation
+		capStr := fmt.Sprintf("%d Projects", att.MaxProjects)
+		if att.MaxProjects == 0 {
+			capStr = "Unlimited Projects"
+		}
+		sb.WriteString(`<h2>Commercial Licensing & Statutory Attestation</h2>
+<table>
+  <thead>
+    <tr><th>Attestation Property</th><th>Attestation Record</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Governing License Model</b></td><td>` + html.EscapeString(att.LicenseModel) + `</td></tr>
+    <tr><td><b>Entitlement Status</b></td><td>` + html.EscapeString(att.Status) + `</td></tr>
+    <tr><td><b>Licensed Entity / Customer</b></td><td>` + html.EscapeString(att.LicensedTo) + `</td></tr>
+    <tr><td><b>Subscription Tier</b></td><td>` + html.EscapeString(att.Tier) + `</td></tr>
+    <tr><td><b>Fleet Capacity Limit</b></td><td>` + capStr + `</td></tr>
+    <tr><td><b>Governed Projects in Audit</b></td><td>` + strconv.Itoa(att.DiscoveredProjects) + ` Projects</td></tr>
+    <tr><td><b>Apache 2.0 Change Date</b></td><td>` + html.EscapeString(att.ChangeDate) + `</td></tr>
+    <tr><td><b>Statutory Compliance Statement</b></td><td><i>` + html.EscapeString(att.AttestationStatement) + `</i></td></tr>
+  </tbody>
+</table>
+`)
+	}
 
 	if len(report.UserAccessFindings) > 0 {
 		sb.WriteString(`<h2>Human User Access & Expiration Audit</h2>
@@ -555,6 +600,11 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		report.Summary.HumanUserViolations, report.Summary.BotUserViolations))
 	sb.WriteString(fmt.Sprintf("Pipeline Audit : Retention & Cleanup Violations: %d\n",
 		report.Summary.PipelineRetentionViolations))
+	if report.LicenseAttestation != nil {
+		att := report.LicenseAttestation
+		sb.WriteString(fmt.Sprintf("Licensing      : %s (Tier: %s) | Status: %s | Licensed To: %s\n", att.LicenseModel, att.Tier, att.Status, att.LicensedTo))
+		sb.WriteString(fmt.Sprintf("Attestation    : %s\n", att.AttestationStatement))
+	}
 	sb.WriteString("================================================================================\n\n")
 
 	if len(report.UserAccessFindings) > 0 {

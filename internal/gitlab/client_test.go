@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,4 +140,42 @@ func TestDefaultComplianceService(t *testing.T) {
 	require.Len(t, frameworks, 1)
 	assert.Equal(t, "SOC2", frameworks[0].Name)
 	assert.True(t, frameworks[0].Default)
+}
+
+func TestClient_ServerTimeAttestation(t *testing.T) {
+	expectedServerTime := time.Date(2026, 9, 11, 14, 30, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Date", expectedServerTime.Format(http.TimeFormat))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 42, "name": "test-project"}`))
+	}))
+	defer server.Close()
+
+	auth := &gitlab.ResolvedAuth{
+		BaseURL:   server.URL,
+		Token:     "test-token",
+		TokenType: gitlab.TokenTypePrivate,
+	}
+
+	transport := gitlab.NewGovernorTransport(gitlab.DefaultGovernorTransportConfig())
+	client, err := gitlab.NewClient(auth, gitlab.WithHTTPClient(&http.Client{Transport: transport}))
+	require.NoError(t, err)
+
+	// Before any request, ServerTime is zero
+	assert.True(t, client.ServerTime().IsZero())
+
+	// Perform a request
+	proj, _, err := client.Projects().GetProject(42, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 42, proj.ID)
+
+	// Now ServerTime is populated with the HTTP Date header
+	assert.False(t, client.ServerTime().IsZero())
+	assert.Equal(t, expectedServerTime, client.ServerTime())
+
+	// Test SetServerTime override
+	overrideTime := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	client.SetServerTime(overrideTime)
+	assert.Equal(t, overrideTime, client.ServerTime())
 }
