@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 // Format represents a supported summary report presentation format.
@@ -139,6 +140,7 @@ func NewReporter(format Format, out io.Writer, opts ...Option) (Reporter, error)
 // ReportData represents the canonical execution summary model passed to all reporters.
 type ReportData struct {
 	Title            string               `json:"title"`
+	Version          string               `json:"version,omitempty"`
 	StartedAt        time.Time            `json:"started_at"`
 	CompletedAt      time.Time            `json:"completed_at"`
 	Duration         time.Duration        `json:"duration"`
@@ -212,6 +214,7 @@ func NewReportData(dryRun bool, startedAt, completedAt time.Time) *ReportData {
 	}
 	return &ReportData{
 		Title:            "GitLab Fleet Governor Execution Report",
+		Version:          version.Get().Version,
 		StartedAt:        startedAt,
 		CompletedAt:      completedAt,
 		Duration:         duration,

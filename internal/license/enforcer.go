@@ -130,7 +130,70 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 1. Non-Production & Dry-Run Simulation Exemption
+	// 1. Resolve token (from flags, files, or environment)
+	token, err := ResolveToken(opts.LicenseKey, opts.LicenseFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. If a commercial license token is provided, verify and enforce entitlements
+	if token != "" {
+		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime)
+		if err != nil {
+			if opts.IsDryRun {
+				slog.Warn("Commercial license verification failed, falling back to dry-run simulation exemption", "error", err)
+				return &ValidationStatus{
+					Valid:   true,
+					Message: "Simulation / dry-run mode exempted under BSL 1.1 Additional Use Grant (a)",
+				}, nil
+			}
+			return status, fmt.Errorf("commercial license verification failed: %w", err)
+		}
+
+		// Enforce fleet capacity limit (if not unlimited)
+		if status.Claims.MaxProjects > 0 && opts.DiscoveredProjects > status.Claims.MaxProjects {
+			if opts.IsDryRun {
+				slog.Warn("Fleet project count exceeds licensed capacity (allowed under dry-run simulation)",
+					"discovered", opts.DiscoveredProjects,
+					"capacity", status.Claims.MaxProjects,
+				)
+			} else {
+				return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
+					opts.DiscoveredProjects, status.Claims.MaxProjects, status.Claims.Tier)
+			}
+		}
+
+		// Enforce GitLab host and group scope boundaries
+		if err := status.Claims.ValidateScope(opts.GitLabBaseURL, opts.TargetPaths); err != nil {
+			if opts.IsDryRun {
+				slog.Warn("GitLab host or group scope validation warning in dry-run mode", "error", err)
+			} else {
+				return status, err
+			}
+		}
+
+		// Log warnings if operating in grace period
+		if status.InGracePeriod {
+			slog.Warn("COMMERCIAL LICENSE NOTICE: License has expired but is operating within its grace period",
+				"customer", status.Claims.Customer.Name,
+				"expires_at", status.Claims.ExpiresAt.Format("2006-01-02"),
+				"days_remaining_in_grace", status.DaysRemaining,
+				"contact", "licensing@divmora.com",
+			)
+		} else {
+			slog.Info("Commercial enterprise license verified",
+				"tier", status.Claims.Tier,
+				"customer", status.Claims.Customer.Name,
+				"capacity", status.Claims.MaxProjects,
+				"active_projects", opts.DiscoveredProjects,
+				"days_remaining", status.DaysRemaining,
+			)
+		}
+
+		return status, nil
+	}
+
+	// 3. Non-Production & Dry-Run Simulation Exemption (when no commercial token is provided)
 	if opts.IsDryRun {
 		slog.Debug("License check: execution is in dry-run simulation mode (permitted free of charge under BSL 1.1 Additional Use Grant a)",
 			"command", opts.Command,
@@ -142,14 +205,8 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 2. Resolve token (from flags, files, or environment)
-	token, err := ResolveToken(opts.LicenseKey, opts.LicenseFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Free Production Fleet Tier (<= 25 Projects without commercial key)
-	if token == "" && opts.DiscoveredProjects <= FreeTierMaxProjects {
+	// 4. Free Production Fleet Tier (<= 25 Projects without commercial key)
+	if opts.DiscoveredProjects <= FreeTierMaxProjects {
 		slog.Info("License tier: Free Community Tier active",
 			"managed_projects", opts.DiscoveredProjects,
 			"limit", FreeTierMaxProjects,
@@ -160,9 +217,8 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 4. Production Fleet Size > 25 Projects without a license: Hard Block
-	if token == "" {
-		return nil, fmt.Errorf(`COMMERCIAL LICENSE REQUIRED: Governing %d projects in production exceeds the free Community Tier limit (%d projects) permitted under the Business Source License 1.1.
+	// 5. Production Fleet Size > 25 Projects without a license: Hard Block
+	return nil, fmt.Errorf(`COMMERCIAL LICENSE REQUIRED: Governing %d projects in production exceeds the free Community Tier limit (%d projects) permitted under the Business Source License 1.1.
 
 To continue managing fleets of this size:
   1. Obtain a commercial subscription at https://divmora.com or contact licensing@divmora.com
@@ -170,41 +226,4 @@ To continue managing fleets of this size:
        export FLEET_LICENSE_KEY="<token>"
      or provide it via CLI flag:
        --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
-	}
-
-	status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime)
-	if err != nil {
-		return status, fmt.Errorf("commercial license verification failed: %w", err)
-	}
-
-	// Enforce fleet capacity limit (if not unlimited)
-	if status.Claims.MaxProjects > 0 && opts.DiscoveredProjects > status.Claims.MaxProjects {
-		return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
-			opts.DiscoveredProjects, status.Claims.MaxProjects, status.Claims.Tier)
-	}
-
-	// Enforce GitLab host and group scope boundaries
-	if err := status.Claims.ValidateScope(opts.GitLabBaseURL, opts.TargetPaths); err != nil {
-		return status, err
-	}
-
-	// Log warnings if operating in grace period
-	if status.InGracePeriod {
-		slog.Warn("COMMERCIAL LICENSE NOTICE: License has expired but is operating within its grace period",
-			"customer", status.Claims.Customer.Name,
-			"expires_at", status.Claims.ExpiresAt.Format("2006-01-02"),
-			"days_remaining_in_grace", status.DaysRemaining,
-			"contact", "licensing@divmora.com",
-		)
-	} else {
-		slog.Info("Commercial enterprise license verified",
-			"tier", status.Claims.Tier,
-			"customer", status.Claims.Customer.Name,
-			"capacity", status.Claims.MaxProjects,
-			"active_projects", opts.DiscoveredProjects,
-			"days_remaining", status.DaysRemaining,
-		)
-	}
-
-	return status, nil
 }

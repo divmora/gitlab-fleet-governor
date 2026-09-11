@@ -169,6 +169,7 @@ type SummaryMetrics struct {
 // under Business Source License 1.1 (BSL 1.1) and Apache 2.0 terms, providing a legally binding,
 // non-repudiable attestation record for enterprise SOC 2 / ISO 27001 compliance audits.
 type LicenseAttestation struct {
+	GovernorVersion      string `json:"governor_version,omitempty"`
 	Status               string `json:"status"`
 	LicenseModel         string `json:"license_model"`
 	Tier                 string `json:"tier"`
@@ -183,6 +184,7 @@ type LicenseAttestation struct {
 // AuditReport is the canonical composite audit output model.
 type AuditReport struct {
 	Title                     string                        `json:"title"`
+	GovernorVersion           string                        `json:"governor_version,omitempty"`
 	GeneratedAt               time.Time                     `json:"generated_at"`
 	Duration                  time.Duration                 `json:"duration"`
 	DurationString            string                        `json:"duration_human"`

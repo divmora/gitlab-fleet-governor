@@ -209,6 +209,56 @@ func TestEnforce_Scenarios(t *testing.T) {
 		assert.Contains(t, err.Error(), "150 production projects exceeds your licensed capacity of 100")
 		assert.NotNil(t, status)
 	})
+
+	t.Run("Commercial License in DryRun Mode: retains claims and validity", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 80,
+			IsDryRun:           true,
+			LicenseKey:         validToken,
+			PublicKey:          pub,
+		})
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+		require.NotNil(t, status.Claims)
+		assert.Equal(t, "lic_enforce_test", status.Claims.ID)
+		assert.Equal(t, "Acme Fleet", status.Claims.Customer.Name)
+	})
+}
+
+func TestEnforce_PixelvideLicense(t *testing.T) {
+	pixelvideToken := "eyJpZCI6ImxpY18xZjkzMjZjNiIsImN1c3RvbWVyIjp7Im5hbWUiOiJQSVhFTFZJREUgREVTSUdOIFNPTFVUSU9OUyBMTFAiLCJlbWFpbCI6Im9wc0BwaXhlbHZpZGUuY29tIiwib3JnX2lkIjoiNDE0Nzk3OTAwMDAwMDA3MTAyMyJ9LCJ0aWVyIjoiZW50ZXJwcmlzZSIsIm1heF9wcm9qZWN0cyI6NTAwLCJhbGxvd2VkX2hvc3RzIjpbImdpdGxhYi5waXhlbHZpZGUuY29tIl0sImZlYXR1cmVzIjpbImFsbCJdLCJpc3N1ZWRfYXQiOiIyMDI2LTA5LTExVDExOjM2OjE0LjEzNDE4OFoiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMVQxMTozNjoxNC4xMzQxODhaIiwiZ3JhY2VfcGVyaW9kX2RheXMiOjE0fQ.mae4J22pkiZ9p87slcFMcb8FxfhGHUtMjBUvsJKlCSCZYTjOltO_l-atMr-mrxHwCz2lkVUU_E_0KfuXMwN9CA"
+	evalTime := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+
+	t.Run("DryRun Mode with 437 projects", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 437,
+			IsDryRun:           true,
+			LicenseKey:         pixelvideToken,
+			EvaluationTime:     evalTime,
+			GitLabBaseURL:      "https://gitlab.pixelvide.com/api/v4",
+		})
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+		require.NotNil(t, status.Claims)
+		assert.Equal(t, "lic_1f9326c6", status.Claims.ID)
+		assert.Equal(t, "PIXELVIDE DESIGN SOLUTIONS LLP", status.Claims.Customer.Name)
+		assert.Equal(t, 500, status.Claims.MaxProjects)
+		assert.Equal(t, "enterprise", status.Claims.Tier)
+	})
+
+	t.Run("Production Mode with 437 projects", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 437,
+			IsDryRun:           false,
+			LicenseKey:         pixelvideToken,
+			EvaluationTime:     evalTime,
+			GitLabBaseURL:      "https://gitlab.pixelvide.com/api/v4",
+		})
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+		require.NotNil(t, status.Claims)
+		assert.Equal(t, "PIXELVIDE DESIGN SOLUTIONS LLP", status.Claims.Customer.Name)
+	})
 }
 
 func TestResolveToken_FromFilesAndEnv(t *testing.T) {

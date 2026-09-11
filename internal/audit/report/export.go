@@ -212,6 +212,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	var sb strings.Builder
 	sb.WriteString("# GitLab Fleet Compliance & Security Audit Report\n\n")
+	sb.WriteString(fmt.Sprintf("**Governor Version**: `%s`  \n", report.GovernorVersion))
 	sb.WriteString(fmt.Sprintf("**Generated At**: %s  \n", report.GeneratedAt.UTC().Format(time.RFC1123)))
 	sb.WriteString(fmt.Sprintf("**Scan Duration**: %s  \n", report.DurationString))
 	sb.WriteString(fmt.Sprintf("**Audited By**: %s  \n", escapeMD(report.InitiatorDescription())))
@@ -220,6 +221,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("## Executive Summary\n\n")
 	sb.WriteString("| Metric | Value |\n")
 	sb.WriteString("|---|---:|\n")
+	sb.WriteString(fmt.Sprintf("| GitLab Fleet Governor Version | `%s` |\n", report.GovernorVersion))
 	sb.WriteString(fmt.Sprintf("| Audit Initiator (Token Identity) | %s |\n", escapeMD(report.InitiatorDescription())))
 	sb.WriteString(fmt.Sprintf("| Total Repositories Scanned | %d |\n", report.Summary.TotalProjectsScanned))
 	sb.WriteString(fmt.Sprintf("| Active Repositories | %d |\n", report.Summary.ActiveProjectsCount))
@@ -239,9 +241,14 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	// Commercial Licensing & Statutory Attestation Section
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
+		verStr := att.GovernorVersion
+		if verStr == "" {
+			verStr = report.GovernorVersion
+		}
 		sb.WriteString("## Commercial Licensing & Statutory Attestation\n\n")
 		sb.WriteString("| Attestation Property | Record Value |\n")
 		sb.WriteString("|---|---|\n")
+		sb.WriteString(fmt.Sprintf("| **GitLab Fleet Governor Version** | `%s` |\n", verStr))
 		sb.WriteString(fmt.Sprintf("| **Governing License Model** | `%s` |\n", att.LicenseModel))
 		sb.WriteString(fmt.Sprintf("| **Entitlement Status** | `%s` |\n", att.Status))
 		sb.WriteString(fmt.Sprintf("| **Licensed Customer / Entity** | %s |\n", escapeMD(att.LicensedTo)))
@@ -399,7 +406,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 <body>
 <div class="container">
 <h1>GitLab Fleet Compliance & Security Audit</h1>
-<div class="meta">Generated: ` + report.GeneratedAt.UTC().Format(time.RFC1123) + ` | Scan Duration: ` + report.DurationString + ` | Audited By: ` + html.EscapeString(report.InitiatorDescription()) + `</div>
+<div class="meta">Governor Version: ` + html.EscapeString(report.GovernorVersion) + ` | Generated: ` + report.GeneratedAt.UTC().Format(time.RFC1123) + ` | Scan Duration: ` + report.DurationString + ` | Audited By: ` + html.EscapeString(report.InitiatorDescription()) + `</div>
 
 <div class="stat-grid">
   <div class="stat-card"><div>Repositories Scanned</div><div class="stat-val">` + strconv.Itoa(report.Summary.TotalProjectsScanned) + `</div></div>
@@ -421,12 +428,17 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		if att.MaxProjects == 0 {
 			capStr = "Unlimited Projects"
 		}
+		verStr := att.GovernorVersion
+		if verStr == "" {
+			verStr = report.GovernorVersion
+		}
 		sb.WriteString(`<h2>Commercial Licensing & Statutory Attestation</h2>
 <table>
   <thead>
     <tr><th>Attestation Property</th><th>Attestation Record</th></tr>
   </thead>
   <tbody>
+    <tr><td><b>GitLab Fleet Governor Version</b></td><td>` + html.EscapeString(verStr) + `</td></tr>
     <tr><td><b>Governing License Model</b></td><td>` + html.EscapeString(att.LicenseModel) + `</td></tr>
     <tr><td><b>Entitlement Status</b></td><td>` + html.EscapeString(att.Status) + `</td></tr>
     <tr><td><b>Licensed Entity / Customer</b></td><td>` + html.EscapeString(att.LicensedTo) + `</td></tr>
@@ -590,6 +602,11 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString("\n================================================================================\n")
 	sb.WriteString("                  GITLAB FLEET COMPLIANCE & SECURITY AUDIT\n")
 	sb.WriteString("================================================================================\n")
+	verStr := report.GovernorVersion
+	if verStr == "" {
+		verStr = "dev"
+	}
+	sb.WriteString(fmt.Sprintf("Governor Version: %s\n", verStr))
 	sb.WriteString(fmt.Sprintf("Scan Completed : %s (Duration: %s)\n", report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
 	sb.WriteString(fmt.Sprintf("Audited By     : %s\n", report.InitiatorDescription()))
 	sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d) | Compliant: %d | Non-Compliant: %d\n",

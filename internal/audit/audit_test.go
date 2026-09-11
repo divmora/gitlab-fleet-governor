@@ -267,6 +267,8 @@ func TestAuditorCoordinator(t *testing.T) {
 
 	// Verify LicenseAttestation for community tier
 	require.NotNil(t, report.LicenseAttestation)
+	assert.NotEmpty(t, report.GovernorVersion)
+	assert.Equal(t, report.GovernorVersion, report.LicenseAttestation.GovernorVersion)
 	assert.Equal(t, "COMMUNITY_TIER", report.LicenseAttestation.Status)
 	assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
 	assert.Equal(t, "COMMUNITY", report.LicenseAttestation.Tier)
@@ -372,6 +374,47 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 		assert.Equal(t, 500, report.LicenseAttestation.MaxProjects)
 		assert.Equal(t, 1, report.LicenseAttestation.DiscoveredProjects)
 		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Ed25519 asymmetric signature")
+	})
+
+	t.Run("Valid Commercial License in DryRun Mode", func(t *testing.T) {
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		license.SetVerificationPublicKey(pub)
+		defer license.ResetVerificationPublicKey()
+
+		claims := &license.Claims{
+			ID: "lic-audit-pixelvide-001",
+			Customer: license.Customer{
+				Name:  "Pixelvide",
+				Email: "admin@pixelvide.com",
+			},
+			Tier:        "enterprise",
+			MaxProjects: 500,
+			Features:    []string{"all"},
+			IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
+			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		}
+		token, err := license.SignLicense(claims, priv)
+		require.NoError(t, err)
+
+		auditor, err := audit.NewAuditor(client,
+			targetOpts,
+			audit.WithAuditorLicense(token, "", true),
+		)
+		require.NoError(t, err)
+
+		report, err := auditor.Execute(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, report.LicenseAttestation)
+
+		assert.Equal(t, "VALID_COMMERCIAL", report.LicenseAttestation.Status)
+		assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
+		assert.Equal(t, "ENTERPRISE", report.LicenseAttestation.Tier)
+		assert.Equal(t, "Pixelvide", report.LicenseAttestation.LicensedTo)
+		assert.Equal(t, "lic-audit-pixelvide-001", report.LicenseAttestation.LicenseID)
+		assert.Equal(t, 500, report.LicenseAttestation.MaxProjects)
+		assert.Equal(t, 1, report.LicenseAttestation.DiscoveredProjects)
+		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Pixelvide")
 	})
 
 	t.Run("Apache 2 Converted", func(t *testing.T) {

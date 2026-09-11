@@ -43,6 +43,11 @@ func (r *TableReporter) Render(data *ReportData) error {
 	if data.DryRun {
 		modeStr = c.yellow("DRY-RUN SIMULATION (No mutations applied)")
 	}
+	verStr := data.Version
+	if verStr == "" {
+		verStr = "dev"
+	}
+	sb.WriteString(fmt.Sprintf("║  Version: %-70s ║\n", verStr))
 	sb.WriteString(fmt.Sprintf("║  Mode: %-71s ║\n", modeStr))
 	sb.WriteString(fmt.Sprintf("║  Duration: %-15s Started: %-19s Finished: %-13s ║\n",
 		data.Duration.Round(time.Millisecond).String(),

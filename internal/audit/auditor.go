@@ -300,8 +300,10 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		}
 	}
 
+	vInfo := version.Get()
 	report := &AuditReport{
 		Title:              "GitLab Fleet Compliance & Security Audit Report",
+		GovernorVersion:    vInfo.Version,
 		GeneratedAt:        startTime,
 		AuthenticatedUser:  authUser,
 		ActiveModules:      a.activeModuleList(),
@@ -491,6 +493,7 @@ func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, proj
 
 	if vInfo.IsApacheConverted(evalTime) {
 		return &LicenseAttestation{
+			GovernorVersion:      vInfo.Version,
 			Status:               "APACHE_2_CONVERTED",
 			LicenseModel:         "Apache-2.0",
 			Tier:                 "OPEN-SOURCE",
@@ -502,25 +505,13 @@ func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, proj
 		}
 	}
 
-	if a.dryRun {
-		return &LicenseAttestation{
-			Status:               "EXEMPTED_DRY_RUN",
-			LicenseModel:         "BSL-1.1",
-			Tier:                 "SIMULATION",
-			LicensedTo:           "Non-Production / Dry-Run Simulation",
-			MaxProjects:          0,
-			DiscoveredProjects:   projectCount,
-			ChangeDate:           changeDateStr,
-			AttestationStatement: "Audit execution performed in non-destructive dry-run simulation mode, permitted free of charge under Business Source License 1.1 Additional Use Grant (a).",
-		}
-	}
-
 	if status != nil && status.Claims != nil {
 		statusStr := "VALID_COMMERCIAL"
 		if status.InGracePeriod {
 			statusStr = "OPERATING_IN_GRACE_PERIOD"
 		}
 		return &LicenseAttestation{
+			GovernorVersion:      vInfo.Version,
 			Status:               statusStr,
 			LicenseModel:         "BSL-1.1",
 			Tier:                 strings.ToUpper(status.Claims.Tier),
@@ -533,7 +524,22 @@ func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, proj
 		}
 	}
 
+	if a.dryRun {
+		return &LicenseAttestation{
+			GovernorVersion:      vInfo.Version,
+			Status:               "EXEMPTED_DRY_RUN",
+			LicenseModel:         "BSL-1.1",
+			Tier:                 "SIMULATION",
+			LicensedTo:           "Non-Production / Dry-Run Simulation",
+			MaxProjects:          0,
+			DiscoveredProjects:   projectCount,
+			ChangeDate:           changeDateStr,
+			AttestationStatement: "Audit execution performed in non-destructive dry-run simulation mode, permitted free of charge under Business Source License 1.1 Additional Use Grant (a).",
+		}
+	}
+
 	return &LicenseAttestation{
+		GovernorVersion:      vInfo.Version,
 		Status:               "COMMUNITY_TIER",
 		LicenseModel:         "BSL-1.1",
 		Tier:                 "COMMUNITY",

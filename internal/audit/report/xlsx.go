@@ -278,8 +278,8 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 	_ = g.file.SetCellValue(sheet, "B2", "GitLab Fleet Compliance & Security Audit")
 	_ = g.file.SetCellStyle(sheet, "B2", "B2", g.sectionStyle)
 
-	_ = g.file.SetCellValue(sheet, "B3", fmt.Sprintf("Report Generated: %s | Scan Duration: %s",
-		report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
+	_ = g.file.SetCellValue(sheet, "B3", fmt.Sprintf("Report Generated: %s | Scan Duration: %s | Version: %s",
+		report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString, report.GovernorVersion))
 
 	initiator := report.InitiatorDescription()
 	_ = g.file.SetCellValue(sheet, "B4", fmt.Sprintf("Audit Initiated By (Token User): %s", initiator))
@@ -294,6 +294,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		Label string
 		Value any
 	}{
+		{"GitLab Fleet Governor Version", report.GovernorVersion},
 		{"Audit Initiator (Token Identity)", initiator},
 		{"Total Target Repositories Scanned", report.Summary.TotalProjectsScanned},
 		{"Active Repositories (Governance Priority)", report.Summary.ActiveProjectsCount},
@@ -368,10 +369,16 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 			capStr = "Unlimited Projects"
 		}
 
+		verStr := att.GovernorVersion
+		if verStr == "" {
+			verStr = report.GovernorVersion
+		}
+
 		licRows := []struct {
 			Key string
 			Val string
 		}{
+			{"GitLab Fleet Governor Version", verStr},
 			{"Governing License Model", att.LicenseModel},
 			{"Entitlement Status", att.Status},
 			{"Licensed Customer / Entity", att.LicensedTo},
