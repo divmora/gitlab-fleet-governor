@@ -17,6 +17,7 @@ CMD_PKG      := ./cmd/gitlab-fleet-governor
 VERSION      ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE   ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+RELEASE_SIG  ?= none
 
 # Go Environment
 GO_MIN_VERSION := 1.26
@@ -26,7 +27,8 @@ GOFLAGS        ?=
 LDFLAGS := -s -w \
   -X $(MODULE)/pkg/version.Version=$(VERSION) \
   -X $(MODULE)/pkg/version.GitCommit=$(GIT_COMMIT) \
-  -X $(MODULE)/pkg/version.BuildDate=$(BUILD_DATE)
+  -X $(MODULE)/pkg/version.BuildDate=$(BUILD_DATE) \
+  -X $(MODULE)/pkg/version.ReleaseSignature=$(RELEASE_SIG)
 
 # Container Images
 DOCKER_REGISTRY      ?= ghcr.io/divmora
