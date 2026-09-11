@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/divmora/gitlab-fleet-governor/compare/v0.6.0...v0.6.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **audit:** preserve commercial license in dry-run mode and include governor version in reports ([eceb650](https://github.com/divmora/gitlab-fleet-governor/commit/eceb6504ce5924be5d72b5b700fa4c698e343c3d))
+
 ## [0.6.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.5.0...v0.6.0) (2026-09-11)
 
 
