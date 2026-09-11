@@ -86,6 +86,13 @@ func executeRun(ctx context.Context, cmd *cobra.Command, flags runFlags) error {
 		concurrency = 10
 	}
 
+	if globalFlags.LicenseKey != "" {
+		cfg.Settings.License.Key = globalFlags.LicenseKey
+	}
+	if globalFlags.LicenseFile != "" {
+		cfg.Settings.License.File = globalFlags.LicenseFile
+	}
+
 	slog.Info("Configuration loaded successfully",
 		"source", sourceDesc,
 		"dry_run", dryRun,

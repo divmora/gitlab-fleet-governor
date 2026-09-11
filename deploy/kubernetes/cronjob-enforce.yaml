@@ -64,6 +64,13 @@ spec:
                       name: gitlab-fleet-governor-secret
                       key: GITLAB_BASE_URL
                       optional: true
+                # Optional commercial license key (required for production runs governing >25 projects)
+                - name: FLEET_LICENSE_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: gitlab-fleet-governor-secret
+                      key: FLEET_LICENSE_KEY
+                      optional: true
               resources:
                 requests:
                   cpu: 250m

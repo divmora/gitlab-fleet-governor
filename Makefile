@@ -68,6 +68,13 @@ build: check-go-version ## Build CLI binary for host platform
 	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BIN_NAME) $(CMD_PKG)
 	@echo "Compiled binary: $(BIN_DIR)/$(BIN_NAME)"
 
+.PHONY: build-license-gen
+build-license-gen: check-go-version ## Compile fleet-license-gen administrative tool
+	@echo "==> Building fleet-license-gen ($(VERSION))"
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/fleet-license-gen ./cmd/fleet-license-gen
+	@echo "Compiled binary: $(BIN_DIR)/fleet-license-gen"
+
 .PHONY: build-all
 build-all: check-go-version ## Cross-compile binaries for Linux, macOS, and Windows (amd64/arm64)
 	@echo "==> Cross-compiling $(BIN_NAME) for all platforms"

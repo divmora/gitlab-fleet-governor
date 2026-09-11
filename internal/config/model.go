@@ -61,6 +61,18 @@ type SettingsConfig struct {
 
 	// GitLab contains API connectivity and transport resilience parameters.
 	GitLab GitLabSettingsConfig `yaml:"gitlab,omitempty" json:"gitlab,omitempty"`
+
+	// License contains commercial enterprise license configuration.
+	License LicenseSettingsConfig `yaml:"license,omitempty" json:"license,omitempty"`
+}
+
+// LicenseSettingsConfig encapsulates commercial enterprise license parameters.
+type LicenseSettingsConfig struct {
+	// Key is the raw base64-encoded license token string.
+	Key string `yaml:"key,omitempty" json:"key,omitempty"`
+
+	// File is the file path pointing to the license token.
+	File string `yaml:"file,omitempty" json:"file,omitempty"`
 }
 
 // SetDefaults applies built-in default values to SettingsConfig.

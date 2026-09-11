@@ -12,6 +12,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
@@ -52,10 +53,23 @@ type Auditor struct {
 	protectedBranchAud   ProtectedBranchesModuleAuditor
 	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
 	pipelineRetentionAud PipelineRetentionModuleAuditor
+
+	licenseKey  string
+	licenseFile string
+	dryRun      bool
 }
 
 // AuditorOption provides functional configuration for Auditor.
 type AuditorOption func(*Auditor)
+
+// WithAuditorLicense configures commercial license enforcement settings for the audit run.
+func WithAuditorLicense(key, file string, dryRun bool) AuditorOption {
+	return func(a *Auditor) {
+		a.licenseKey = key
+		a.licenseFile = file
+		a.dryRun = dryRun
+	}
+}
 
 // WithAuditorConcurrency sets the worker concurrency.
 func WithAuditorConcurrency(c int) AuditorOption {
@@ -205,6 +219,17 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		"scanned_projects", fleet.ScannedProjectsCount,
 		"matched_projects", len(projects),
 	)
+
+	// 2. License Enforcement Phase (BSL 1.1)
+	if _, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: len(projects),
+		IsDryRun:           a.dryRun,
+		LicenseKey:         a.licenseKey,
+		LicenseFile:        a.licenseFile,
+		Command:            "audit",
+	}); err != nil {
+		return nil, err
+	}
 
 	activeCount := 0
 	archivedCount := 0

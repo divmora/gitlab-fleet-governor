@@ -181,12 +181,22 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		}
 	}
 
+	licenseKey := globalFlags.LicenseKey
+	if licenseKey == "" {
+		licenseKey = cfg.Settings.License.Key
+	}
+	licenseFile := globalFlags.LicenseFile
+	if licenseFile == "" {
+		licenseFile = cfg.Settings.License.File
+	}
+
 	// 5. Construct Auditor coordinator
 	auditor, err := audit.NewAuditor(client,
 		audit.WithAuditorConcurrency(concurrency),
 		audit.WithAuditorTargets(cfg.Targets),
 		audit.WithAuditorModules(modules),
 		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
+		audit.WithAuditorLicense(licenseKey, licenseFile, globalFlags.DryRun),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize auditor: %w", err)

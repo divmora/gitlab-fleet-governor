@@ -3,13 +3,17 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
@@ -345,5 +349,86 @@ targets:
 		// 5. Module Filtering
 		_, _, err = executeCommand(ctx, "audit", "-c", configFile, "--modules=user_access", "--format=json", "-o", filepath.Join(tempDir, "user_access.json"))
 		require.NoError(t, err)
+	})
+}
+
+func TestLicenseCommand(t *testing.T) {
+	ctx := context.Background()
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	license.SetVerificationPublicKey(pub)
+	defer license.ResetVerificationPublicKey()
+
+	claims := &license.Claims{
+		ID: "lic_cli_test",
+		Customer: license.Customer{
+			Name:  "Test CLI Corp",
+			Email: "cli@test.com",
+		},
+		Tier:        "enterprise",
+		MaxProjects: 250,
+		Features:    []string{"all"},
+		IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
+		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+	}
+	validToken, err := license.SignLicense(claims, priv)
+	require.NoError(t, err)
+
+	t.Run("License Help", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "--help")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "license")
+		assert.Contains(t, stdout, "status")
+		assert.Contains(t, stdout, "check")
+	})
+
+	t.Run("License Status Without License (Free Tier)", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Free Community Tier")
+		assert.Contains(t, stdout, "25 managed projects")
+	})
+
+	t.Run("License Status JSON Without License", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"tier": "community"`)
+		assert.Contains(t, stdout, `"free_tier_limit": 25`)
+	})
+
+	t.Run("License Status With Valid Token Flag", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--license-key="+validToken)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Test CLI Corp")
+		assert.Contains(t, stdout, "ENTERPRISE")
+		assert.Contains(t, stdout, "250 Managed Projects")
+		assert.Contains(t, stdout, "VERIFIED (Ed25519")
+	})
+
+	t.Run("License Status JSON With Valid Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "status", "--license-key="+validToken, "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"valid": true`)
+		assert.Contains(t, stdout, `"tier": "enterprise"`)
+	})
+
+	t.Run("License Check Without Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "check")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "OK: No commercial license provided")
+	})
+
+	t.Run("License Check With Valid Token", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "check", "--license-key="+validToken)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "OK: License lic_cli_test is valid for Test CLI Corp")
+	})
+
+	t.Run("License Check With Invalid Token", func(t *testing.T) {
+		_, _, err := executeCommand(ctx, "license", "check", "--license-key=invalid.token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "license check failed")
 	})
 }
