@@ -433,3 +433,103 @@ func TestEnforce_ChangeDate_AutomaticApacheConversion(t *testing.T) {
 		assert.Contains(t, status.Message, "2029-09-11")
 	})
 }
+
+func TestEnforce_Layer2_GitLabServerTimeAttestation(t *testing.T) {
+	origBuildDate := version.BuildDate
+	origVersion := version.Version
+	defer func() {
+		version.BuildDate = origBuildDate
+		version.Version = origVersion
+	}()
+
+	version.Version = "0.4.0"
+	version.BuildDate = "2026-09-11T00:00:00Z"
+
+	pubKey, privKey := generateTestKeyPair(t)
+
+	t.Run("Forward Clock Tampering Foiled: local clock set to 2030, but GitLab server Date is 2026", func(t *testing.T) {
+		tamperedLocalClock := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+		authoritativeServerTime := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+
+		// Over 25 projects without a commercial license
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 100,
+			IsDryRun:           false,
+			EvaluationTime:     tamperedLocalClock,
+			GitLabServerTime:   authoritativeServerTime,
+		})
+
+		// Must fail because server time proves Change Date has not yet arrived!
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REQUIRED")
+		assert.Nil(t, status)
+	})
+
+	t.Run("Legitimate Change Date: both local clock and GitLab server time have passed 3 years", func(t *testing.T) {
+		genuineFutureTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 5000,
+			IsDryRun:           false,
+			EvaluationTime:     genuineFutureTime,
+			GitLabServerTime:   genuineFutureTime,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, status)
+		assert.True(t, status.Valid)
+		assert.Contains(t, status.Message, "Apache License 2.0")
+	})
+
+	t.Run("Backward Clock Tampering Foiled: local clock rolled back to 2026, but GitLab server Date proves license expired in 2028", func(t *testing.T) {
+		claims := &license.Claims{
+			ID: "lic_expire_test",
+			Customer: license.Customer{
+				Name: "Sneaky Corp",
+			},
+			Tier:            "enterprise",
+			MaxProjects:     500,
+			IssuedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			ExpiresAt:       time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			GracePeriodDays: 14,
+			AllowedHosts:    []string{"*"},
+			AllowedGroups:   []string{"*"},
+			Features:        []string{"all"},
+		}
+
+		token, err := license.SignLicense(claims, privKey)
+		require.NoError(t, err)
+
+		tamperedLocalClock := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)      // claims unexpired
+		authoritativeServerTime := time.Date(2028, 6, 1, 0, 0, 0, 0, time.UTC) // server proves 2028 (expired)
+
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 100,
+			IsDryRun:           false,
+			LicenseKey:         token,
+			PublicKey:          pubKey,
+			EvaluationTime:     tamperedLocalClock,
+			GitLabServerTime:   authoritativeServerTime,
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "license expired")
+		require.NotNil(t, status)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Zero Server Time: air-gapped run gracefully falls back to local clock", func(t *testing.T) {
+		validTime := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 20, // <= 25 community tier
+			IsDryRun:           false,
+			EvaluationTime:     validTime,
+			GitLabServerTime:   time.Time{}, // Zero server time
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, status)
+		assert.True(t, status.Valid)
+		assert.Contains(t, status.Message, "Free Community Tier")
+	})
+}

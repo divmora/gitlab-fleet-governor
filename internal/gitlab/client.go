@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
@@ -34,6 +35,9 @@ type Client struct {
 	users                 UsersService
 	protectedEnvironments ProtectedEnvironmentsService
 	pipelines             PipelinesService
+
+	serverTimeMu   sync.RWMutex
+	lastServerTime time.Time
 }
 
 // ClientOption defines functional configuration options for Client.
@@ -313,6 +317,35 @@ func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c
 func (c *Client) Pipelines() PipelinesService                         { return c.pipelines }
 func (c *Client) BaseURL() string                                     { return c.baseURL }
 func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
+
+// ServerTime returns the most recently observed authoritative timestamp parsed from
+// the GitLab server's HTTP Date response header. If requests were executed through
+// GovernorTransport, its recorded server time is returned.
+// Returns a zero time.Time if no server responses have been received.
+func (c *Client) ServerTime() time.Time {
+	c.serverTimeMu.RLock()
+	manual := c.lastServerTime
+	c.serverTimeMu.RUnlock()
+	if !manual.IsZero() {
+		return manual
+	}
+
+	if c.httpClient != nil {
+		if gt, ok := c.httpClient.Transport.(*GovernorTransport); ok {
+			if t := gt.GetLastServerTime(); !t.IsZero() {
+				return t
+			}
+		}
+	}
+	return time.Time{}
+}
+
+// SetServerTime explicitly sets the authoritative server timestamp (primarily for testing).
+func (c *Client) SetServerTime(t time.Time) {
+	c.serverTimeMu.Lock()
+	defer c.serverTimeMu.Unlock()
+	c.lastServerTime = t.UTC()
+}
 
 // ----------------------------------------------------------------------------
 // Default Concrete SDK Service Adapters

@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
@@ -27,6 +28,11 @@ type GitLabClient interface {
 
 	// RawClient returns the underlying SDK client if direct access is required.
 	RawClient() *gitlab.Client
+
+	// ServerTime returns the most recently observed authoritative timestamp parsed from
+	// the GitLab server's HTTP Date response header. Returns a zero time.Time if no responses
+	// have been observed yet.
+	ServerTime() time.Time
 }
 
 // ProjectsService abstracts project retrieval, editing, and listing.

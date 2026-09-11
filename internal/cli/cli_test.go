@@ -434,7 +434,12 @@ func TestLicenseCommand(t *testing.T) {
 
 	t.Run("License Status When Converted to Apache 2.0", func(t *testing.T) {
 		origDate := version.BuildDate
-		defer func() { version.BuildDate = origDate }()
+		origEpoch := version.ProductGenesisEpoch
+		defer func() {
+			version.BuildDate = origDate
+			version.ProductGenesisEpoch = origEpoch
+		}()
+		version.ProductGenesisEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 		fourYearsAgo := time.Now().UTC().AddDate(-4, 0, 0).Format(time.RFC3339)
 		version.BuildDate = fourYearsAgo
 

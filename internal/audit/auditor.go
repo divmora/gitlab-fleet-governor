@@ -226,13 +226,16 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		targetPaths = append(targetPaths, p.PathWithNamespace)
 	}
 	baseURL := ""
+	var serverTime time.Time
 	if a.client != nil {
 		baseURL = a.client.BaseURL()
+		serverTime = a.client.ServerTime()
 	}
 	if _, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(projects),
 		IsDryRun:           a.dryRun,
 		GitLabBaseURL:      baseURL,
+		GitLabServerTime:   serverTime,
 		TargetPaths:        targetPaths,
 		LicenseKey:         a.licenseKey,
 		LicenseFile:        a.licenseFile,

@@ -393,10 +393,15 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	for _, g := range fleet.Groups {
 		targetPaths = append(targetPaths, g.FullPath)
 	}
+	var serverTime time.Time
+	if e.client != nil {
+		serverTime = e.client.ServerTime()
+	}
 	if _, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(fleet.Projects),
 		IsDryRun:           dryRun,
 		GitLabBaseURL:      cfg.Settings.GitLab.BaseURL,
+		GitLabServerTime:   serverTime,
 		TargetPaths:        targetPaths,
 		LicenseKey:         licenseKey,
 		LicenseFile:        licenseFile,

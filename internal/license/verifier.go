@@ -33,9 +33,17 @@ func SignLicense(claims *Claims, privKey ed25519.PrivateKey) (string, error) {
 	return fmt.Sprintf("%s.%s", payloadB64, sigB64), nil
 }
 
-// ParseAndVerify decodes, parses, and cryptographically verifies an Ed25519 signed license token.
+// ParseAndVerify decodes, parses, and cryptographically verifies an Ed25519 signed license token
+// against the current system time.
 // If pubKey is nil or empty, GetVerificationPublicKey() is used to resolve the public key.
 func ParseAndVerify(token string, pubKey ed25519.PublicKey) (*ValidationStatus, error) {
+	return ParseAndVerifyAt(token, pubKey, time.Now().UTC())
+}
+
+// ParseAndVerifyAt decodes, parses, and cryptographically verifies an Ed25519 signed license token
+// against a specified evaluation time.
+// If pubKey is nil or empty, GetVerificationPublicKey() is used to resolve the public key.
+func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time) (*ValidationStatus, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil, errors.New("license token cannot be empty")
@@ -87,7 +95,10 @@ func ParseAndVerify(token string, pubKey ed25519.PublicKey) (*ValidationStatus, 
 		return nil, errors.New("invalid license: missing expiration date")
 	}
 
-	now := time.Now().UTC()
+	if evalTime.IsZero() {
+		evalTime = time.Now().UTC()
+	}
+	now := evalTime.UTC()
 	daysRemaining := int(claims.ExpiresAt.Sub(now).Hours() / 24)
 
 	// Check if active (before ExpiresAt)

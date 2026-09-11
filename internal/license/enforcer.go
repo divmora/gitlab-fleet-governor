@@ -40,6 +40,10 @@ type EnforcementOptions struct {
 
 	// EvaluationTime optionally overrides current time (primarily for testing Change Date conversion).
 	EvaluationTime time.Time
+
+	// GitLabServerTime is the authoritative timestamp parsed from the GitLab server's HTTP Date response header.
+	// When provided, it serves as a tamper-resistant reference to detect local system clock manipulation.
+	GitLabServerTime time.Time
 }
 
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
@@ -85,8 +89,33 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		evalTime = time.Now().UTC()
 	}
 
-	// 0. Automatic BSL 1.1 Change Date Check (Apache 2.0 Conversion after 3 years)
+	// Layer 2: GitLab Server HTTP Date Header Attestation & Clock Skew Defense
 	vInfo := version.Get()
+	if !opts.GitLabServerTime.IsZero() {
+		serverTime := opts.GitLabServerTime.UTC()
+		// Detect forward clock tampering: local clock claims Apache 2.0 conversion,
+		// but authoritative GitLab server clock attests Change Date has not yet arrived.
+		if vInfo.IsApacheConverted(evalTime) && !vInfo.IsApacheConverted(serverTime) {
+			slog.Warn("SYSTEM CLOCK SKEW DETECTED: Local system clock indicates BSL 1.1 Change Date has passed, but authoritative GitLab server HTTP Date attests Change Date has not yet arrived. Enforcing BSL 1.1 based on server time.",
+				"local_clock", evalTime.Format(time.RFC3339),
+				"server_clock", serverTime.Format(time.RFC3339),
+			)
+			evalTime = serverTime
+		} else {
+			// Anchor to server time if evaluation clock drifts significantly (> 1 hour) from server time
+			drift := evalTime.Sub(serverTime)
+			if drift < -time.Hour || drift > time.Hour {
+				slog.Warn("SYSTEM CLOCK SKEW DETECTED: System clock drifts significantly from GitLab server time. Anchoring license evaluation to authoritative server time.",
+					"local_clock", evalTime.Format(time.RFC3339),
+					"server_clock", serverTime.Format(time.RFC3339),
+					"drift", drift.String(),
+				)
+				evalTime = serverTime
+			}
+		}
+	}
+
+	// 0. Automatic BSL 1.1 Change Date Check (Apache 2.0 Conversion after 3 years)
 	if vInfo.IsApacheConverted(evalTime) {
 		changeDate, _ := vInfo.ChangeDate()
 		slog.Info("BSL 1.1 Change Date reached: software has automatically converted to Apache License 2.0",
@@ -143,7 +172,7 @@ To continue managing fleets of this size:
        --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
 	}
 
-	status, err := ParseAndVerify(token, opts.PublicKey)
+	status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime)
 	if err != nil {
 		return status, fmt.Errorf("commercial license verification failed: %w", err)
 	}

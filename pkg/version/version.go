@@ -11,6 +11,10 @@ import (
 // BSLChangePeriodYears defines the duration in years before a BSL 1.1 licensed release converts to Apache 2.0.
 const BSLChangePeriodYears = 3
 
+// ProductGenesisEpoch marks the physical inception date of the GitLab Fleet Governor project (September 1, 2026).
+// Any binary claiming a BuildDate prior to this epoch is treated as forged or invalid.
+var ProductGenesisEpoch = time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+
 var (
 	// Version is the current semver release (e.g. "0.1.0") or "dev".
 	// Overridden at build time via -ldflags "-X github.com/divmora/gitlab-fleet-governor/pkg/version.Version=...".
@@ -88,26 +92,34 @@ func (i Info) JSON() (string, error) {
 }
 
 // ReleaseTime parses the BuildDate timestamp into a time.Time in UTC.
+// Returns false if the timestamp is missing, malformed, or precedes ProductGenesisEpoch.
 func (i Info) ReleaseTime() (time.Time, bool) {
 	if i.BuildDate == "" || i.BuildDate == "unknown" {
 		return time.Time{}, false
 	}
+	var t time.Time
+	var err error
+
 	// Try standard RFC3339 (e.g. 2026-09-11T10:16:56Z)
-	t, err := time.Parse(time.RFC3339, i.BuildDate)
-	if err == nil {
-		return t.UTC(), true
+	t, err = time.Parse(time.RFC3339, i.BuildDate)
+	if err != nil {
+		// Try ISO-8601 date-only format (e.g. 2026-09-11)
+		t, err = time.Parse("2006-01-02", i.BuildDate)
+		if err != nil {
+			// Try RFC3339Nano
+			t, err = time.Parse(time.RFC3339Nano, i.BuildDate)
+			if err != nil {
+				return time.Time{}, false
+			}
+		}
 	}
-	// Try ISO-8601 date-only format (e.g. 2026-09-11)
-	t, err = time.Parse("2006-01-02", i.BuildDate)
-	if err == nil {
-		return t.UTC(), true
+
+	utc := t.UTC()
+	// Layer 1: Product Genesis Epoch Floor defense against build-date forgery
+	if utc.Before(ProductGenesisEpoch) {
+		return time.Time{}, false
 	}
-	// Try RFC3339Nano
-	t, err = time.Parse(time.RFC3339Nano, i.BuildDate)
-	if err == nil {
-		return t.UTC(), true
-	}
-	return time.Time{}, false
+	return utc, true
 }
 
 // ChangeDate returns the timestamp exactly 3 years from release when this version converts to Apache 2.0.

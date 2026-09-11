@@ -107,3 +107,18 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 
 ---
 
+## 7. Commercial Licensing & Anti-Circumvention Roadmap
+
+- [ ] **Layer 3: Cryptographic Release Attestation & Signed Release Metadata**
+  - Distribute cryptographic release attestation manifests (`release.sig`) and SLSA Level 3 supply-chain provenance signed by DIVMORA's authoritative release key during GitHub Actions release workflows.
+  - Embed the canonical release timestamp, git commit SHA, and semver tag within the signed release envelope.
+  - The in-binary verification engine validates this signed release manifest offline; binaries claiming Apache 2.0 Change Date conversion without a valid DIVMORA cryptographic signature are treated as unverified and fall back to standard commercial BSL 1.1 enforcement.
+  - Support Sigstore / Cosign keyless OIDC verification for container images and standalone binaries.
+
+- [ ] **Layer 4: Enterprise Compliance Attestation & Anti-Circumvention Invariants**
+  - Implement structured compliance attestation records for enterprise security audits (SOC 2 Type II, ISO 27001, FedRAMP, and internal IT governance) certifying fleet reconciliation occurred under valid commercial licensing.
+  - Statutory BSL 1.1 Anti-Circumvention Protection: establish contractual and cryptographic invariants where intentional clock manipulation, build date spoofing, or signature bypassing constitutes a willful violation of the Business Source License 1.1 Additional Use Grant and circumvention of technological protection measures under applicable law.
+
+---
+
+

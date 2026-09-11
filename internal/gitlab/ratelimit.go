@@ -92,8 +92,9 @@ type GovernorTransport struct {
 	retryListener RetryListener
 	clock         Clock
 
-	mu            sync.RWMutex
-	lastRateLimit RateLimitInfo
+	mu             sync.RWMutex
+	lastRateLimit  RateLimitInfo
+	lastServerTime time.Time
 }
 
 // NewGovernorTransport constructs a new GovernorTransport.
@@ -185,6 +186,10 @@ func (t *GovernorTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		lastResp = resp
 		lastErr = err
 
+		if resp != nil {
+			t.updateServerTime(resp.Header)
+		}
+
 		// Check if request succeeded or non-retryable
 		if err == nil {
 			t.updateRateLimitInfo(resp.Header)
@@ -247,6 +252,27 @@ func (t *GovernorTransport) GetLastRateLimitInfo() RateLimitInfo {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.lastRateLimit
+}
+
+// GetLastServerTime returns the most recently observed authoritative timestamp parsed from
+// the GitLab server's HTTP Date response header. Returns a zero time.Time if no responses
+// have been observed yet.
+func (t *GovernorTransport) GetLastServerTime() time.Time {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.lastServerTime
+}
+
+func (t *GovernorTransport) updateServerTime(h http.Header) {
+	dateStr := h.Get("Date")
+	if dateStr == "" {
+		return
+	}
+	if parsed, err := http.ParseTime(dateStr); err == nil {
+		t.mu.Lock()
+		t.lastServerTime = parsed.UTC()
+		t.mu.Unlock()
+	}
 }
 
 func (t *GovernorTransport) updateRateLimitInfo(h http.Header) {
