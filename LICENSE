@@ -4,7 +4,12 @@ Parameters
 
 Licensor: DIVMORA Technologies
 Licensed Work: GitLab Fleet Governor, including all source code, documentation, and associated files in this repository.
-Additional Use Grant: You may use the Licensed Work free of charge for non-production purposes, including local development, testing, staging, QA, CI/CD automated validation, educational purposes, and proof-of-concept evaluation. You may not deploy or execute the Licensed Work in a production environment, sell, resell, sublicense, or offer the Licensed Work as a commercial product or hosted/managed service without obtaining a separate commercial license (EULA) from the Licensor.
+Additional Use Grant:
+  You may use the Licensed Work free of charge for:
+  (a) Non-production purposes, including local development, testing, staging, QA, CI/CD automated validation (dry-run linting), educational purposes, and proof-of-concept evaluation; and
+  (b) Production environments governing a cumulative fleet size of no more than twenty-five (25) managed GitLab projects/repositories at any given time.
+
+  Any production deployment governing more than twenty-five (25) managed projects/repositories or utilizing Enterprise-gated capabilities requires an active commercial subscription (EULA) from the Licensor.
 Change Date: Three (3) years from the date of release of the specific version of the Licensed Work.
 Change License: Apache License, Version 2.0 (as published by the Apache Software Foundation).
 
@@ -24,7 +29,7 @@ Conditions
 
 3. If you make modifications or derivative works of the Licensed Work, you must license such modifications or derivative works under this License (or, once the Change Date has occurred for that version, under the Change License).
 
-4. Any use of the Licensed Work in a production environment, or offering the Licensed Work as a commercial product or hosted/managed service, requires a valid commercial license (EULA) from the Licensor. For commercial inquiries and enterprise licensing, please contact licensing@divmora.com or visit https://divmora.com.
+4. Any use of the Licensed Work in a production environment beyond the scope permitted in the Additional Use Grant (including governing more than twenty-five (25) managed GitLab projects/repositories or utilizing Enterprise-gated capabilities), or offering the Licensed Work as a commercial product or hosted/managed service, requires a valid commercial license (EULA) from the Licensor. For commercial inquiries and enterprise licensing, please contact licensing@divmora.com or visit https://divmora.com.
 
 DISCLAIMER
 

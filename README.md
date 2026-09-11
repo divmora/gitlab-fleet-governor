@@ -346,8 +346,9 @@ Contributions are welcome!
  
 This project is licensed under the **Business Source License 1.1 (BSL 1.1)**.
  
-- **Non-Production Use**: Free of charge for local development, staging, QA, testing, CI/CD automated validation, educational purposes, and proof-of-concept evaluation.
-- **Production Deployments**: Requires a commercial license (EULA) from DIVMORA Technologies.
+- **Non-Production Use**: Free of charge for local development, staging, QA, testing, CI/CD automated validation (dry-run linting), educational purposes, and proof-of-concept evaluation.
+- **Production Use (Free Fleet Tier)**: Free of charge in production environments governing a cumulative fleet size of up to **twenty-five (25) managed GitLab projects/repositories** at any given time.
+- **Enterprise / Fleet Scale**: Any production deployment governing more than twenty-five (25) managed projects/repositories or utilizing Enterprise-gated capabilities requires an active commercial subscription (EULA) from DIVMORA Technologies.
 - **Change Date**: Converts automatically to **Apache License 2.0** three (3) years after the release date of the specific version.
  
 For commercial inquiries and enterprise licensing, please contact **[licensing@divmora.com](mailto:licensing@divmora.com)** or visit **[divmora.com](https://divmora.com)**. See [LICENSE](LICENSE) and [DIVMORA Licensing Policy](https://github.com/divmora/.github/blob/main/LICENSING.md) for full terms.
