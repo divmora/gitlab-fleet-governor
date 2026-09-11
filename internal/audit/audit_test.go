@@ -2,13 +2,18 @@ package audit_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/audit"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gogitlab "gitlab.com/gitlab-org/api/client-go"
@@ -259,6 +264,15 @@ func TestAuditorCoordinator(t *testing.T) {
 	assert.Equal(t, 1, report.Summary.TotalViolations)
 	assert.Equal(t, 1, report.Summary.HighSeverityCount)
 	assert.Equal(t, 0, report.Summary.CriticalSeverityCount)
+
+	// Verify LicenseAttestation for community tier
+	require.NotNil(t, report.LicenseAttestation)
+	assert.Equal(t, "COMMUNITY_TIER", report.LicenseAttestation.Status)
+	assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
+	assert.Equal(t, "COMMUNITY", report.LicenseAttestation.Tier)
+	assert.Equal(t, 1, report.LicenseAttestation.DiscoveredProjects)
+	assert.Equal(t, 25, report.LicenseAttestation.MaxProjects)
+	assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Free Community Tier")
 }
 
 func TestBotClassifier(t *testing.T) {
@@ -291,4 +305,98 @@ func TestBotClassifier(t *testing.T) {
 	// 6. Regular humans (must NOT match)
 	assert.False(t, classifier.IsBot(1, "alice", "Alice Admin", "alice@company.com"))
 	assert.False(t, classifier.IsBot(2, "john.doe", "John Doe", "john.doe@company.com"))
+}
+
+func TestAuditor_LicenseAttestationVariants(t *testing.T) {
+	_, client, _ := setupMockGitLab(t)
+
+	targetOpts := audit.WithAuditorTargets(config.TargetSelectors{
+		ProjectSelector: &config.ProjectSelector{
+			NamespacesInclude: []string{"fintech"},
+		},
+	})
+
+	t.Run("DryRun Exemption", func(t *testing.T) {
+		auditor, err := audit.NewAuditor(client,
+			targetOpts,
+			audit.WithAuditorLicense("", "", true),
+		)
+		require.NoError(t, err)
+
+		report, err := auditor.Execute(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, report.LicenseAttestation)
+
+		assert.Equal(t, "EXEMPTED_DRY_RUN", report.LicenseAttestation.Status)
+		assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
+		assert.Equal(t, "SIMULATION", report.LicenseAttestation.Tier)
+		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Additional Use Grant (a)")
+	})
+
+	t.Run("Valid Commercial License", func(t *testing.T) {
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		license.SetVerificationPublicKey(pub)
+		defer license.ResetVerificationPublicKey()
+
+		claims := &license.Claims{
+			ID: "lic-audit-ent-999",
+			Customer: license.Customer{
+				Name:  "Fintech Enterprise Corp",
+				Email: "ciso@fintechcorp.com",
+			},
+			Tier:        "enterprise",
+			MaxProjects: 500,
+			Features:    []string{"all"},
+			IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
+			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		}
+		token, err := license.SignLicense(claims, priv)
+		require.NoError(t, err)
+
+		auditor, err := audit.NewAuditor(client,
+			targetOpts,
+			audit.WithAuditorLicense(token, "", false),
+		)
+		require.NoError(t, err)
+
+		report, err := auditor.Execute(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, report.LicenseAttestation)
+
+		assert.Equal(t, "VALID_COMMERCIAL", report.LicenseAttestation.Status)
+		assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
+		assert.Equal(t, "ENTERPRISE", report.LicenseAttestation.Tier)
+		assert.Equal(t, "Fintech Enterprise Corp", report.LicenseAttestation.LicensedTo)
+		assert.Equal(t, "lic-audit-ent-999", report.LicenseAttestation.LicenseID)
+		assert.Equal(t, 500, report.LicenseAttestation.MaxProjects)
+		assert.Equal(t, 1, report.LicenseAttestation.DiscoveredProjects)
+		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Ed25519 asymmetric signature")
+	})
+
+	t.Run("Apache 2 Converted", func(t *testing.T) {
+		origEpoch := version.ProductGenesisEpoch
+		origDate := version.BuildDate
+		version.ProductGenesisEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+		version.BuildDate = "2020-01-02T00:00:00Z"
+		defer func() {
+			version.ProductGenesisEpoch = origEpoch
+			version.BuildDate = origDate
+		}()
+
+		auditor, err := audit.NewAuditor(client,
+			targetOpts,
+			audit.WithAuditorLicense("", "", false),
+		)
+		require.NoError(t, err)
+
+		report, err := auditor.Execute(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, report.LicenseAttestation)
+
+		assert.Equal(t, "APACHE_2_CONVERTED", report.LicenseAttestation.Status)
+		assert.Equal(t, "Apache-2.0", report.LicenseAttestation.LicenseModel)
+		assert.Equal(t, "OPEN-SOURCE", report.LicenseAttestation.Tier)
+		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Apache License, Version 2.0")
+	})
 }

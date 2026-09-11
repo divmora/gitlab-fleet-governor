@@ -20,6 +20,17 @@ func sampleAuditReport() *audit.AuditReport {
 		Duration:       2 * time.Second,
 		DurationString: "2s",
 		ActiveModules:  audit.AllModuleNames(),
+		LicenseAttestation: &audit.LicenseAttestation{
+			Status:               "VALID_COMMERCIAL",
+			LicenseModel:         "BSL-1.1",
+			Tier:                 "ENTERPRISE",
+			LicensedTo:           "Acme Corp",
+			LicenseID:            "lic-test-12345",
+			MaxProjects:          1000,
+			DiscoveredProjects:   2,
+			ChangeDate:           "2029-09-01",
+			AttestationStatement: "Certified commercial governance under Business Source License 1.1. Licensed to Acme Corp (ENTERPRISE Tier, Capacity: 1000 projects, License ID: lic-test-12345). Cryptographically attested via Ed25519 asymmetric signature.",
+		},
 		UserAccessFindings: []audit.UserAccessFinding{
 			{
 				ProjectID:      101,
@@ -182,4 +193,25 @@ func TestGenerateXLSX(t *testing.T) {
 	envVal, err := xlFile.GetCellValue("Protected Environments Access", "E2")
 	require.NoError(t, err)
 	assert.Equal(t, "production", envVal)
+
+	// Verify Executive Summary Licensing Attestation Section
+	execRows, err := xlFile.GetRows("Executive Summary")
+	require.NoError(t, err)
+	foundLicensingHeader := false
+	foundCustomer := false
+	foundModel := false
+	for _, row := range execRows {
+		if len(row) > 1 && row[1] == "Commercial Licensing & Compliance Attestation (BSL 1.1 / SOC 2 / ISO 27001)" {
+			foundLicensingHeader = true
+		}
+		if len(row) > 2 && row[1] == "Governing License Model" && row[2] == "BSL-1.1" {
+			foundModel = true
+		}
+		if len(row) > 2 && row[1] == "Licensed Customer / Entity" && row[2] == "Acme Corp" {
+			foundCustomer = true
+		}
+	}
+	assert.True(t, foundLicensingHeader, "Expected Licensing Attestation header in Executive Summary")
+	assert.True(t, foundModel, "Expected Governing License Model BSL-1.1 in Executive Summary")
+	assert.True(t, foundCustomer, "Expected Licensed Customer Acme Corp in Executive Summary")
 }
