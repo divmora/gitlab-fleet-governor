@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.6.1...v0.7.0) (2026-09-11)
+
+
+### Features
+
+* **ci:** add workflow_dispatch to release-please workflow for manual releases ([76174f3](https://github.com/divmora/gitlab-fleet-governor/commit/76174f37717cf3dfa78707e5308dd01e1fb9b785))
+
 ## [0.6.1](https://github.com/divmora/gitlab-fleet-governor/compare/v0.6.0...v0.6.1) (2026-09-11)
 
 
