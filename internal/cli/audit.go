@@ -37,6 +37,8 @@ type auditFlags struct {
 	SMTPPassword   string
 	SMTPFrom       string
 	SMTPTo         string
+	SMTPCc         string
+	SMTPBcc        string
 	SMTPSubject    string
 	SMTPGreeting   string
 	SMTPStartTLS   bool
@@ -98,6 +100,8 @@ terminal tables, with automated SMTP email distribution.`,
 	cmd.Flags().StringVar(&flags.SMTPPassword, "smtp-password", os.Getenv("SMTP_PASSWORD"), "SMTP password (env: SMTP_PASSWORD)")
 	cmd.Flags().StringVar(&flags.SMTPFrom, "smtp-from", os.Getenv("SMTP_FROM"), "Email sender 'From' address (env: SMTP_FROM)")
 	cmd.Flags().StringVar(&flags.SMTPTo, "smtp-to", os.Getenv("SMTP_TO"), "Comma-separated email recipients (env: SMTP_TO)")
+	cmd.Flags().StringVar(&flags.SMTPCc, "smtp-cc", os.Getenv("SMTP_CC"), "Comma-separated CC email recipients (env: SMTP_CC)")
+	cmd.Flags().StringVar(&flags.SMTPBcc, "smtp-bcc", os.Getenv("SMTP_BCC"), "Comma-separated BCC email recipients (env: SMTP_BCC)")
 	cmd.Flags().StringVar(&flags.SMTPSubject, "smtp-subject", "GitLab Fleet Compliance & Security Audit Report", "Subject line for email dispatch")
 	cmd.Flags().BoolVar(&flags.SMTPStartTLS, "smtp-starttls", true, "Enable STARTTLS on port 587 or 25")
 	cmd.Flags().BoolVar(&flags.SMTPDirectTLS, "smtp-direct-tls", false, "Use direct SSL/TLS (implicit TLS on port 465)")
@@ -267,13 +271,21 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	}
 
 	// 8. SMTP Distribution (if configured)
-	if flags.SMTPHost != "" || flags.SMTPTo != "" {
+	if flags.SMTPHost != "" || flags.SMTPTo != "" || flags.SMTPCc != "" || flags.SMTPBcc != "" {
 		if err := dispatchAuditEmail(ctx, flags, reportData, xlsxBytes, outputFile); err != nil {
 			slog.Error("Failed to dispatch audit report email", "error", err)
 			return fmt.Errorf("smtp dispatch failed: %w", err)
 		}
-		slog.Info("Audit report email successfully dispatched", "to", flags.SMTPTo, "host", flags.SMTPHost)
-		fmt.Fprintf(cmd.ErrOrStderr(), "Audit report successfully emailed to %s via %s\n", flags.SMTPTo, flags.SMTPHost)
+		slog.Info("Audit report email successfully dispatched", "to", flags.SMTPTo, "cc", flags.SMTPCc, "bcc", flags.SMTPBcc, "host", flags.SMTPHost)
+		msgRecipients := flags.SMTPTo
+		if flags.SMTPCc != "" {
+			if msgRecipients != "" {
+				msgRecipients += fmt.Sprintf(" (cc: %s)", flags.SMTPCc)
+			} else {
+				msgRecipients = fmt.Sprintf("(cc: %s)", flags.SMTPCc)
+			}
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "Audit report successfully emailed to %s via %s\n", msgRecipients, flags.SMTPHost)
 	}
 
 	if reportData.Summary.CriticalSeverityCount > 0 || reportData.Summary.HighSeverityCount > 0 {
@@ -299,8 +311,24 @@ func dispatchAuditEmail(
 		}
 	}
 
-	if len(toRecipients) == 0 {
-		return fmt.Errorf("no email recipients configured (--smtp-to)")
+	var ccRecipients []string
+	for _, r := range strings.Split(flags.SMTPCc, ",") {
+		trimmed := strings.TrimSpace(r)
+		if trimmed != "" {
+			ccRecipients = append(ccRecipients, trimmed)
+		}
+	}
+
+	var bccRecipients []string
+	for _, r := range strings.Split(flags.SMTPBcc, ",") {
+		trimmed := strings.TrimSpace(r)
+		if trimmed != "" {
+			bccRecipients = append(bccRecipients, trimmed)
+		}
+	}
+
+	if len(toRecipients) == 0 && len(ccRecipients) == 0 && len(bccRecipients) == 0 {
+		return fmt.Errorf("no email recipients configured (--smtp-to, --smtp-cc, or --smtp-bcc)")
 	}
 
 	// If xlsxBytes not generated yet (e.g. format was json), generate in-memory for attachment
@@ -319,6 +347,8 @@ func dispatchAuditEmail(
 	emailMsg := auditsmtp.BuildAuditEmail(reportData, xlsxBytes, attachFilename, flags.SMTPGreeting)
 	emailMsg.From = flags.SMTPFrom
 	emailMsg.To = toRecipients
+	emailMsg.Cc = ccRecipients
+	emailMsg.Bcc = bccRecipients
 	emailMsg.Subject = flags.SMTPSubject
 
 	smtpCfg := auditsmtp.Config{
@@ -328,6 +358,8 @@ func dispatchAuditEmail(
 		Password:      flags.SMTPPassword,
 		From:          flags.SMTPFrom,
 		To:            toRecipients,
+		Cc:            ccRecipients,
+		Bcc:           bccRecipients,
 		Subject:       flags.SMTPSubject,
 		StartTLS:      flags.SMTPStartTLS,
 		DirectTLS:     flags.SMTPDirectTLS,

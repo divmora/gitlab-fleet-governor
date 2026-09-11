@@ -195,3 +195,129 @@ func TestSMTPSendWithMockServer(t *testing.T) {
 	assert.Contains(t, strings.Join(receivedCommands, " "), "RCPT TO:<compliance@example.com>")
 	assert.Contains(t, strings.Join(receivedCommands, " "), "DATA")
 }
+
+func TestSMTPSendWithCcAndBcc(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = ln.Close() }()
+
+	serverErrChan := make(chan error, 1)
+	receivedCommands := make([]string, 0)
+	var dataBuffer strings.Builder
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			serverErrChan <- err
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		reader := bufio.NewReader(conn)
+		writer := bufio.NewWriter(conn)
+
+		// 220 Greeting
+		_, _ = writer.WriteString("220 mock-smtp-server Service ready\r\n")
+		_ = writer.Flush()
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			line = strings.TrimRight(line, "\r\n")
+			receivedCommands = append(receivedCommands, line)
+
+			cmd := strings.ToUpper(strings.Fields(line)[0])
+			switch cmd {
+			case "EHLO", "HELO":
+				_, _ = writer.WriteString("250-mock-smtp-server Hello\r\n250 HELP\r\n")
+				_ = writer.Flush()
+			case "MAIL":
+				_, _ = writer.WriteString("250 2.1.0 Sender OK\r\n")
+				_ = writer.Flush()
+			case "RCPT":
+				_, _ = writer.WriteString("250 2.1.5 Recipient OK\r\n")
+				_ = writer.Flush()
+			case "DATA":
+				_, _ = writer.WriteString("354 Start mail input; end with <CRLF>.<CRLF>\r\n")
+				_ = writer.Flush()
+				for {
+					dataLine, err := reader.ReadString('\n')
+					if err != nil || dataLine == ".\r\n" || dataLine == ".\n" {
+						break
+					}
+					dataBuffer.WriteString(dataLine)
+				}
+				_, _ = writer.WriteString("250 2.0.0 OK: message queued\r\n")
+				_ = writer.Flush()
+			case "QUIT":
+				_, _ = writer.WriteString("221 2.0.0 Bye\r\n")
+				_ = writer.Flush()
+				serverErrChan <- nil
+				return
+			default:
+				_, _ = writer.WriteString("500 Command not recognized\r\n")
+				_ = writer.Flush()
+			}
+		}
+		serverErrChan <- nil
+	}()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	cfg := smtp.Config{
+		Host:      tcpAddr.IP.String(),
+		Port:      tcpAddr.Port,
+		From:      "audit-bot@example.com",
+		To:        []string{"primary@example.com"},
+		Cc:        []string{"cc1@example.com", "cc2@example.com"},
+		Bcc:       []string{"secret-auditor@example.com"},
+		Subject:   "Audit Report With CC",
+		StartTLS:  false,
+		DirectTLS: false,
+	}
+
+	dispatcher := smtp.NewDispatcher(cfg)
+	msg := &smtp.Message{
+		From:     "audit-bot@example.com",
+		To:       []string{"primary@example.com", "primary-duplicate@example.com"},
+		Cc:       []string{"cc1@example.com", "cc2@example.com"},
+		Bcc:      []string{"secret-auditor@example.com", "primary@example.com"}, // primary is duplicate
+		Subject:  "Audit Report With CC",
+		TextBody: "This is a test audit email with CC and BCC.",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = dispatcher.Send(ctx, msg)
+	require.NoError(t, err)
+
+	serverErr := <-serverErrChan
+	require.NoError(t, serverErr)
+
+	// Verify RCPT TO commands were sent for all unique envelope recipients (deduplicated)
+	cmdJoin := strings.Join(receivedCommands, " ")
+	assert.Contains(t, cmdJoin, "RCPT TO:<primary@example.com>")
+	assert.Contains(t, cmdJoin, "RCPT TO:<primary-duplicate@example.com>")
+	assert.Contains(t, cmdJoin, "RCPT TO:<cc1@example.com>")
+	assert.Contains(t, cmdJoin, "RCPT TO:<cc2@example.com>")
+	assert.Contains(t, cmdJoin, "RCPT TO:<secret-auditor@example.com>")
+
+	// Verify deduplication: primary@example.com appeared in To and Bcc, but only 1 RCPT TO for it
+	rcptCount := 0
+	for _, cmd := range receivedCommands {
+		if cmd == "RCPT TO:<primary@example.com>" {
+			rcptCount++
+		}
+	}
+	assert.Equal(t, 1, rcptCount, "expected primary@example.com to be deduplicated in RCPT TO")
+
+	// Verify DATA body headers
+	dataStr := dataBuffer.String()
+	assert.Contains(t, dataStr, "To: primary@example.com, primary-duplicate@example.com\r\n")
+	assert.Contains(t, dataStr, "Cc: cc1@example.com, cc2@example.com\r\n")
+	// BCC must NEVER appear in message DATA headers
+	assert.NotContains(t, dataStr, "Bcc:")
+	assert.NotContains(t, dataStr, "secret-auditor@example.com")
+}

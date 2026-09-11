@@ -160,7 +160,8 @@ gitlab-fleet-governor audit -c governance.yaml --modules=user_access,protected_b
 gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx \
   --smtp-host=smtp.example.com --smtp-port=587 \
   --smtp-username=notifier@example.com --smtp-password=secret \
-  --smtp-from=governance@example.com --smtp-to=security-audit@example.com
+  --smtp-from=governance@example.com --smtp-to=security-audit@example.com \
+  --smtp-cc=ciso@example.com
 ```
 
 ---

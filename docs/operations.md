@@ -123,5 +123,5 @@ Audit reports can be dispatched automatically to compliance officers, auditors, 
 - **Transport Security**: Direct TLS (port 465) or STARTTLS (port 587/25) with automatic fallback.
 - **Authentication**: Supports standard `PLAIN` and `LOGIN` authentication mechanisms.
 - **Attachment Packaging**: Generates and attaches the formatted `.xlsx` workbook to a rich multipart MIME message (HTML body + plain text alternative).
-- **Automation CLI**: Configurable via flags (`--smtp-host`, `--smtp-to`, etc.) or standard environment variables (`SMTP_HOST`, `SMTP_PASSWORD`, `SMTP_TO`).
+- **Automation CLI**: Configurable via flags (`--smtp-host`, `--smtp-to`, `--smtp-cc`, `--smtp-bcc`, etc.) or standard environment variables (`SMTP_HOST`, `SMTP_PASSWORD`, `SMTP_TO`, `SMTP_CC`, `SMTP_BCC`).
 

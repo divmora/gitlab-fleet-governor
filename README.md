@@ -3,10 +3,11 @@
 [![Latest Release](https://img.shields.io/github/v/release/divmora/gitlab-fleet-governor?logo=github)](https://github.com/divmora/gitlab-fleet-governor/releases)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](https://github.com/divmora/.github/blob/main/LICENSING.md)
 [![CI/CD](https://github.com/divmora/gitlab-fleet-governor/actions/workflows/ci.yml/badge.svg)](https://github.com/divmora/gitlab-fleet-governor/actions)
-[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](SECURITY.md)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/divmora/gitlab-fleet-governor)](go.mod)
 [![Live Studio](https://img.shields.io/badge/Live%20Studio-GitHub%20Pages-0284c7?style=flat&logo=github)](https://divmora.github.io/gitlab-fleet-governor/)
 [![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-brightgreen)](https://divmora.github.io/gitlab-fleet-governor/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/divmora/gitlab-fleet-governor)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](SECURITY.md)
 
 **Production-grade, declarative policy-as-code and governance automation engine in Go for GitLab fleets.**
 
@@ -21,7 +22,8 @@ Try the **[GitLab Fleet Governor Live Studio & Simulator](https://divmora.github
 [Roadmap](ROADMAP.md) •
 [AWS Lambda](#-aws-lambda--serverless) •
 [CI/CD Integration](#-cicd-pipeline-integration) •
-[LLM Docs](https://divmora.github.io/gitlab-fleet-governor/llms.txt)
+[LLM Docs](https://divmora.github.io/gitlab-fleet-governor/llms.txt) •
+[Ask DeepWiki](https://deepwiki.com/divmora/gitlab-fleet-governor)
 
 </div>
 
@@ -140,7 +142,8 @@ gitlab-fleet-governor audit -c policies/enterprise.yaml --modules=user_access,pr
 gitlab-fleet-governor audit -c policies/enterprise.yaml -o fleet-audit.xlsx \
   --smtp-host=smtp.mailgun.org --smtp-port=587 \
   --smtp-username=postmaster@example.com --smtp-password=secret \
-  --smtp-from=security@example.com --smtp-to=compliance-team@example.com
+  --smtp-from=security@example.com --smtp-to=compliance-team@example.com \
+  --smtp-cc=ciso@example.com
 ```
 
 #### `validate`

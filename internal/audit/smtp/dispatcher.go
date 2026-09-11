@@ -24,6 +24,8 @@ type Config struct {
 	Password      string   `yaml:"password" json:"password"`
 	From          string   `yaml:"from" json:"from"`
 	To            []string `yaml:"to" json:"to"`
+	Cc            []string `yaml:"cc" json:"cc"`
+	Bcc           []string `yaml:"bcc" json:"bcc"`
 	Subject       string   `yaml:"subject" json:"subject"`
 	StartTLS      bool     `yaml:"starttls" json:"starttls"`
 	DirectTLS     bool     `yaml:"direct_tls" json:"direct_tls"`
@@ -59,6 +61,8 @@ type Attachment struct {
 type Message struct {
 	From        string
 	To          []string
+	Cc          []string
+	Bcc         []string
 	Subject     string
 	TextBody    string
 	HTMLBody    string
@@ -94,7 +98,18 @@ func (d *Dispatcher) Send(ctx context.Context, msg *Message) error {
 	if len(to) == 0 {
 		to = d.config.To
 	}
-	if len(to) == 0 {
+
+	cc := msg.Cc
+	if len(cc) == 0 {
+		cc = d.config.Cc
+	}
+
+	bcc := msg.Bcc
+	if len(bcc) == 0 {
+		bcc = d.config.Bcc
+	}
+
+	if len(to) == 0 && len(cc) == 0 && len(bcc) == 0 {
 		return errors.New("smtp recipient 'To' address is required")
 	}
 
@@ -104,7 +119,7 @@ func (d *Dispatcher) Send(ctx context.Context, msg *Message) error {
 	}
 
 	// 1. Build MIME multipart payload
-	payload, err := d.buildMIMEMessage(from, to, subject, msg)
+	payload, err := d.buildMIMEMessage(from, to, cc, subject, msg)
 	if err != nil {
 		return fmt.Errorf("failed to build MIME email payload: %w", err)
 	}
@@ -184,8 +199,21 @@ func (d *Dispatcher) Send(ctx context.Context, msg *Message) error {
 		return fmt.Errorf("SMTP MAIL FROM failed for %s: %w", from, err)
 	}
 
-	// 5. Send RCPT TO for each recipient
-	for _, recipient := range to {
+	// 5. Send RCPT TO for each recipient (To, Cc, Bcc deduplicated)
+	seenRecipients := make(map[string]struct{})
+	var envelopeRecipients []string
+	for _, r := range append(append(append([]string{}, to...), cc...), bcc...) {
+		clean := strings.TrimSpace(r)
+		if clean != "" {
+			lower := strings.ToLower(clean)
+			if _, exists := seenRecipients[lower]; !exists {
+				seenRecipients[lower] = struct{}{}
+				envelopeRecipients = append(envelopeRecipients, clean)
+			}
+		}
+	}
+
+	for _, recipient := range envelopeRecipients {
 		if err := client.Rcpt(recipient); err != nil {
 			return fmt.Errorf("SMTP RCPT TO failed for %s: %w", recipient, err)
 		}
@@ -213,7 +241,7 @@ func (d *Dispatcher) chooseAuth(host string) smtp.Auth {
 	return smtp.PlainAuth("", d.config.Username, d.config.Password, host)
 }
 
-func (d *Dispatcher) buildMIMEMessage(from string, to []string, subject string, msg *Message) ([]byte, error) {
+func (d *Dispatcher) buildMIMEMessage(from string, to, cc []string, subject string, msg *Message) ([]byte, error) {
 	var buf bytes.Buffer
 
 	boundaryMixed := fmt.Sprintf("==_FleetMixed_%d_==", time.Now().UnixNano())
@@ -221,7 +249,12 @@ func (d *Dispatcher) buildMIMEMessage(from string, to []string, subject string, 
 
 	// Top-level MIME Headers
 	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
-	buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
+	if len(to) > 0 {
+		buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
+	}
+	if len(cc) > 0 {
+		buf.WriteString(fmt.Sprintf("Cc: %s\r\n", strings.Join(cc, ", ")))
+	}
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
 	buf.WriteString("MIME-Version: 1.0\r\n")

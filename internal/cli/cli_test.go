@@ -256,6 +256,9 @@ func TestAuditCommand(t *testing.T) {
 		assert.Contains(t, stdout, "--modules")
 		assert.Contains(t, stdout, "--format")
 		assert.Contains(t, stdout, "--smtp-host")
+		assert.Contains(t, stdout, "--smtp-to")
+		assert.Contains(t, stdout, "--smtp-cc")
+		assert.Contains(t, stdout, "--smtp-bcc")
 	})
 
 	t.Run("Audit Missing Config", func(t *testing.T) {

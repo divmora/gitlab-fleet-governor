@@ -101,6 +101,18 @@ spec:
                       name: gitlab-fleet-governor-secret
                       key: SMTP_TO
                       optional: true
+                - name: SMTP_CC
+                  valueFrom:
+                    secretKeyRef:
+                      name: gitlab-fleet-governor-secret
+                      key: SMTP_CC
+                      optional: true
+                - name: SMTP_BCC
+                  valueFrom:
+                    secretKeyRef:
+                      name: gitlab-fleet-governor-secret
+                      key: SMTP_BCC
+                      optional: true
               resources:
                 requests:
                   cpu: 250m
