@@ -8,6 +8,7 @@ FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS builder
 ARG VERSION=dev
 ARG GIT_COMMIT=none
 ARG BUILD_DATE=unknown
+ARG RELEASE_SIG=none
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -41,7 +42,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -ldflags="-s -w \
       -X github.com/divmora/gitlab-fleet-governor/pkg/version.Version=${VERSION} \
       -X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit=${GIT_COMMIT} \
-      -X github.com/divmora/gitlab-fleet-governor/pkg/version.BuildDate=${BUILD_DATE}" \
+      -X github.com/divmora/gitlab-fleet-governor/pkg/version.BuildDate=${BUILD_DATE} \
+      -X github.com/divmora/gitlab-fleet-governor/pkg/version.ReleaseSignature=${RELEASE_SIG}" \
     -o /build/gitlab-fleet-governor ./cmd/gitlab-fleet-governor
 
 # ==============================================================================
