@@ -6,6 +6,9 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 // EnforcementOptions encapsulates the operational parameters required to evaluate
@@ -34,6 +37,9 @@ type EnforcementOptions struct {
 
 	// PublicKey optionally overrides the default public key (primarily for testing).
 	PublicKey ed25519.PublicKey
+
+	// EvaluationTime optionally overrides current time (primarily for testing Change Date conversion).
+	EvaluationTime time.Time
 }
 
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
@@ -74,6 +80,27 @@ func ResolveToken(key, file string) (string, error) {
 // 2. Production fleet size <= 25: Permitted free of charge under Additional Use Grant (b).
 // 3. Production fleet size > 25: Strictly requires a valid, unexpired commercial license with sufficient capacity.
 func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
+	evalTime := opts.EvaluationTime
+	if evalTime.IsZero() {
+		evalTime = time.Now().UTC()
+	}
+
+	// 0. Automatic BSL 1.1 Change Date Check (Apache 2.0 Conversion after 3 years)
+	vInfo := version.Get()
+	if vInfo.IsApacheConverted(evalTime) {
+		changeDate, _ := vInfo.ChangeDate()
+		slog.Info("BSL 1.1 Change Date reached: software has automatically converted to Apache License 2.0",
+			"version", vInfo.Version,
+			"released_at", vInfo.BuildDate,
+			"converted_at", changeDate.Format("2006-01-02"),
+			"command", opts.Command,
+		)
+		return &ValidationStatus{
+			Valid:   true,
+			Message: fmt.Sprintf("Automatically converted to Apache License 2.0 on %s under BSL 1.1 terms. Unrestricted usage permitted.", changeDate.Format("2006-01-02")),
+		}, nil
+	}
+
 	// 1. Non-Production & Dry-Run Simulation Exemption
 	if opts.IsDryRun {
 		slog.Debug("License check: execution is in dry-run simulation mode (permitted free of charge under BSL 1.1 Additional Use Grant a)",

@@ -70,3 +70,41 @@ func TestInfo_JSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, info, unmarshaled)
 }
+
+func TestChangeDate_Calculation(t *testing.T) {
+	info := version.Info{
+		Version:   "0.4.0",
+		BuildDate: "2026-09-11T12:00:00Z",
+	}
+
+	relTime, ok := info.ReleaseTime()
+	require.True(t, ok)
+	assert.Equal(t, 2026, relTime.Year())
+	assert.Equal(t, 9, int(relTime.Month()))
+	assert.Equal(t, 11, relTime.Day())
+
+	changeDate, ok := info.ChangeDate()
+	require.True(t, ok)
+	assert.Equal(t, 2029, changeDate.Year())
+	assert.Equal(t, 9, int(changeDate.Month()))
+	assert.Equal(t, 11, changeDate.Day())
+
+	// Exactly 2 years after release -> Not converted (BSL 1.1 active)
+	twoYearsLater := relTime.AddDate(2, 0, 0)
+	assert.False(t, info.IsApacheConverted(twoYearsLater))
+	assert.Equal(t, "BSL-1.1", info.License(twoYearsLater))
+
+	// 3 years and 1 day after release -> Converted (Apache 2.0 active)
+	threeYearsOneDayLater := changeDate.AddDate(0, 0, 1)
+	assert.True(t, info.IsApacheConverted(threeYearsOneDayLater))
+	assert.Equal(t, "Apache-2.0", info.License(threeYearsOneDayLater))
+}
+
+func TestChangeDate_EdgeCases(t *testing.T) {
+	unknownInfo := version.Info{BuildDate: "unknown"}
+	_, ok := unknownInfo.ReleaseTime()
+	assert.False(t, ok)
+	_, ok = unknownInfo.ChangeDate()
+	assert.False(t, ok)
+	assert.False(t, unknownInfo.IsApacheConvertedNow())
+}

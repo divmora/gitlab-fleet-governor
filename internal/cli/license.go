@@ -9,6 +9,7 @@ import (
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/spf13/cobra"
 )
 
@@ -39,11 +40,44 @@ func newLicenseStatusCmd() *cobra.Command {
 				return err
 			}
 
+			vInfo := version.Get()
+			if vInfo.IsApacheConvertedNow() {
+				changeDate, _ := vInfo.ChangeDate()
+				if jsonOutput {
+					out := map[string]interface{}{
+						"status":      "apache_2_converted",
+						"license":     "Apache-2.0",
+						"valid":       true,
+						"change_date": changeDate.Format("2006-01-02"),
+						"message":     fmt.Sprintf("Version %s converted to Apache License 2.0 on %s under BSL 1.1 Change Date terms.", vInfo.Version, changeDate.Format("2006-01-02")),
+					}
+					enc := json.NewEncoder(cmd.OutOrStdout())
+					enc.SetIndent("", "  ")
+					return enc.Encode(out)
+				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+				fmt.Fprintln(cmd.OutOrStdout(), "GitLab Fleet Governor License Status")
+				fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+				fmt.Fprintln(cmd.OutOrStdout(), "Active License   : Apache License, Version 2.0")
+				fmt.Fprintf(cmd.OutOrStdout(), "Converted On     : %s (under BSL 1.1 Change Date terms)\n", changeDate.Format("2006-01-02"))
+				fmt.Fprintln(cmd.OutOrStdout(), "Status           : 100% Free & Open Source (Zero capacity limits or token requirements)")
+				fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+				return nil
+			}
+
 			if token == "" {
+				changeDateStr := "Unknown (dev build)"
+				if changeDate, ok := vInfo.ChangeDate(); ok {
+					changeDateStr = changeDate.Format("2006-01-02")
+				}
+
 				if jsonOutput {
 					out := map[string]interface{}{
 						"status":           "community_tier",
 						"tier":             "community",
+						"license":          "BSL-1.1",
+						"change_date":      changeDateStr,
 						"free_tier_limit":  license.FreeTierMaxProjects,
 						"license_required": false,
 						"message":          "No commercial license configured. Running under free Community Tier (up to 25 production projects).",
@@ -57,6 +91,10 @@ func newLicenseStatusCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "GitLab Fleet Governor License Status")
 				fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
 				fmt.Fprintln(cmd.OutOrStdout(), "Active Tier      : Free Community Tier (BSL 1.1)")
+				if relTime, ok := vInfo.ReleaseTime(); ok {
+					fmt.Fprintf(cmd.OutOrStdout(), "Release Date     : %s\n", relTime.Format("2006-01-02"))
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Change Date      : %s (Converts to Apache License 2.0)\n", changeDateStr)
 				fmt.Fprintf(cmd.OutOrStdout(), "Production Quota : Up to %d managed projects/repositories\n", license.FreeTierMaxProjects)
 				fmt.Fprintln(cmd.OutOrStdout(), "Non-Production   : Free and unrestricted (local dev, staging, QA, CI/CD dry-run)")
 				fmt.Fprintln(cmd.OutOrStdout(), "Status           : ACTIVE (No commercial license required for <=25 projects)")
@@ -156,6 +194,14 @@ func newLicenseCheckCmd() *cobra.Command {
 		Use:   "check",
 		Short: "Perform headless verification of the active commercial license",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			vInfo := version.Get()
+			if vInfo.IsApacheConvertedNow() {
+				changeDate, _ := vInfo.ChangeDate()
+				fmt.Fprintf(cmd.OutOrStdout(), "OK: Version %s converted to Apache License 2.0 on %s (100%% unrestricted usage permitted)\n",
+					vInfo.Version, changeDate.Format("2006-01-02"))
+				return nil
+			}
+
 			token, err := resolveActiveLicenseToken()
 			if err != nil {
 				return err

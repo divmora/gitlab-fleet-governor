@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -392,5 +393,43 @@ func TestEnforce_HostAndGroupScoping(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE GROUP MISMATCH")
+	})
+}
+
+func TestEnforce_ChangeDate_AutomaticApacheConversion(t *testing.T) {
+	origBuildDate := version.BuildDate
+	origVersion := version.Version
+	defer func() {
+		version.BuildDate = origBuildDate
+		version.Version = origVersion
+	}()
+
+	version.Version = "0.4.0"
+	version.BuildDate = "2026-09-11T00:00:00Z"
+
+	t.Run("Before Change Date (2 years after release): strictly enforces >25 limits", func(t *testing.T) {
+		twoYearsLater := time.Date(2028, 9, 11, 0, 0, 0, 0, time.UTC)
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 100,
+			IsDryRun:           false,
+			EvaluationTime:     twoYearsLater,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REQUIRED")
+		assert.Nil(t, status)
+	})
+
+	t.Run("After Change Date (3 years and 1 day after release): automatically converts to Apache 2.0 with unlimited projects", func(t *testing.T) {
+		threeYearsLater := time.Date(2029, 9, 12, 0, 0, 0, 0, time.UTC)
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50000, // 50,000 projects!
+			IsDryRun:           false,
+			EvaluationTime:     threeYearsLater,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, status)
+		assert.True(t, status.Valid)
+		assert.Contains(t, status.Message, "Apache License 2.0")
+		assert.Contains(t, status.Message, "2029-09-11")
 	})
 }

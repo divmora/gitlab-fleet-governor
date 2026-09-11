@@ -431,4 +431,25 @@ func TestLicenseCommand(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "license check failed")
 	})
+
+	t.Run("License Status When Converted to Apache 2.0", func(t *testing.T) {
+		origDate := version.BuildDate
+		defer func() { version.BuildDate = origDate }()
+		fourYearsAgo := time.Now().UTC().AddDate(-4, 0, 0).Format(time.RFC3339)
+		version.BuildDate = fourYearsAgo
+
+		stdout, _, err := executeCommand(ctx, "license", "status")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Apache License, Version 2.0")
+		assert.Contains(t, stdout, "100% Free & Open Source")
+
+		stdoutJSON, _, err := executeCommand(ctx, "license", "status", "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdoutJSON, `"status": "apache_2_converted"`)
+		assert.Contains(t, stdoutJSON, `"license": "Apache-2.0"`)
+
+		stdoutCheck, _, err := executeCommand(ctx, "license", "check")
+		require.NoError(t, err)
+		assert.Contains(t, stdoutCheck, "converted to Apache License 2.0")
+	})
 }
