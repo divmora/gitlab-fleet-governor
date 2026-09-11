@@ -221,9 +221,19 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	)
 
 	// 2. License Enforcement Phase (BSL 1.1)
+	var targetPaths []string
+	for _, p := range projects {
+		targetPaths = append(targetPaths, p.PathWithNamespace)
+	}
+	baseURL := ""
+	if a.client != nil {
+		baseURL = a.client.BaseURL()
+	}
 	if _, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(projects),
 		IsDryRun:           a.dryRun,
+		GitLabBaseURL:      baseURL,
+		TargetPaths:        targetPaths,
 		LicenseKey:         a.licenseKey,
 		LicenseFile:        a.licenseFile,
 		Command:            "audit",

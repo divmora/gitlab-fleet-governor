@@ -386,9 +386,18 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	// 2. License Enforcement Phase (BSL 1.1)
 	licenseKey := cfg.Settings.License.Key
 	licenseFile := cfg.Settings.License.File
+	var targetPaths []string
+	for _, p := range fleet.Projects {
+		targetPaths = append(targetPaths, p.PathWithNamespace)
+	}
+	for _, g := range fleet.Groups {
+		targetPaths = append(targetPaths, g.FullPath)
+	}
 	if _, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(fleet.Projects),
 		IsDryRun:           dryRun,
+		GitLabBaseURL:      cfg.Settings.GitLab.BaseURL,
+		TargetPaths:        targetPaths,
 		LicenseKey:         licenseKey,
 		LicenseFile:        licenseFile,
 		Command:            "run",

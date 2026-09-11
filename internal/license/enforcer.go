@@ -17,6 +17,12 @@ type EnforcementOptions struct {
 	// IsDryRun specifies whether non-destructive simulation is active.
 	IsDryRun bool
 
+	// GitLabBaseURL is the base URL or host of the target GitLab instance.
+	GitLabBaseURL string
+
+	// TargetPaths contains the discovered project paths (e.g. "org/repo") and group paths.
+	TargetPaths []string
+
 	// LicenseKey is the raw license token string.
 	LicenseKey string
 
@@ -80,8 +86,14 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 2. Free Production Fleet Tier (<= 25 Projects)
-	if opts.DiscoveredProjects <= FreeTierMaxProjects {
+	// 2. Resolve token (from flags, files, or environment)
+	token, err := ResolveToken(opts.LicenseKey, opts.LicenseFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Free Production Fleet Tier (<= 25 Projects without commercial key)
+	if token == "" && opts.DiscoveredProjects <= FreeTierMaxProjects {
 		slog.Info("License tier: Free Community Tier active",
 			"managed_projects", opts.DiscoveredProjects,
 			"limit", FreeTierMaxProjects,
@@ -92,12 +104,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 3. Production Fleet Size > 25 Projects: Commercial Subscription Strictly Required
-	token, err := ResolveToken(opts.LicenseKey, opts.LicenseFile)
-	if err != nil {
-		return nil, err
-	}
-
+	// 4. Production Fleet Size > 25 Projects without a license: Hard Block
 	if token == "" {
 		return nil, fmt.Errorf(`COMMERCIAL LICENSE REQUIRED: Governing %d projects in production exceeds the free Community Tier limit (%d projects) permitted under the Business Source License 1.1.
 
@@ -118,6 +125,11 @@ To continue managing fleets of this size:
 	if status.Claims.MaxProjects > 0 && opts.DiscoveredProjects > status.Claims.MaxProjects {
 		return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
 			opts.DiscoveredProjects, status.Claims.MaxProjects, status.Claims.Tier)
+	}
+
+	// Enforce GitLab host and group scope boundaries
+	if err := status.Claims.ValidateScope(opts.GitLabBaseURL, opts.TargetPaths); err != nil {
+		return status, err
 	}
 
 	// Log warnings if operating in grace period

@@ -87,6 +87,8 @@ type issueFlags struct {
 	Tier           string
 	MaxProjects    int
 	ValidDays      int
+	AllowedHosts   string
+	AllowedGroups  string
 	Features       string
 	PrivateKey     string
 	PrivateKeyFile string
@@ -104,6 +106,8 @@ func newIssueCmd() *cobra.Command {
     --customer="Acme Corp" \
     --email="devops@acme.com" \
     --tier="enterprise" \
+    --hosts="gitlab.com" \
+    --groups="acme-corp" \
     --projects=500 \
     --valid-days=365 \
     --private-key-file=divmora-private.key`,
@@ -133,6 +137,26 @@ func newIssueCmd() *cobra.Command {
 				features = []string{"all"}
 			}
 
+			var allowedHosts []string
+			if flags.AllowedHosts != "" {
+				for _, h := range strings.Split(flags.AllowedHosts, ",") {
+					trimmed := strings.TrimSpace(h)
+					if trimmed != "" {
+						allowedHosts = append(allowedHosts, trimmed)
+					}
+				}
+			}
+
+			var allowedGroups []string
+			if flags.AllowedGroups != "" {
+				for _, g := range strings.Split(flags.AllowedGroups, ",") {
+					trimmed := strings.TrimSpace(g)
+					if trimmed != "" {
+						allowedGroups = append(allowedGroups, trimmed)
+					}
+				}
+			}
+
 			idBytes := make([]byte, 4)
 			_, _ = rand.Read(idBytes)
 			licenseID := fmt.Sprintf("lic_%x", idBytes)
@@ -146,6 +170,8 @@ func newIssueCmd() *cobra.Command {
 				},
 				Tier:            flags.Tier,
 				MaxProjects:     flags.MaxProjects,
+				AllowedHosts:    allowedHosts,
+				AllowedGroups:   allowedGroups,
 				Features:        features,
 				IssuedAt:        now,
 				ExpiresAt:       expiresAt,
@@ -179,6 +205,16 @@ func newIssueCmd() *cobra.Command {
 			fmt.Printf("Issued At        : %s\n", claims.IssuedAt.Format(time.RFC3339))
 			fmt.Printf("Expires At       : %s (%d days)\n", claims.ExpiresAt.Format(time.RFC3339), flags.ValidDays)
 			fmt.Printf("Grace Period     : %d days\n", claims.EffectiveGracePeriodDays())
+			if len(claims.AllowedHosts) > 0 {
+				fmt.Printf("Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			} else {
+				fmt.Println("Allowed Hosts    : Any (*)")
+			}
+			if len(claims.AllowedGroups) > 0 {
+				fmt.Printf("Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			} else {
+				fmt.Println("Allowed Groups   : Any (*)")
+			}
 			fmt.Printf("Entitlements     : %s\n", strings.Join(claims.Features, ", "))
 			fmt.Println("================================================================================")
 			fmt.Println("\nFLEET_LICENSE_KEY Token:")
@@ -197,6 +233,8 @@ func newIssueCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&flags.Tier, "tier", "t", "enterprise", "Subscription tier: enterprise, pro, community")
 	cmd.Flags().IntVarP(&flags.MaxProjects, "projects", "p", 500, "Maximum licensed fleet projects (0 for unlimited)")
 	cmd.Flags().IntVar(&flags.ValidDays, "valid-days", 365, "Validity period duration in days (default: 365)")
+	cmd.Flags().StringVar(&flags.AllowedHosts, "hosts", "", "Comma-separated allowed GitLab hostnames (e.g. 'gitlab.com,gitlab.mycorp.com')")
+	cmd.Flags().StringVar(&flags.AllowedGroups, "groups", "", "Comma-separated allowed root group hierarchies (e.g. 'acme-corp,fintech-division')")
 	cmd.Flags().StringVar(&flags.Features, "features", "all", "Comma-separated feature entitlements or 'all'")
 	cmd.Flags().StringVar(&flags.PrivateKey, "private-key", os.Getenv("DIVMORA_PRIVATE_KEY"), "Base64-encoded Ed25519 private signing key (env: DIVMORA_PRIVATE_KEY)")
 	cmd.Flags().StringVar(&flags.PrivateKeyFile, "private-key-file", "", "Path to file containing Ed25519 private key")
@@ -256,6 +294,16 @@ func newInspectCmd() *cobra.Command {
 			fmt.Printf("Expires At       : %s\n", claims.ExpiresAt.Format(time.RFC3339))
 			fmt.Printf("Days Remaining   : %d\n", status.DaysRemaining)
 			fmt.Printf("In Grace Period  : %t\n", status.InGracePeriod)
+			if len(claims.AllowedHosts) > 0 {
+				fmt.Printf("Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			} else {
+				fmt.Println("Allowed Hosts    : Any (*)")
+			}
+			if len(claims.AllowedGroups) > 0 {
+				fmt.Printf("Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			} else {
+				fmt.Println("Allowed Groups   : Any (*)")
+			}
 			fmt.Printf("Entitlements     : %s\n", strings.Join(claims.Features, ", "))
 			fmt.Println("================================================================================")
 

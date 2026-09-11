@@ -239,3 +239,158 @@ func TestResolveToken_FromFilesAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "token-from-file", k4)
 }
+
+func TestHostValidation_Scoping(t *testing.T) {
+	t.Run("ExtractHost utility", func(t *testing.T) {
+		assert.Equal(t, "gitlab.com", license.ExtractHost(""))
+		assert.Equal(t, "gitlab.com", license.ExtractHost("https://gitlab.com/api/v4"))
+		assert.Equal(t, "gitlab.mycorp.internal", license.ExtractHost("https://gitlab.mycorp.internal:8443/api/v4"))
+		assert.Equal(t, "code.devops.io", license.ExtractHost("code.devops.io"))
+	})
+
+	t.Run("Wildcard and Omitted AllowedHosts", func(t *testing.T) {
+		emptyClaims := &license.Claims{}
+		assert.True(t, emptyClaims.IsHostAllowed("https://gitlab.com"))
+		assert.True(t, emptyClaims.IsHostAllowed("https://gitlab.private.corp"))
+
+		starClaims := &license.Claims{AllowedHosts: []string{"*"}}
+		assert.True(t, starClaims.IsHostAllowed("https://gitlab.com"))
+		assert.True(t, starClaims.IsHostAllowed("https://gitlab.private.corp"))
+	})
+
+	t.Run("Exact Host Matching", func(t *testing.T) {
+		claims := &license.Claims{
+			AllowedHosts: []string{"gitlab.fintech.corp", "gitlab.com"},
+		}
+		assert.True(t, claims.IsHostAllowed("https://gitlab.fintech.corp/api/v4"))
+		assert.True(t, claims.IsHostAllowed("https://gitlab.com/api/v4"))
+		assert.False(t, claims.IsHostAllowed("https://gitlab.other.corp/api/v4"))
+	})
+
+	t.Run("Subdomain Wildcard Matching", func(t *testing.T) {
+		claims := &license.Claims{
+			AllowedHosts: []string{"*.internal.net"},
+		}
+		assert.True(t, claims.IsHostAllowed("https://gitlab.internal.net"))
+		assert.True(t, claims.IsHostAllowed("https://staging.internal.net"))
+		assert.False(t, claims.IsHostAllowed("https://gitlab.external.com"))
+	})
+}
+
+func TestGroupValidation_Scoping(t *testing.T) {
+	t.Run("Omitted or Wildcard AllowedGroups", func(t *testing.T) {
+		emptyClaims := &license.Claims{}
+		assert.True(t, emptyClaims.IsGroupAllowed("any-org/repo"))
+
+		starClaims := &license.Claims{AllowedGroups: []string{"*"}}
+		assert.True(t, starClaims.IsGroupAllowed("any-org/repo"))
+	})
+
+	t.Run("Hierarchy Prefix Matching", func(t *testing.T) {
+		claims := &license.Claims{
+			AllowedGroups: []string{"acme-corp", "fintech-division"},
+		}
+
+		// Exact group match
+		assert.True(t, claims.IsGroupAllowed("acme-corp"))
+		assert.True(t, claims.IsGroupAllowed("/acme-corp/"))
+
+		// Subgroup and nested projects
+		assert.True(t, claims.IsGroupAllowed("acme-corp/billing"))
+		assert.True(t, claims.IsGroupAllowed("acme-corp/billing/payments-service"))
+		assert.True(t, claims.IsGroupAllowed("fintech-division/core-banking"))
+
+		// Unrelated or partial prefix attacks
+		assert.False(t, claims.IsGroupAllowed("acme-corp-spoof/repo"))
+		assert.False(t, claims.IsGroupAllowed("other-org/billing"))
+	})
+}
+
+func TestValidateScope_HostAndGroup(t *testing.T) {
+	claims := &license.Claims{
+		AllowedHosts:  []string{"gitlab.com"},
+		AllowedGroups: []string{"acme-corp"},
+	}
+
+	// 1. Success on matching SaaS host and group
+	err := claims.ValidateScope("https://gitlab.com/api/v4", []string{
+		"acme-corp/billing",
+		"acme-corp/infra/terraform",
+	})
+	require.NoError(t, err)
+
+	// 2. Failure on host mismatch
+	err = claims.ValidateScope("https://gitlab.unauthorized.com/api/v4", []string{
+		"acme-corp/billing",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "COMMERCIAL LICENSE HOST MISMATCH")
+	assert.Contains(t, err.Error(), "gitlab.unauthorized.com")
+
+	// 3. Failure on group mismatch
+	err = claims.ValidateScope("https://gitlab.com/api/v4", []string{
+		"acme-corp/billing",
+		"competitor-org/secret-project",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "COMMERCIAL LICENSE GROUP MISMATCH")
+	assert.Contains(t, err.Error(), "competitor-org/secret-project")
+}
+
+func TestEnforce_HostAndGroupScoping(t *testing.T) {
+	pub, priv := generateTestKeyPair(t)
+
+	// Token restricted to gitlab.com and "enterprise-org"
+	token, err := license.SignLicense(&license.Claims{
+		ID: "lic_scoped_test",
+		Customer: license.Customer{
+			Name: "Enterprise Scoped Corp",
+		},
+		Tier:          "enterprise",
+		MaxProjects:   100,
+		AllowedHosts:  []string{"gitlab.com"},
+		AllowedGroups: []string{"enterprise-org"},
+		IssuedAt:      time.Now().UTC().Add(-1 * time.Hour),
+		ExpiresAt:     time.Now().UTC().Add(365 * 24 * time.Hour),
+	}, priv)
+	require.NoError(t, err)
+
+	t.Run("Permitted within valid host and group scope", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			GitLabBaseURL:      "https://gitlab.com/api/v4",
+			TargetPaths:        []string{"enterprise-org/backend", "enterprise-org/frontend"},
+			LicenseKey:         token,
+			PublicKey:          pub,
+		})
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("Rejected when host does not match", func(t *testing.T) {
+		_, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			GitLabBaseURL:      "https://gitlab.selfhosted.corp/api/v4",
+			TargetPaths:        []string{"enterprise-org/backend"},
+			LicenseKey:         token,
+			PublicKey:          pub,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE HOST MISMATCH")
+	})
+
+	t.Run("Rejected when group does not match", func(t *testing.T) {
+		_, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			GitLabBaseURL:      "https://gitlab.com/api/v4",
+			TargetPaths:        []string{"other-org/backend"},
+			LicenseKey:         token,
+			PublicKey:          pub,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE GROUP MISMATCH")
+	})
+}

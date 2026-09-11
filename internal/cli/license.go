@@ -129,6 +129,16 @@ func newLicenseStatusCmd() *cobra.Command {
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "Days Remaining   : %d days\n", status.DaysRemaining)
 			}
+			if len(claims.AllowedHosts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Hosts    : Any (*)")
+			}
+			if len(claims.AllowedGroups) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Groups   : Any (*)")
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Entitlements     : %s\n", strings.Join(claims.Features, ", "))
 			fmt.Fprintln(cmd.OutOrStdout(), "Signature Check  : VERIFIED (Ed25519 Asymmetric Signature)")
 			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
