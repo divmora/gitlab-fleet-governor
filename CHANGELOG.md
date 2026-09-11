@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.5.0...v0.6.0) (2026-09-11)
+
+
+### Features
+
+* **license:** implement BSL 1.1 commercial licensing and 4-layer defense architecture ([#33](https://github.com/divmora/gitlab-fleet-governor/issues/33)) ([ab1af8a](https://github.com/divmora/gitlab-fleet-governor/commit/ab1af8ad29561cabea9c68c744c34151f41fac2b))
+
 ## [0.5.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.4.0...v0.5.0) (2026-09-11)
 
 
