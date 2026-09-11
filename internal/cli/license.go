@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -35,7 +36,7 @@ func newLicenseStatusCmd() *cobra.Command {
 		Short: "Display active license status, tier, expiration, and fleet capacity",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Resolve license token
-			token, err := resolveActiveLicenseToken()
+			token, err := resolveActiveLicenseToken(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -202,7 +203,7 @@ func newLicenseCheckCmd() *cobra.Command {
 				return nil
 			}
 
-			token, err := resolveActiveLicenseToken()
+			token, err := resolveActiveLicenseToken(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -232,7 +233,7 @@ func newLicenseCheckCmd() *cobra.Command {
 	return cmd
 }
 
-func resolveActiveLicenseToken() (string, error) {
+func resolveActiveLicenseToken(ctx context.Context) (string, error) {
 	if globalFlags.LicenseKey != "" {
 		return strings.TrimSpace(globalFlags.LicenseKey), nil
 	}
@@ -247,7 +248,10 @@ func resolveActiveLicenseToken() (string, error) {
 
 	// If a config file was specified, try loading it to check settings.license
 	if globalFlags.ConfigPath != "" {
-		cfg, _, err := config.Load(nil, globalFlags.ConfigPath, config.LoadOptions{})
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		cfg, _, err := config.Load(ctx, globalFlags.ConfigPath, config.LoadOptions{})
 		if err == nil && cfg != nil {
 			if cfg.Settings.License.Key != "" {
 				return strings.TrimSpace(cfg.Settings.License.Key), nil
