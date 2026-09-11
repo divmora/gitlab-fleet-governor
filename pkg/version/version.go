@@ -34,12 +34,14 @@ var (
 
 // Info encapsulates complete build and environment version metadata.
 type Info struct {
-	Version   string `json:"version"`
-	GitCommit string `json:"git_commit"`
-	BuildDate string `json:"build_date"`
-	GoVersion string `json:"go_version"`
-	Compiler  string `json:"compiler"`
-	Platform  string `json:"platform"`
+	Version          string            `json:"version"`
+	GitCommit        string            `json:"git_commit"`
+	BuildDate        string            `json:"build_date"`
+	ReleaseSignature string            `json:"release_signature,omitempty"`
+	Provenance       ReleaseProvenance `json:"provenance"`
+	GoVersion        string            `json:"go_version"`
+	Compiler         string            `json:"compiler"`
+	Platform         string            `json:"platform"`
 }
 
 // Get returns populated Info metadata, attempting runtime/debug introspection if flags were omitted.
@@ -66,20 +68,27 @@ func Get() Info {
 		}
 	}
 
-	return Info{
-		Version:   v,
-		GitCommit: commit,
-		BuildDate: date,
-		GoVersion: runtime.Version(),
-		Compiler:  runtime.Compiler,
-		Platform:  fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+	info := Info{
+		Version:          v,
+		GitCommit:        commit,
+		BuildDate:        date,
+		ReleaseSignature: ReleaseSignature,
+		GoVersion:        runtime.Version(),
+		Compiler:         runtime.Compiler,
+		Platform:         fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	}
+	info.Provenance = info.EvaluateProvenance(nil)
+	return info
 }
 
 // String returns human-readable formatted version string.
 func (i Info) String() string {
-	return fmt.Sprintf("gitlab-fleet-governor %s (commit: %s, date: %s, go: %s, platform: %s)",
-		i.Version, i.GitCommit, i.BuildDate, i.GoVersion, i.Platform)
+	prov := i.Provenance.Status
+	if prov == "" {
+		prov = ProvenanceUnattestedCustom
+	}
+	return fmt.Sprintf("gitlab-fleet-governor %s (commit: %s, date: %s, provenance: %s, go: %s, platform: %s)",
+		i.Version, i.GitCommit, i.BuildDate, prov, i.GoVersion, i.Platform)
 }
 
 // JSON returns formatted JSON string representation of build metadata.
@@ -93,21 +102,27 @@ func (i Info) JSON() (string, error) {
 
 // ReleaseTime parses the BuildDate timestamp into a time.Time in UTC.
 // Returns false if the timestamp is missing, malformed, or precedes ProductGenesisEpoch.
+// If cryptographic release provenance is verified, the authoritative timestamp from SignedClaims is used.
 func (i Info) ReleaseTime() (time.Time, bool) {
-	if i.BuildDate == "" || i.BuildDate == "unknown" {
+	dateStr := i.BuildDate
+	if i.Provenance.Verified && i.Provenance.SignedClaims != nil && i.Provenance.SignedClaims.BuildDate != "" {
+		dateStr = i.Provenance.SignedClaims.BuildDate
+	}
+
+	if dateStr == "" || dateStr == "unknown" {
 		return time.Time{}, false
 	}
 	var t time.Time
 	var err error
 
 	// Try standard RFC3339 (e.g. 2026-09-11T10:16:56Z)
-	t, err = time.Parse(time.RFC3339, i.BuildDate)
+	t, err = time.Parse(time.RFC3339, dateStr)
 	if err != nil {
 		// Try ISO-8601 date-only format (e.g. 2026-09-11)
-		t, err = time.Parse("2006-01-02", i.BuildDate)
+		t, err = time.Parse("2006-01-02", dateStr)
 		if err != nil {
 			// Try RFC3339Nano
-			t, err = time.Parse(time.RFC3339Nano, i.BuildDate)
+			t, err = time.Parse(time.RFC3339Nano, dateStr)
 			if err != nil {
 				return time.Time{}, false
 			}
@@ -132,7 +147,13 @@ func (i Info) ChangeDate() (time.Time, bool) {
 }
 
 // IsApacheConverted evaluates whether the version has converted to Apache 2.0 at the given evaluation time.
+// Layer 3: Requires cryptographically verified release provenance from DIVMORA Technologies.
+// Unattested custom/community builds run under standard BSL 1.1 terms (<=25 projects free, dry-run free, or commercial token)
+// and do not automatically convert to Apache 2.0 based on self-reported build dates.
 func (i Info) IsApacheConverted(now time.Time) bool {
+	if !i.Provenance.Verified {
+		return false
+	}
 	changeDate, ok := i.ChangeDate()
 	if !ok {
 		return false

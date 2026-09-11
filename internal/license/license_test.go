@@ -399,13 +399,28 @@ func TestEnforce_HostAndGroupScoping(t *testing.T) {
 func TestEnforce_ChangeDate_AutomaticApacheConversion(t *testing.T) {
 	origBuildDate := version.BuildDate
 	origVersion := version.Version
+	origSig := version.ReleaseSignature
 	defer func() {
 		version.BuildDate = origBuildDate
 		version.Version = origVersion
+		version.ReleaseSignature = origSig
 	}()
 
 	version.Version = "0.4.0"
 	version.BuildDate = "2026-09-11T00:00:00Z"
+
+	pubRel, privRel := generateTestKeyPair(t)
+	version.SetReleaseVerificationPublicKey(pubRel)
+	defer version.ResetReleaseVerificationPublicKey()
+
+	token, err := version.SignRelease(&version.ReleaseClaims{
+		Version:   "0.4.0",
+		GitCommit: version.GitCommit,
+		BuildDate: "2026-09-11T00:00:00Z",
+		Authority: "DIVMORA Technologies",
+	}, privRel)
+	require.NoError(t, err)
+	version.ReleaseSignature = token
 
 	t.Run("Before Change Date (2 years after release): strictly enforces >25 limits", func(t *testing.T) {
 		twoYearsLater := time.Date(2028, 9, 11, 0, 0, 0, 0, time.UTC)
@@ -432,20 +447,46 @@ func TestEnforce_ChangeDate_AutomaticApacheConversion(t *testing.T) {
 		assert.Contains(t, status.Message, "Apache License 2.0")
 		assert.Contains(t, status.Message, "2029-09-11")
 	})
+
+	t.Run("Layer 3: Unattested custom build does not convert to Apache 2.0 even after 4 years", func(t *testing.T) {
+		version.ReleaseSignature = "none" // remove signature
+		fourYearsLater := time.Date(2030, 9, 12, 0, 0, 0, 0, time.UTC)
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 100,
+			IsDryRun:           false,
+			EvaluationTime:     fourYearsLater,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REQUIRED")
+		assert.Nil(t, status)
+	})
 }
 
 func TestEnforce_Layer2_GitLabServerTimeAttestation(t *testing.T) {
 	origBuildDate := version.BuildDate
 	origVersion := version.Version
+	origSig := version.ReleaseSignature
 	defer func() {
 		version.BuildDate = origBuildDate
 		version.Version = origVersion
+		version.ReleaseSignature = origSig
 	}()
 
 	version.Version = "0.4.0"
 	version.BuildDate = "2026-09-11T00:00:00Z"
 
 	pubKey, privKey := generateTestKeyPair(t)
+	version.SetReleaseVerificationPublicKey(pubKey)
+	defer version.ResetReleaseVerificationPublicKey()
+
+	relToken, err := version.SignRelease(&version.ReleaseClaims{
+		Version:   "0.4.0",
+		GitCommit: version.GitCommit,
+		BuildDate: "2026-09-11T00:00:00Z",
+		Authority: "DIVMORA Technologies",
+	}, privKey)
+	require.NoError(t, err)
+	version.ReleaseSignature = relToken
 
 	t.Run("Forward Clock Tampering Foiled: local clock set to 2030, but GitLab server Date is 2026", func(t *testing.T) {
 		tamperedLocalClock := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)

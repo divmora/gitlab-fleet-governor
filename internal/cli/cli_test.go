@@ -72,6 +72,55 @@ func TestVersionCommand(t *testing.T) {
 		assert.NotEmpty(t, info.Version)
 		assert.NotEmpty(t, info.GoVersion)
 		assert.NotEmpty(t, info.Platform)
+		assert.NotEmpty(t, info.Provenance.Status)
+	})
+
+	t.Run("Verify Unattested Custom Build", func(t *testing.T) {
+		origSig := version.ReleaseSignature
+		version.ReleaseSignature = "none"
+		defer func() { version.ReleaseSignature = origSig }()
+
+		stdout, _, err := executeCommand(ctx, "version", "--verify")
+		require.Error(t, err)
+		assert.Contains(t, stdout, "UNVERIFIED")
+		assert.Contains(t, stdout, "UNATTESTED_CUSTOM_BUILD")
+	})
+
+	t.Run("Verify Cryptographically Signed Official Release", func(t *testing.T) {
+		pubRel, privRel, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		version.SetReleaseVerificationPublicKey(pubRel)
+		defer version.ResetReleaseVerificationPublicKey()
+
+		origSig := version.ReleaseSignature
+		origVer := version.Version
+		origCommit := version.GitCommit
+		origDate := version.BuildDate
+		defer func() {
+			version.ReleaseSignature = origSig
+			version.Version = origVer
+			version.GitCommit = origCommit
+			version.BuildDate = origDate
+		}()
+
+		version.Version = "0.5.0"
+		version.GitCommit = "4b825dc642cb"
+		version.BuildDate = "2026-09-11T12:00:00Z"
+
+		token, err := version.SignRelease(&version.ReleaseClaims{
+			Version:   "0.5.0",
+			GitCommit: "4b825dc642cb",
+			BuildDate: "2026-09-11T12:00:00Z",
+			Authority: "DIVMORA Technologies Release Authority",
+		}, privRel)
+		require.NoError(t, err)
+		version.ReleaseSignature = token
+
+		stdout, _, err := executeCommand(ctx, "version", "--verify")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "PASSED (Cryptographically verified official release)")
+		assert.Contains(t, stdout, "DIVMORA Technologies Release Authority")
+		assert.Contains(t, stdout, "VERIFIED_OFFICIAL_RELEASE")
 	})
 }
 
@@ -435,13 +484,30 @@ func TestLicenseCommand(t *testing.T) {
 	t.Run("License Status When Converted to Apache 2.0", func(t *testing.T) {
 		origDate := version.BuildDate
 		origEpoch := version.ProductGenesisEpoch
+		origSig := version.ReleaseSignature
 		defer func() {
 			version.BuildDate = origDate
 			version.ProductGenesisEpoch = origEpoch
+			version.ReleaseSignature = origSig
 		}()
 		version.ProductGenesisEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 		fourYearsAgo := time.Now().UTC().AddDate(-4, 0, 0).Format(time.RFC3339)
 		version.BuildDate = fourYearsAgo
+
+		// Sign test release for this build
+		pubRel, privRel, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		version.SetReleaseVerificationPublicKey(pubRel)
+		defer version.ResetReleaseVerificationPublicKey()
+
+		token, err := version.SignRelease(&version.ReleaseClaims{
+			Version:   version.Version,
+			GitCommit: version.GitCommit,
+			BuildDate: fourYearsAgo,
+			Authority: "DIVMORA Technologies",
+		}, privRel)
+		require.NoError(t, err)
+		version.ReleaseSignature = token
 
 		stdout, _, err := executeCommand(ctx, "license", "status")
 		require.NoError(t, err)

@@ -377,12 +377,28 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 	t.Run("Apache 2 Converted", func(t *testing.T) {
 		origEpoch := version.ProductGenesisEpoch
 		origDate := version.BuildDate
+		origSig := version.ReleaseSignature
 		version.ProductGenesisEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 		version.BuildDate = "2020-01-02T00:00:00Z"
 		defer func() {
 			version.ProductGenesisEpoch = origEpoch
 			version.BuildDate = origDate
+			version.ReleaseSignature = origSig
 		}()
+
+		pubRel, privRel, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		version.SetReleaseVerificationPublicKey(pubRel)
+		defer version.ResetReleaseVerificationPublicKey()
+
+		token, err := version.SignRelease(&version.ReleaseClaims{
+			Version:   version.Version,
+			GitCommit: version.GitCommit,
+			BuildDate: "2020-01-02T00:00:00Z",
+			Authority: "DIVMORA Technologies",
+		}, privRel)
+		require.NoError(t, err)
+		version.ReleaseSignature = token
 
 		auditor, err := audit.NewAuditor(client,
 			targetOpts,

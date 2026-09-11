@@ -72,18 +72,23 @@ func TestInfo_JSON(t *testing.T) {
 }
 
 func TestChangeDate_Calculation(t *testing.T) {
-	info := version.Info{
+	// 1. Verified Official Release converts after 3 years
+	verifiedInfo := version.Info{
 		Version:   "0.4.0",
 		BuildDate: "2026-09-11T12:00:00Z",
+		Provenance: version.ReleaseProvenance{
+			Status:   version.ProvenanceVerifiedOfficial,
+			Verified: true,
+		},
 	}
 
-	relTime, ok := info.ReleaseTime()
+	relTime, ok := verifiedInfo.ReleaseTime()
 	require.True(t, ok)
 	assert.Equal(t, 2026, relTime.Year())
 	assert.Equal(t, 9, int(relTime.Month()))
 	assert.Equal(t, 11, relTime.Day())
 
-	changeDate, ok := info.ChangeDate()
+	changeDate, ok := verifiedInfo.ChangeDate()
 	require.True(t, ok)
 	assert.Equal(t, 2029, changeDate.Year())
 	assert.Equal(t, 9, int(changeDate.Month()))
@@ -91,13 +96,25 @@ func TestChangeDate_Calculation(t *testing.T) {
 
 	// Exactly 2 years after release -> Not converted (BSL 1.1 active)
 	twoYearsLater := relTime.AddDate(2, 0, 0)
-	assert.False(t, info.IsApacheConverted(twoYearsLater))
-	assert.Equal(t, "BSL-1.1", info.License(twoYearsLater))
+	assert.False(t, verifiedInfo.IsApacheConverted(twoYearsLater))
+	assert.Equal(t, "BSL-1.1", verifiedInfo.License(twoYearsLater))
 
 	// 3 years and 1 day after release -> Converted (Apache 2.0 active)
 	threeYearsOneDayLater := changeDate.AddDate(0, 0, 1)
-	assert.True(t, info.IsApacheConverted(threeYearsOneDayLater))
-	assert.Equal(t, "Apache-2.0", info.License(threeYearsOneDayLater))
+	assert.True(t, verifiedInfo.IsApacheConverted(threeYearsOneDayLater))
+	assert.Equal(t, "Apache-2.0", verifiedInfo.License(threeYearsOneDayLater))
+
+	// 2. Unverified / Custom Release does not convert even 4 years later
+	unverifiedInfo := version.Info{
+		Version:   "0.4.0",
+		BuildDate: "2026-09-11T12:00:00Z",
+		Provenance: version.ReleaseProvenance{
+			Status:   version.ProvenanceUnattestedCustom,
+			Verified: false,
+		},
+	}
+	assert.False(t, unverifiedInfo.IsApacheConverted(threeYearsOneDayLater))
+	assert.Equal(t, "BSL-1.1", unverifiedInfo.License(threeYearsOneDayLater))
 }
 
 func TestChangeDate_EdgeCases(t *testing.T) {
