@@ -46,6 +46,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X github.com/divmora/gitlab-fleet-governor/pkg/version.ReleaseSignature=${RELEASE_SIG}" \
     -o /build/gitlab-fleet-governor ./cmd/gitlab-fleet-governor
 
+# Persist release signature sidecar if RELEASE_SIG was supplied or release.sig exists in source
+RUN if [ "${RELEASE_SIG}" != "none" ] && [ -n "${RELEASE_SIG}" ]; then \
+        echo "${RELEASE_SIG}" > /build/release.sig; \
+    elif [ -f "release.sig" ]; then \
+        cp release.sig /build/release.sig; \
+    else \
+        touch /build/release.sig.none; \
+    fi
+
 # ==============================================================================
 # Final Runtime Stage
 # ==============================================================================
@@ -61,8 +70,10 @@ RUN apk update && apk add --no-cache \
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 
-# Copy compiled binary
+# Copy compiled binary and release signature sidecar
 COPY --from=builder --chown=10001:10001 /build/gitlab-fleet-governor /usr/local/bin/gitlab-fleet-governor
+COPY --from=builder --chown=10001:10001 /build/release.sig* /app/
+RUN rm -f /app/release.sig.none
 
 # Create workspace and configuration directories with non-root ownership
 RUN mkdir -p /home/appuser /app /config && \

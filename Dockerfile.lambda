@@ -37,14 +37,25 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X github.com/divmora/gitlab-fleet-governor/pkg/version.ReleaseSignature=${RELEASE_SIG}" \
     -o /build/bootstrap ./cmd/gitlab-fleet-governor
 
+# Persist release signature sidecar if RELEASE_SIG was supplied or release.sig exists in source
+RUN if [ "${RELEASE_SIG}" != "none" ] && [ -n "${RELEASE_SIG}" ]; then \
+        echo "${RELEASE_SIG}" > /build/release.sig; \
+    elif [ -f "release.sig" ]; then \
+        cp release.sig /build/release.sig; \
+    else \
+        touch /build/release.sig.none; \
+    fi
+
 # ==============================================================================
 # Final AWS Lambda Runtime Stage (Amazon Linux 2023 Minimal Base)
 # ==============================================================================
 FROM public.ecr.aws/lambda/provided:al2023
 
-# Copy bootstrap executable to Lambda task root and runtime directory
+# Copy bootstrap executable and release signature to Lambda task root and runtime directory
 COPY --from=builder /build/bootstrap ${LAMBDA_RUNTIME_DIR}/bootstrap
 COPY --from=builder /build/bootstrap ${LAMBDA_TASK_ROOT}/bootstrap
+COPY --from=builder /build/release.sig* ${LAMBDA_TASK_ROOT}/
+RUN rm -f ${LAMBDA_TASK_ROOT}/release.sig.none
 
 # Copy certificates and timezone information
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

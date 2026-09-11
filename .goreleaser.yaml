@@ -70,6 +70,7 @@ archives:
       - README.md
       - LICENSE
       - examples/*
+      - release.sig*
 
   # AWS Lambda deployment zip (bootstrap executable placed directly at archive root)
   - id: lambda-archive
@@ -79,7 +80,7 @@ archives:
     formats:
       - zip
     files:
-      - none*
+      - release.sig*
 
 checksum:
   name_template: 'checksums.txt'
@@ -130,3 +131,5 @@ release:
   draft: false
   prerelease: auto
   mode: replace
+  extra_files:
+    - glob: ./release.sig*
