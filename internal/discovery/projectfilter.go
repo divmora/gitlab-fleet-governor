@@ -13,17 +13,18 @@ import (
 type FilterDecision string
 
 const (
-	DecisionMatched            FilterDecision = "matched"
-	DecisionExcludedNamespace  FilterDecision = "excluded_namespace"
-	DecisionExcludedRegex      FilterDecision = "excluded_regex"
-	DecisionExcludedTopic      FilterDecision = "excluded_topic"
-	DecisionMissingNamespace   FilterDecision = "missing_namespace"
-	DecisionMissingRegex       FilterDecision = "missing_regex"
-	DecisionMissingTopic       FilterDecision = "missing_topic"
-	DecisionMismatchVisibility FilterDecision = "mismatch_visibility"
-	DecisionMismatchArchived   FilterDecision = "mismatch_archived"
-	DecisionMismatchIDRange    FilterDecision = "mismatch_id_range"
-	DecisionNilProject         FilterDecision = "nil_project"
+	DecisionMatched                   FilterDecision = "matched"
+	DecisionExcludedNamespace         FilterDecision = "excluded_namespace"
+	DecisionExcludedRegex             FilterDecision = "excluded_regex"
+	DecisionExcludedTopic             FilterDecision = "excluded_topic"
+	DecisionMissingNamespace          FilterDecision = "missing_namespace"
+	DecisionMissingRegex              FilterDecision = "missing_regex"
+	DecisionMissingTopic              FilterDecision = "missing_topic"
+	DecisionMismatchVisibility        FilterDecision = "mismatch_visibility"
+	DecisionMismatchArchived          FilterDecision = "mismatch_archived"
+	DecisionMismatchMarkedForDeletion FilterDecision = "mismatch_marked_for_deletion"
+	DecisionMismatchIDRange           FilterDecision = "mismatch_id_range"
+	DecisionNilProject                FilterDecision = "nil_project"
 )
 
 // FilterResult contains detailed match diagnostics for logging and dry-run reporting.
@@ -36,15 +37,16 @@ type FilterResult struct {
 
 // ProjectFilter executes a multi-criteria filtering pipeline against GitLab projects.
 type ProjectFilter struct {
-	namespacesInclude []string
-	namespacesExclude []string
-	regexInclude      *regexp.Regexp
-	regexExclude      *regexp.Regexp
-	topicsInclude     map[string]struct{}
-	topicsExclude     map[string]struct{}
-	visibility        string
-	archived          *bool
-	idRange           *config.IDRange
+	namespacesInclude        []string
+	namespacesExclude        []string
+	regexInclude             *regexp.Regexp
+	regexExclude             *regexp.Regexp
+	topicsInclude            map[string]struct{}
+	topicsExclude            map[string]struct{}
+	visibility               string
+	archived                 *bool
+	excludeMarkedForDeletion *bool
+	idRange                  *config.IDRange
 }
 
 // NewProjectFilter compiles and initializes a ProjectFilter from configuration.
@@ -54,9 +56,10 @@ func NewProjectFilter(sel *config.ProjectSelector) (*ProjectFilter, error) {
 	}
 
 	pf := &ProjectFilter{
-		visibility: strings.ToLower(strings.TrimSpace(sel.Visibility)),
-		archived:   sel.Archived,
-		idRange:    sel.IDRange,
+		visibility:               strings.ToLower(strings.TrimSpace(sel.Visibility)),
+		archived:                 sel.Archived,
+		excludeMarkedForDeletion: sel.ExcludeMarkedForDeletion,
+		idRange:                  sel.IDRange,
 	}
 
 	// 1. Normalize namespaces
@@ -144,6 +147,22 @@ func (pf *ProjectFilter) Evaluate(p *gitlab.Project) FilterResult {
 				Decision: DecisionMismatchArchived,
 				Reason:   fmt.Sprintf("project archived status (%t) does not match required (%t)", p.Archived, *pf.archived),
 			}
+		}
+	}
+
+	// Step 1b: Marked For Deletion Check
+	shouldExcludeMarked := false
+	if pf.excludeMarkedForDeletion != nil {
+		shouldExcludeMarked = *pf.excludeMarkedForDeletion
+	} else if pf.archived != nil && !*pf.archived {
+		// When archived: false (active only) is specified, exclude projects pending deletion by default
+		shouldExcludeMarked = true
+	}
+	if shouldExcludeMarked && p.MarkedForDeletionAt != nil {
+		return FilterResult{
+			Matched:  false,
+			Decision: DecisionMismatchMarkedForDeletion,
+			Reason:   fmt.Sprintf("project is marked for deletion (scheduled at %s)", p.MarkedForDeletionAt.String()),
 		}
 	}
 

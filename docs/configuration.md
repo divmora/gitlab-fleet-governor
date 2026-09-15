@@ -105,6 +105,7 @@ targets:
     topics_exclude: ["experimental"]
     visibility: "private" # "public", "internal", "private", or "any"
     archived: false       # false (active only), true (archived only), omit (any)
+    exclude_marked_for_deletion: true # true (exclude pending deletion), false (include), omit (defaults to true if archived is false)
     id_range:
       min: 1
       max: 50000

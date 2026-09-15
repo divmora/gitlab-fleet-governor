@@ -20,17 +20,19 @@ var (
 
 // TargetProject encapsulates a matched project and its targeting context.
 type TargetProject struct {
-	ID                int             `json:"id"`
-	Name              string          `json:"name"`
-	Path              string          `json:"path"`
-	PathWithNamespace string          `json:"path_with_namespace"`
-	DefaultBranch     string          `json:"default_branch"`
-	Visibility        string          `json:"visibility"`
-	Archived          bool            `json:"archived"`
-	Topics            []string        `json:"topics"`
-	NamespaceFullPath string          `json:"namespace_full_path"`
-	ParentGroupID     int             `json:"parent_group_id,omitempty"`
-	Raw               *gitlab.Project `json:"-"`
+	ID                  int             `json:"id"`
+	Name                string          `json:"name"`
+	Path                string          `json:"path"`
+	PathWithNamespace   string          `json:"path_with_namespace"`
+	DefaultBranch       string          `json:"default_branch"`
+	Visibility          string          `json:"visibility"`
+	Archived            bool            `json:"archived"`
+	MarkedForDeletion   bool            `json:"marked_for_deletion"`
+	MarkedForDeletionAt *time.Time      `json:"marked_for_deletion_at,omitempty"`
+	Topics              []string        `json:"topics"`
+	NamespaceFullPath   string          `json:"namespace_full_path"`
+	ParentGroupID       int             `json:"parent_group_id,omitempty"`
+	Raw                 *gitlab.Project `json:"-"`
 }
 
 // TargetGroup encapsulates a matched group and its targeting context.
@@ -245,18 +247,28 @@ func (a *fleetAccumulator) AddProjectIfMatches(p *gitlab.Project, filter *Projec
 	}
 
 	if _, exists := a.projects[p.ID]; !exists {
+		var markedAt *time.Time
+		isMarked := false
+		if p.MarkedForDeletionAt != nil {
+			t := time.Time(*p.MarkedForDeletionAt)
+			markedAt = &t
+			isMarked = true
+		}
+
 		a.projects[p.ID] = &TargetProject{
-			ID:                p.ID,
-			Name:              p.Name,
-			Path:              p.Path,
-			PathWithNamespace: p.PathWithNamespace,
-			DefaultBranch:     p.DefaultBranch,
-			Visibility:        string(p.Visibility),
-			Archived:          p.Archived,
-			Topics:            extractProjectTopics(p),
-			NamespaceFullPath: extractProjectNamespace(p),
-			ParentGroupID:     parentGroupID,
-			Raw:               p,
+			ID:                  p.ID,
+			Name:                p.Name,
+			Path:                p.Path,
+			PathWithNamespace:   p.PathWithNamespace,
+			DefaultBranch:       p.DefaultBranch,
+			Visibility:          string(p.Visibility),
+			Archived:            p.Archived,
+			MarkedForDeletion:   isMarked,
+			MarkedForDeletionAt: markedAt,
+			Topics:              extractProjectTopics(p),
+			NamespaceFullPath:   extractProjectNamespace(p),
+			ParentGroupID:       parentGroupID,
+			Raw:                 p,
 		}
 	}
 	return true

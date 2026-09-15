@@ -41,12 +41,13 @@ func (a *ProtectedBranchesAuditor) AuditProject(ctx context.Context, client gl.G
 		return nil, nil
 	}
 
-	// Project active/archived/inactive state
+	// Project active/archived/inactive/pending deletion state
 	var lastAct *time.Time
+	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 	}
-	projState, isArchived, isInactive := EvaluateProjectState(project.Archived, lastAct)
+	projState, isArchived, isInactive := EvaluateProjectLifecycle(project.Archived, isMarked, lastAct)
 
 	// 1. Fetch all protected branches
 	var allBranches []*gitlab.ProtectedBranch
@@ -145,9 +146,12 @@ func (a *ProtectedBranchesAuditor) AuditProject(ctx context.Context, client gl.G
 			remediation = strings.Join(remediations, "; ")
 		}
 
-		// De-prioritize archived or inactive projects
+		// De-prioritize archived, inactive, or pending deletion projects
 		severity = AdjustSeverityForProject(severity, isArchived, isInactive)
-		if isArchived {
+		if isMarked {
+			details = fmt.Sprintf("[PENDING DELETION] %s", details)
+			remediation = "Repository is scheduled for deletion; verify impending purge"
+		} else if isArchived {
 			details = fmt.Sprintf("[ARCHIVED PROJECT] %s", details)
 			remediation = "Repository is archived; confirm branch protection baselines or maintain read-only state"
 		} else if isInactive {
@@ -181,7 +185,10 @@ func (a *ProtectedBranchesAuditor) AuditProject(ctx context.Context, client gl.G
 		defSev := AdjustSeverityForProject(SeverityCritical, isArchived, isInactive)
 		details := fmt.Sprintf("Default branch '%s' has zero branch protection rules configured", defaultBranch)
 		remediation := fmt.Sprintf("Protect default branch '%s': configure push_access_level=40, merge_access_level=40, code_owner_approval_required=true", defaultBranch)
-		if isArchived {
+		if isMarked {
+			details = fmt.Sprintf("[PENDING DELETION] %s", details)
+			remediation = "Repository is scheduled for deletion; verify impending purge"
+		} else if isArchived {
 			details = fmt.Sprintf("[ARCHIVED PROJECT] %s", details)
 			remediation = "Repository is archived; verify branch rules"
 		} else if isInactive {

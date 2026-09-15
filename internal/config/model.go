@@ -211,6 +211,10 @@ type ProjectSelector struct {
 	// Archived filters archived status: true (archived only), false (active only), nil (any).
 	Archived *bool `yaml:"archived,omitempty" json:"archived,omitempty"`
 
+	// ExcludeMarkedForDeletion excludes projects that are marked for deletion (marked_for_deletion_at is not nil).
+	// When omitted and Archived is false (active only), projects marked for deletion are excluded by default.
+	ExcludeMarkedForDeletion *bool `yaml:"exclude_marked_for_deletion,omitempty" json:"exclude_marked_for_deletion,omitempty"`
+
 	// IDRange filters numeric project IDs within [Min, Max].
 	IDRange *IDRange `yaml:"id_range,omitempty" json:"id_range,omitempty"`
 }

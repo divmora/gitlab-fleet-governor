@@ -459,3 +459,45 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Apache License, Version 2.0")
 	})
 }
+
+func TestAuditor_MarkedForDeletionProject(t *testing.T) {
+	server, client, targetProj := setupMockGitLab(t)
+
+	now := time.Now()
+	isoNow := gogitlab.ISOTime(now)
+	targetProj.MarkedForDeletion = true
+	targetProj.MarkedForDeletionAt = &now
+	server.State().UpdateProject(targetProj.ID, func(p *gogitlab.Project) {
+		p.MarkedForDeletionAt = &isoNow
+	})
+
+	server.State().AddProjectMember(targetProj.ID, &gogitlab.ProjectMember{
+		ID:          10,
+		Username:    "developer_one",
+		AccessLevel: gogitlab.DeveloperPermissions,
+	})
+
+	auditor, err := audit.NewAuditor(client,
+		audit.WithAuditorConcurrency(5),
+		audit.WithAuditorTargets(config.TargetSelectors{
+			ProjectSelector: &config.ProjectSelector{
+				NamespacesInclude: []string{"fintech"},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	report, err := auditor.Execute(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, report)
+
+	assert.Equal(t, 1, report.Summary.TotalProjectsScanned)
+	assert.Equal(t, 0, report.Summary.ActiveProjectsCount)
+	assert.Equal(t, 0, report.Summary.ArchivedProjectsCount)
+	assert.Equal(t, 1, report.Summary.PendingDeletionProjectsCount)
+
+	require.NotEmpty(t, report.UserAccessFindings)
+	f := report.UserAccessFindings[0]
+	assert.Equal(t, "Pending Deletion", f.ProjectStatus)
+	assert.Contains(t, f.Details, "[PENDING DELETION]")
+}

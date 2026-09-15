@@ -299,6 +299,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		{"Total Target Repositories Scanned", report.Summary.TotalProjectsScanned},
 		{"Active Repositories (Governance Priority)", report.Summary.ActiveProjectsCount},
 		{"Archived Repositories (De-prioritized)", report.Summary.ArchivedProjectsCount},
+		{"Pending Deletion Repositories (Scheduled for Purge)", report.Summary.PendingDeletionProjectsCount},
 		{"Fully Compliant Repositories", report.Summary.CompliantProjectsCount},
 		{"Non-Compliant Repositories (Drift/Risk Detected)", report.Summary.NonCompliantProjectsCount},
 		{"Total Audit Violations Detected", report.Summary.TotalViolations},

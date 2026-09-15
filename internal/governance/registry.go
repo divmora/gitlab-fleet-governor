@@ -234,6 +234,10 @@ func (r *OperationsRegistry) PlanTargetProject(ctx context.Context, target *disc
 			DefaultBranch:     target.DefaultBranch,
 			Archived:          target.Archived,
 		}
+		if target.MarkedForDeletionAt != nil {
+			iso := gogitlab.ISOTime(*target.MarkedForDeletionAt)
+			raw.MarkedForDeletionAt = &iso
+		}
 	}
 	return r.PlanProject(ctx, raw, cfg)
 }
@@ -249,6 +253,10 @@ func (r *OperationsRegistry) ApplyTargetProject(ctx context.Context, target *dis
 			PathWithNamespace: target.PathWithNamespace,
 			DefaultBranch:     target.DefaultBranch,
 			Archived:          target.Archived,
+		}
+		if target.MarkedForDeletionAt != nil {
+			iso := gogitlab.ISOTime(*target.MarkedForDeletionAt)
+			raw.MarkedForDeletionAt = &iso
 		}
 	}
 	return r.ApplyProject(ctx, raw, cfg)

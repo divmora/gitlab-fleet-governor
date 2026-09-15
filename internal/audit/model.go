@@ -144,25 +144,26 @@ type PipelineRetentionFinding struct {
 
 // SummaryMetrics captures aggregate statistical breakdown of audit findings across the fleet.
 type SummaryMetrics struct {
-	TotalProjectsScanned        int              `json:"total_projects_scanned"`
-	ActiveProjectsCount         int              `json:"active_projects_count"`
-	ArchivedProjectsCount       int              `json:"archived_projects_count"`
-	CompliantProjectsCount      int              `json:"compliant_projects_count"`
-	NonCompliantProjectsCount   int              `json:"non_compliant_projects_count"`
-	TotalViolations             int              `json:"total_violations"`
-	CriticalSeverityCount       int              `json:"critical_severity_count"`
-	HighSeverityCount           int              `json:"high_severity_count"`
-	MediumSeverityCount         int              `json:"medium_severity_count"`
-	LowSeverityCount            int              `json:"low_severity_count"`
-	HumanUserViolations         int              `json:"human_user_violations"`
-	BotUserViolations           int              `json:"bot_user_violations"`
-	UserAccessViolations        int              `json:"user_access_violations"`
-	ProtectedBranchViolations   int              `json:"protected_branch_violations"`
-	ProtectedEnvViolations      int              `json:"protected_env_violations"`
-	PipelineRetentionViolations int              `json:"pipeline_retention_violations"`
-	AuditedBy                   string           `json:"audited_by,omitempty"`
-	SeverityBreakdown           map[Severity]int `json:"severity_breakdown"`
-	ModuleViolations            map[string]int   `json:"module_violations"`
+	TotalProjectsScanned         int              `json:"total_projects_scanned"`
+	ActiveProjectsCount          int              `json:"active_projects_count"`
+	ArchivedProjectsCount        int              `json:"archived_projects_count"`
+	PendingDeletionProjectsCount int              `json:"pending_deletion_projects_count,omitempty"`
+	CompliantProjectsCount       int              `json:"compliant_projects_count"`
+	NonCompliantProjectsCount    int              `json:"non_compliant_projects_count"`
+	TotalViolations              int              `json:"total_violations"`
+	CriticalSeverityCount        int              `json:"critical_severity_count"`
+	HighSeverityCount            int              `json:"high_severity_count"`
+	MediumSeverityCount          int              `json:"medium_severity_count"`
+	LowSeverityCount             int              `json:"low_severity_count"`
+	HumanUserViolations          int              `json:"human_user_violations"`
+	BotUserViolations            int              `json:"bot_user_violations"`
+	UserAccessViolations         int              `json:"user_access_violations"`
+	ProtectedBranchViolations    int              `json:"protected_branch_violations"`
+	ProtectedEnvViolations       int              `json:"protected_env_violations"`
+	PipelineRetentionViolations  int              `json:"pipeline_retention_violations"`
+	AuditedBy                    string           `json:"audited_by,omitempty"`
+	SeverityBreakdown            map[Severity]int `json:"severity_breakdown"`
+	ModuleViolations             map[string]int   `json:"module_violations"`
 }
 
 // LicenseAttestation captures legal and commercial licensing compliance metadata
@@ -526,6 +527,14 @@ func IsBotOrServiceAccount(username, name string) bool {
 
 // EvaluateProjectState checks whether a project is actively maintained, archived, or stale.
 func EvaluateProjectState(archived bool, lastActivityAt *time.Time) (state string, isArchived bool, isInactive bool) {
+	return EvaluateProjectLifecycle(archived, false, lastActivityAt)
+}
+
+// EvaluateProjectLifecycle checks whether a project is actively maintained, archived, pending deletion, or stale.
+func EvaluateProjectLifecycle(archived bool, markedForDeletion bool, lastActivityAt *time.Time) (state string, isArchived bool, isInactive bool) {
+	if markedForDeletion {
+		return "Pending Deletion", true, true
+	}
 	if archived {
 		return "Archived", true, false
 	}

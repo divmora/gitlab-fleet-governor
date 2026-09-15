@@ -250,8 +250,11 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 
 	activeCount := 0
 	archivedCount := 0
+	pendingDeletionCount := 0
 	for _, p := range projects {
-		if p.Archived {
+		if p.MarkedForDeletion || p.MarkedForDeletionAt != nil || (p.Raw != nil && p.Raw.MarkedForDeletionAt != nil) {
+			pendingDeletionCount++
+		} else if p.Archived {
 			archivedCount++
 		} else {
 			activeCount++
@@ -309,10 +312,11 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		ActiveModules:      a.activeModuleList(),
 		LicenseAttestation: licenseAttestation,
 		Summary: SummaryMetrics{
-			TotalProjectsScanned:  len(projects),
-			ActiveProjectsCount:   activeCount,
-			ArchivedProjectsCount: archivedCount,
-			AuditedBy:             auditedBy,
+			TotalProjectsScanned:         len(projects),
+			ActiveProjectsCount:          activeCount,
+			ArchivedProjectsCount:        archivedCount,
+			PendingDeletionProjectsCount: pendingDeletionCount,
+			AuditedBy:                    auditedBy,
 		},
 		UserAccessFindings:        make([]UserAccessFinding, 0),
 		BotAccessFindings:         make([]UserAccessFinding, 0),

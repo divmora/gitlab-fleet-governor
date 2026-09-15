@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
@@ -557,6 +558,25 @@ func (e *GovernanceEngine) executeProject(ctx context.Context, target *discovery
 		DryRun:       dryRun,
 		Success:      true,
 		Operations:   make([]*OperationResult, 0),
+	}
+
+	if target.MarkedForDeletion || target.MarkedForDeletionAt != nil || (target.Raw != nil && target.Raw.MarkedForDeletionAt != nil) {
+		slog.Info("Skipping reconciliation: project is marked for deletion",
+			"project", target.PathWithNamespace,
+			"id", target.ID,
+		)
+		res.Duration = time.Since(start)
+		res.Operations = append(res.Operations, &OperationResult{
+			OperationName: "lifecycle_check",
+			ResourceType:  governance.ResourceTypeProject,
+			ResourceID:    target.ID,
+			ResourcePath:  target.PathWithNamespace,
+			Action:        governance.ActionSkipped,
+			Status:        governance.StatusSkipped,
+			Success:       true,
+			Details:       "Repository is marked for deletion; skipping reconciliation",
+		})
+		return res, nil
 	}
 
 	if dryRun {

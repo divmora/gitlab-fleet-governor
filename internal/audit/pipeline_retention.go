@@ -30,14 +30,15 @@ func (a *PipelineRetentionAuditor) AuditProject(ctx context.Context, client gl.G
 		return nil, nil
 	}
 
-	// 1. Evaluate project active/archived/inactive state
+	// 1. Evaluate project active/archived/inactive/pending deletion state
 	var lastAct *time.Time
 	var webURL string
+	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 		webURL = project.Raw.WebURL
 	}
-	projState, isArchived, isInactive := EvaluateProjectState(project.Archived, lastAct)
+	projState, isArchived, isInactive := EvaluateProjectLifecycle(project.Archived, isMarked, lastAct)
 
 	// 2. Fetch project pipeline retention setting (ci_delete_pipelines_in_seconds)
 	retentionSec, _, err := client.Projects().GetProjectPipelineRetention(project.ID, gitlab.WithContext(ctx))
@@ -114,8 +115,14 @@ func (a *PipelineRetentionAuditor) AuditProject(ctx context.Context, client gl.G
 				StalePipelinesCount:    staleCount,
 				Severity:               sev,
 				ViolationType:          "Retention Cleanup Failure",
-				Details:                fmt.Sprintf("Pipeline retention configured to %dd (%ds), but %d stale pipeline(s) older than %dd still exist (oldest pipeline #%d created %s, %dd old, %dd past retention cutoff).", retentionDays, retentionSec, staleCount, retentionDays, oldest.ID, createdStr, oldestAgeDays, overdueDays),
-				Remediation:            "GitLab background pruning worker is failing or queued. Trigger manual pipeline cleanup via API or re-save CI/CD retention settings.",
+				Details: func() string {
+					d := fmt.Sprintf("Pipeline retention configured to %dd (%ds), but %d stale pipeline(s) older than %dd still exist (oldest pipeline #%d created %s, %dd old, %dd past retention cutoff).", retentionDays, retentionSec, staleCount, retentionDays, oldest.ID, createdStr, oldestAgeDays, overdueDays)
+					if isMarked {
+						return fmt.Sprintf("[PENDING DELETION] %s", d)
+					}
+					return d
+				}(),
+				Remediation: "GitLab background pruning worker is failing or queued. Trigger manual pipeline cleanup via API or re-save CI/CD retention settings.",
 			})
 		} else {
 			// Compliant
@@ -190,8 +197,14 @@ func (a *PipelineRetentionAuditor) AuditProject(ctx context.Context, client gl.G
 				StalePipelinesCount:    staleCount,
 				Severity:               sev,
 				ViolationType:          "Pipeline Retention Disabled",
-				Details:                fmt.Sprintf("Pipeline deletion is disabled (0s); found %d pipeline(s) older than 90 days (oldest pipeline #%d created %s, %dd old). CI artifacts and job logs will accumulate indefinitely.", staleCount, oldest.ID, createdStr, oldestAgeDays),
-				Remediation:            "Enable pipeline retention (e.g. ci_delete_pipelines_in_seconds = 7776000 for 90 days) in Project Settings -> CI/CD -> General pipelines.",
+				Details: func() string {
+					d := fmt.Sprintf("Pipeline deletion is disabled (0s); found %d pipeline(s) older than 90 days (oldest pipeline #%d created %s, %dd old). CI artifacts and job logs will accumulate indefinitely.", staleCount, oldest.ID, createdStr, oldestAgeDays)
+					if isMarked {
+						return fmt.Sprintf("[PENDING DELETION] %s", d)
+					}
+					return d
+				}(),
+				Remediation: "Enable pipeline retention (e.g. ci_delete_pipelines_in_seconds = 7776000 for 90 days) in Project Settings -> CI/CD -> General pipelines.",
 			})
 		} else {
 			// No stale pipelines found

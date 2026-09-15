@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
@@ -348,4 +349,46 @@ func TestGovernanceEngine_ConcurrentReentrantExecution(t *testing.T) {
 
 type mockGitLabClientStub struct {
 	gitlab.GitLabClient
+}
+
+func TestGovernanceEngine_MarkedForDeletionProject_Skipped(t *testing.T) {
+	eng, server := setupTestEngine(t, false) // Apply mode
+	defer server.Close()
+
+	// Update seeded project 101 to be marked for deletion
+	now := time.Now()
+	isoNow := gogitlab.ISOTime(now)
+	server.State().UpdateProject(101, func(p *gogitlab.Project) {
+		p.MarkedForDeletionAt = &isoNow
+	})
+
+	ctx := context.Background()
+	result, err := eng.Apply(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify project 101 had reconciliation skipped
+	var found101 bool
+	for _, pr := range result.ProjectResults {
+		if pr.TargetID == 101 {
+			found101 = true
+			if len(pr.Operations) == 0 {
+				t.Fatalf("expected operations to contain lifecycle skip result")
+			}
+			op := pr.Operations[0]
+			if op.Action != governance.ActionSkipped {
+				t.Errorf("expected ActionSkipped, got %v", op.Action)
+			}
+			if op.Status != governance.StatusSkipped {
+				t.Errorf("expected StatusSkipped, got %v", op.Status)
+			}
+			if op.Details != "Repository is marked for deletion; skipping reconciliation" {
+				t.Errorf("unexpected details: %s", op.Details)
+			}
+		}
+	}
+	if !found101 {
+		t.Errorf("expected project 101 in project results")
+	}
 }

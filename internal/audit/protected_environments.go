@@ -41,12 +41,13 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 		return nil, nil
 	}
 
-	// Project active/archived/inactive state
+	// Project active/archived/inactive/pending deletion state
 	var lastAct *time.Time
+	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 	}
-	projState, isArchived, isInactive := EvaluateProjectState(project.Archived, lastAct)
+	projState, isArchived, isInactive := EvaluateProjectLifecycle(project.Archived, isMarked, lastAct)
 
 	var allEnvs []*gitlab.ProtectedEnvironment
 	page := 1
@@ -127,9 +128,12 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 			remediation = strings.Join(remediations, "; ")
 		}
 
-		// De-prioritize archived or inactive projects
+		// De-prioritize archived, inactive, or pending deletion projects
 		severity = AdjustSeverityForProject(severity, isArchived, isInactive)
-		if isArchived {
+		if isMarked {
+			details = fmt.Sprintf("[PENDING DELETION] %s", details)
+			remediation = "Repository is scheduled for deletion; verify impending purge"
+		} else if isArchived {
 			details = fmt.Sprintf("[ARCHIVED PROJECT] %s", details)
 			remediation = "Repository is archived; verify environment deployment policies"
 		} else if isInactive {

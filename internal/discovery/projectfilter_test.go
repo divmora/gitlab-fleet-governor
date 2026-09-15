@@ -2,6 +2,7 @@ package discovery_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
@@ -288,5 +289,65 @@ func TestProjectFilter_CombinedMultiCriteriaMatrix(t *testing.T) {
 		p := *perfect
 		p.ID = 250
 		assert.False(t, f.Matches(&p))
+	})
+}
+
+func TestProjectFilter_MarkedForDeletion(t *testing.T) {
+	now := time.Now()
+	isoNow := gitlab.ISOTime(now)
+
+	pActive := &gitlab.Project{ID: 1, Name: "service-active", Archived: false}
+	pMarked := &gitlab.Project{ID: 2, Name: "service-pending-del", Archived: false, MarkedForDeletionAt: &isoNow}
+	pArchived := &gitlab.Project{ID: 3, Name: "service-archived", Archived: true}
+
+	t.Run("Default_WhenArchivedFalse_ExcludesMarkedForDeletion", func(t *testing.T) {
+		archivedFalse := false
+		filter, err := discovery.NewProjectFilter(&config.ProjectSelector{
+			Archived: &archivedFalse,
+		})
+		require.NoError(t, err)
+
+		assert.True(t, filter.Matches(pActive))
+		assert.False(t, filter.Matches(pMarked))
+		assert.False(t, filter.Matches(pArchived))
+
+		res := filter.Evaluate(pMarked)
+		assert.False(t, res.Matched)
+		assert.Equal(t, discovery.DecisionMismatchMarkedForDeletion, res.Decision)
+	})
+
+	t.Run("Explicit_ExcludeMarkedForDeletion_True", func(t *testing.T) {
+		excludeMarked := true
+		filter, err := discovery.NewProjectFilter(&config.ProjectSelector{
+			ExcludeMarkedForDeletion: &excludeMarked,
+		})
+		require.NoError(t, err)
+
+		assert.True(t, filter.Matches(pActive))
+		assert.False(t, filter.Matches(pMarked))
+		assert.True(t, filter.Matches(pArchived))
+	})
+
+	t.Run("Explicit_ExcludeMarkedForDeletion_False_OverridesArchivedFalse", func(t *testing.T) {
+		archivedFalse := false
+		excludeMarked := false
+		filter, err := discovery.NewProjectFilter(&config.ProjectSelector{
+			Archived:                 &archivedFalse,
+			ExcludeMarkedForDeletion: &excludeMarked,
+		})
+		require.NoError(t, err)
+
+		assert.True(t, filter.Matches(pActive))
+		assert.True(t, filter.Matches(pMarked))
+		assert.False(t, filter.Matches(pArchived))
+	})
+
+	t.Run("UnspecifiedFilter_MatchesAll", func(t *testing.T) {
+		filter, err := discovery.NewProjectFilter(nil)
+		require.NoError(t, err)
+
+		assert.True(t, filter.Matches(pActive))
+		assert.True(t, filter.Matches(pMarked))
+		assert.True(t, filter.Matches(pArchived))
 	})
 }

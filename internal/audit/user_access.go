@@ -47,12 +47,13 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 		return nil, nil
 	}
 
-	// Determine project active/archived/inactive status
+	// Determine project active/archived/inactive/pending deletion status
 	var lastAct *time.Time
+	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 	}
-	projState, isArchived, isInactive := EvaluateProjectState(project.Archived, lastAct)
+	projState, isArchived, isInactive := EvaluateProjectLifecycle(project.Archived, isMarked, lastAct)
 
 	// 1. Fetch direct project members to distinguish direct vs inherited
 	directMembers, _, err := client.Members().ListProjectMembers(project.ID, &gitlab.ListProjectMembersOptions{
@@ -183,9 +184,12 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 				}
 			}
 
-			// De-prioritize archived or inactive projects
+			// De-prioritize archived, inactive, or pending deletion projects
 			finding.Severity = AdjustSeverityForProject(baseSev, isArchived, isInactive)
-			if isArchived {
+			if isMarked {
+				finding.Details = fmt.Sprintf("[PENDING DELETION] %s", finding.Details)
+				finding.Remediation = "Repository is scheduled for deletion; verify impending purge or confirm access revocation"
+			} else if isArchived {
 				finding.Details = fmt.Sprintf("[ARCHIVED PROJECT] %s", finding.Details)
 				finding.Remediation = "Repository is archived; confirm access revocation or maintain read-only state"
 			} else if isInactive {

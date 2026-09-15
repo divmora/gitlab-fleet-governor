@@ -226,6 +226,9 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Total Repositories Scanned | %d |\n", report.Summary.TotalProjectsScanned))
 	sb.WriteString(fmt.Sprintf("| Active Repositories | %d |\n", report.Summary.ActiveProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Archived Repositories | %d |\n", report.Summary.ArchivedProjectsCount))
+	if report.Summary.PendingDeletionProjectsCount > 0 {
+		sb.WriteString(fmt.Sprintf("| Pending Deletion Repositories | %d |\n", report.Summary.PendingDeletionProjectsCount))
+	}
 	sb.WriteString(fmt.Sprintf("| Fully Compliant Repositories | %d |\n", report.Summary.CompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Non-Compliant Repositories | %d |\n", report.Summary.NonCompliantProjectsCount))
 	sb.WriteString(fmt.Sprintf("| Total Audit Violations | **%d** |\n", report.Summary.TotalViolations))
@@ -411,7 +414,13 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 <div class="stat-grid">
   <div class="stat-card"><div>Repositories Scanned</div><div class="stat-val">` + strconv.Itoa(report.Summary.TotalProjectsScanned) + `</div></div>
   <div class="stat-card"><div>Active Repositories</div><div class="stat-val">` + strconv.Itoa(report.Summary.ActiveProjectsCount) + `</div></div>
-  <div class="stat-card"><div>Archived Repositories</div><div class="stat-val">` + strconv.Itoa(report.Summary.ArchivedProjectsCount) + `</div></div>
+  <div class="stat-card"><div>Archived Repositories</div><div class="stat-val">` + strconv.Itoa(report.Summary.ArchivedProjectsCount) + `</div></div>` + func() string {
+		if report.Summary.PendingDeletionProjectsCount > 0 {
+			return `
+  <div class="stat-card"><div>Pending Deletion</div><div class="stat-val">` + strconv.Itoa(report.Summary.PendingDeletionProjectsCount) + `</div></div>`
+		}
+		return ""
+	}() + `
   <div class="stat-card"><div>Fully Compliant</div><div class="stat-val">` + strconv.Itoa(report.Summary.CompliantProjectsCount) + `</div></div>
   <div class="stat-card"><div>Total Violations</div><div class="stat-val ` + dangerClass(report.Summary.TotalViolations) + `">` + strconv.Itoa(report.Summary.TotalViolations) + `</div></div>
   <div class="stat-card"><div>Critical Severity</div><div class="stat-val ` + dangerClass(report.Summary.CriticalSeverityCount) + `">` + strconv.Itoa(report.Summary.CriticalSeverityCount) + `</div></div>
@@ -609,8 +618,13 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("Governor Version: %s\n", verStr))
 	sb.WriteString(fmt.Sprintf("Scan Completed : %s (Duration: %s)\n", report.GeneratedAt.UTC().Format(time.RFC1123), report.DurationString))
 	sb.WriteString(fmt.Sprintf("Audited By     : %s\n", report.InitiatorDescription()))
-	sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d) | Compliant: %d | Non-Compliant: %d\n",
-		report.Summary.TotalProjectsScanned, report.Summary.ActiveProjectsCount, report.Summary.ArchivedProjectsCount, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
+	if report.Summary.PendingDeletionProjectsCount > 0 {
+		sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d, Pending Deletion: %d) | Compliant: %d | Non-Compliant: %d\n",
+			report.Summary.TotalProjectsScanned, report.Summary.ActiveProjectsCount, report.Summary.ArchivedProjectsCount, report.Summary.PendingDeletionProjectsCount, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
+	} else {
+		sb.WriteString(fmt.Sprintf("Projects       : Scanned: %d (Active: %d, Archived: %d) | Compliant: %d | Non-Compliant: %d\n",
+			report.Summary.TotalProjectsScanned, report.Summary.ActiveProjectsCount, report.Summary.ArchivedProjectsCount, report.Summary.CompliantProjectsCount, report.Summary.NonCompliantProjectsCount))
+	}
 	sb.WriteString(fmt.Sprintf("Violations     : Total: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
 		report.Summary.TotalViolations, report.Summary.CriticalSeverityCount, report.Summary.HighSeverityCount, report.Summary.MediumSeverityCount, report.Summary.LowSeverityCount))
 	sb.WriteString(fmt.Sprintf("Account Types  : Human Violations: %d | Bot/Service Account Violations: %d\n",

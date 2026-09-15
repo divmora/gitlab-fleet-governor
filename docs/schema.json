@@ -63,6 +63,7 @@
             "project_name_regex_exclude": { "type": "string" },
             "visibility": { "type": "string", "enum": ["public", "internal", "private", "any"] },
             "archived": { "type": "boolean" },
+            "exclude_marked_for_deletion": { "type": "boolean" },
             "id_range": {
               "type": "object",
               "properties": {
