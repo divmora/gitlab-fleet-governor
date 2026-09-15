@@ -79,6 +79,59 @@ func TestFleetLicenseGen_IssueAndInspect(t *testing.T) {
 	assert.Contains(t, inspectBuf.String(), "Acme Test Corp")
 	assert.Contains(t, strings.ToLower(inspectBuf.String()), "enterprise")
 	assert.Contains(t, inspectBuf.String(), "200 Managed Projects")
+	assert.Contains(t, inspectBuf.String(), "Product Scope    : gitlab-fleet-governor")
+}
+
+func TestFleetLicenseGen_IssueWithProductScope(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	privB64 := base64.StdEncoding.EncodeToString(priv)
+	pubB64 := base64.StdEncoding.EncodeToString(pub)
+
+	t.Run("Issue full banner with DIVMORA suite product", func(t *testing.T) {
+		issueCmd := newIssueCmd()
+		var issueBuf bytes.Buffer
+		issueCmd.SetOut(&issueBuf)
+		issueCmd.SetArgs([]string{
+			"--customer=Suite Enterprise Corp",
+			"--product=divmora-suite",
+			"--tier=enterprise",
+			"--projects=1000",
+			"--private-key=" + privB64,
+		})
+
+		err = issueCmd.Execute()
+		require.NoError(t, err)
+		output := issueBuf.String()
+		assert.Contains(t, output, "Commercial Enterprise License Token Generated")
+		assert.Contains(t, output, "Product Scope    : divmora-suite")
+		assert.Contains(t, output, "export DIVMORA_LICENSE_KEY=")
+
+		// Extract token from banner
+		var token string
+		lines := strings.Split(output, "\n")
+		for i, l := range lines {
+			if strings.Contains(l, "DIVMORA_LICENSE_KEY Token:") && i+1 < len(lines) {
+				token = strings.TrimSpace(lines[i+1])
+				break
+			}
+		}
+		require.NotEmpty(t, token)
+
+		// Inspect with public key
+		inspectCmd := newInspectCmd()
+		var inspectBuf bytes.Buffer
+		inspectCmd.SetOut(&inspectBuf)
+		inspectCmd.SetArgs([]string{
+			"--license-key=" + token,
+			"--public-key=" + pubB64,
+		})
+
+		err = inspectCmd.Execute()
+		require.NoError(t, err)
+		assert.Contains(t, inspectBuf.String(), "Suite Enterprise Corp")
+		assert.Contains(t, inspectBuf.String(), "Product Scope    : divmora-suite")
+	})
 }
 
 func TestFleetLicenseGen_SignReleaseAndVerify(t *testing.T) {

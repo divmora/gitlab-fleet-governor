@@ -278,17 +278,168 @@ func TestResolveToken_FromFilesAndEnv(t *testing.T) {
 	assert.Equal(t, "token-from-file", k2)
 
 	// Environment variable
-	t.Setenv("FLEET_LICENSE_KEY", "token-from-env")
+	t.Setenv("DIVMORA_LICENSE_KEY", "token-from-env")
 	k3, err := license.ResolveToken("", "")
 	require.NoError(t, err)
 	assert.Equal(t, "token-from-env", k3)
 
 	// Environment variable file
-	t.Setenv("FLEET_LICENSE_KEY", "")
-	t.Setenv("FLEET_LICENSE_FILE", keyFile)
+	t.Setenv("DIVMORA_LICENSE_KEY", "")
+	t.Setenv("DIVMORA_LICENSE_FILE", keyFile)
 	k4, err := license.ResolveToken("", "")
 	require.NoError(t, err)
 	assert.Equal(t, "token-from-file", k4)
+}
+
+func TestResolveToken_Hierarchy(t *testing.T) {
+	tempDir := t.TempDir()
+	divmoraFile := filepath.Join(tempDir, "divmora.key")
+	cliFile := filepath.Join(tempDir, "cli.key")
+
+	require.NoError(t, os.WriteFile(divmoraFile, []byte("divmora-file-token\n"), 0600))
+	require.NoError(t, os.WriteFile(cliFile, []byte("cli-file-token\n"), 0600))
+
+	t.Run("Direct key overrides everything", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "env-divmora-key")
+		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
+
+		tok, err := license.ResolveToken("cli-key", cliFile)
+		require.NoError(t, err)
+		assert.Equal(t, "cli-key", tok)
+	})
+
+	t.Run("Direct file overrides all env vars", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "env-divmora-key")
+		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
+
+		tok, err := license.ResolveToken("", cliFile)
+		require.NoError(t, err)
+		assert.Equal(t, "cli-file-token", tok)
+	})
+
+	t.Run("DIVMORA_LICENSE_KEY takes precedence over DIVMORA_LICENSE_FILE", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "divmora-key")
+		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
+
+		tok, err := license.ResolveToken("", "")
+		require.NoError(t, err)
+		assert.Equal(t, "divmora-key", tok)
+	})
+
+	t.Run("DIVMORA_LICENSE_FILE is used when DIVMORA_LICENSE_KEY is empty", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "")
+		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
+
+		tok, err := license.ResolveToken("", "")
+		require.NoError(t, err)
+		assert.Equal(t, "divmora-file-token", tok)
+	})
+
+	t.Run("Empty resolution when nothing is set", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "")
+		t.Setenv("DIVMORA_LICENSE_FILE", "")
+
+		tok, err := license.ResolveToken("", "")
+		require.NoError(t, err)
+		assert.Empty(t, tok)
+	})
+
+	t.Run("Error when DIVMORA_LICENSE_FILE points to nonexistent path", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", "")
+		t.Setenv("DIVMORA_LICENSE_FILE", filepath.Join(tempDir, "nonexistent-divmora.key"))
+
+		_, err := license.ResolveToken("", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "DIVMORA_LICENSE_FILE")
+	})
+}
+
+func TestProductClaims_Validation(t *testing.T) {
+	pub, priv := generateTestKeyPair(t)
+
+	tests := []struct {
+		name          string
+		claimProduct  string
+		expectAllowed bool
+		expectErr     string
+	}{
+		{
+			name:          "Unspecified product claim (legacy backwards compatibility)",
+			claimProduct:  "",
+			expectAllowed: true,
+		},
+		{
+			name:          "Wildcard product (*)",
+			claimProduct:  "*",
+			expectAllowed: true,
+		},
+		{
+			name:          "DIVMORA suite license",
+			claimProduct:  "divmora-suite",
+			expectAllowed: true,
+		},
+		{
+			name:          "Matching product gitlab-fleet-governor",
+			claimProduct:  "gitlab-fleet-governor",
+			expectAllowed: true,
+		},
+		{
+			name:          "Unrecognized alias fleet-governor rejected",
+			claimProduct:  "fleet-governor",
+			expectAllowed: false,
+			expectErr:     "license token is issued for product 'fleet-governor', not 'gitlab-fleet-governor'",
+		},
+		{
+			name:          "Case-insensitive matching",
+			claimProduct:  "GitLab-Fleet-Governor",
+			expectAllowed: true,
+		},
+		{
+			name:          "Mismatched product (github-fleet-governor)",
+			claimProduct:  "github-fleet-governor",
+			expectAllowed: false,
+			expectErr:     "license token is issued for product 'github-fleet-governor', not 'gitlab-fleet-governor'",
+		},
+		{
+			name:          "Mismatched product (cloud-compliance-engine)",
+			claimProduct:  "cloud-compliance-engine",
+			expectAllowed: false,
+			expectErr:     "license token is issued for product 'cloud-compliance-engine', not 'gitlab-fleet-governor'",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			claims := &license.Claims{
+				ID:      "lic_prod_test",
+				Product: tc.claimProduct,
+				Customer: license.Customer{
+					Name: "Acme Corp",
+				},
+				Tier:      "enterprise",
+				IssuedAt:  time.Now().UTC().Add(-1 * time.Hour),
+				ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour),
+			}
+
+			// Direct helper check
+			assert.Equal(t, tc.expectAllowed, claims.IsProductAllowed("gitlab-fleet-governor"))
+
+			// Cryptographic parse & verify check
+			tok, err := license.SignLicense(claims, priv)
+			require.NoError(t, err)
+
+			status, err := license.ParseAndVerify(tok, pub)
+			if tc.expectAllowed {
+				require.NoError(t, err)
+				require.NotNil(t, status)
+				assert.True(t, status.Valid)
+				assert.Equal(t, tc.claimProduct, status.Claims.Product)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectErr)
+			}
+		})
+	}
 }
 
 func TestHostValidation_Scoping(t *testing.T) {

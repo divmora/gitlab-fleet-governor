@@ -47,6 +47,11 @@ type EnforcementOptions struct {
 }
 
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
+// It applies the resolution order:
+// 1. Explicit license token parameter (CLI flag or programmatic option)
+// 2. Explicit license file path parameter (CLI flag or programmatic option)
+// 3. Environment variable: DIVMORA_LICENSE_KEY
+// 4. License file environment variable: DIVMORA_LICENSE_FILE
 func ResolveToken(key, file string) (string, error) {
 	key = strings.TrimSpace(key)
 	if key != "" {
@@ -62,16 +67,13 @@ func ResolveToken(key, file string) (string, error) {
 		return strings.TrimSpace(string(content)), nil
 	}
 
-	envKey := strings.TrimSpace(os.Getenv("FLEET_LICENSE_KEY"))
-	if envKey != "" {
+	if envKey := strings.TrimSpace(os.Getenv("DIVMORA_LICENSE_KEY")); envKey != "" {
 		return envKey, nil
 	}
-
-	envFile := strings.TrimSpace(os.Getenv("FLEET_LICENSE_FILE"))
-	if envFile != "" {
+	if envFile := strings.TrimSpace(os.Getenv("DIVMORA_LICENSE_FILE")); envFile != "" {
 		content, err := os.ReadFile(envFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read license file from FLEET_LICENSE_FILE (%s): %w", envFile, err)
+			return "", fmt.Errorf("failed to read license file from DIVMORA_LICENSE_FILE (%s): %w", envFile, err)
 		}
 		return strings.TrimSpace(string(content)), nil
 	}
@@ -223,7 +225,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 To continue managing fleets of this size:
   1. Obtain a commercial subscription at https://divmora.com or contact licensing@divmora.com
   2. Set your license key via environment variable:
-       export FLEET_LICENSE_KEY="<token>"
+       export DIVMORA_LICENSE_KEY="<token>"
      or provide it via CLI flag:
        --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
 }

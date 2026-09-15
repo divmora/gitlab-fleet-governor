@@ -66,6 +66,8 @@ Configurations are resolved in the following priority order:
 | `gitlab.max_retries` | int | `3` | Maximum retry attempts for HTTP 429 and 5xx errors. |
 | `gitlab.retry_base_delay_ms`| int | `500` | Base exponential backoff delay in milliseconds. |
 | `gitlab.retry_max_delay_ms` | int | `30000` | Cap for exponential backoff delay in milliseconds. |
+| `license.key` | string | `""` | Commercial enterprise license key token string. |
+| `license.file` | string | `""` | Path to commercial enterprise license key file. |
 
 ---
 
@@ -280,3 +282,30 @@ policies:
         access_level: 20 # Reporter
         expires_at: "2026-12-31"
 ```
+
+---
+
+## Commercial License Resolution
+
+GitLab Fleet Governor is licensed under the Business Source License 1.1 (BSL 1.1):
+- **Free Community Tier**: Governs up to 25 production projects/repositories with zero license key required. Unlimited in local development, staging, test environments, and non-mutating `--dry-run` modes.
+- **Commercial Enterprise Tier**: Required when actively governing >25 production repositories.
+
+### Token Resolution
+
+License tokens are resolved in the following priority order:
+
+1. **CLI Flag**: `--license-key="<token>"`
+2. **CLI File Flag**: `--license-file="/path/to/token"`
+3. **Policy Setting**: `settings.license.key` or `settings.license.file` in policy YAML/JSON
+4. **Environment Variable**: `DIVMORA_LICENSE_KEY`
+5. **Environment File**: `DIVMORA_LICENSE_FILE`
+
+### Multi-Product Licensing
+
+DIVMORA commercial licenses can be scoped to specific products:
+- `gitlab-fleet-governor`: Scoped strictly to GitLab Fleet Governor.
+- `*` or `divmora-suite`: Enterprise master token valid across all DIVMORA products.
+
+A single unified environment variable (`DIVMORA_LICENSE_KEY`) can be deployed across your infrastructure, and each tool cryptographically verifies that the token's product claim allows execution.
+

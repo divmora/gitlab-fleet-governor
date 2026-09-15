@@ -101,7 +101,7 @@ func newLicenseStatusCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "Status           : ACTIVE (No commercial license required for <=25 projects)")
 				fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
 				fmt.Fprintln(cmd.OutOrStdout(), "\nTo configure a commercial license for larger fleets:")
-				fmt.Fprintln(cmd.OutOrStdout(), "  export FLEET_LICENSE_KEY=\"<your-license-token>\"")
+				fmt.Fprintln(cmd.OutOrStdout(), "  export DIVMORA_LICENSE_KEY=\"<your-license-token>\"")
 				fmt.Fprintln(cmd.OutOrStdout(), "  or visit https://divmora.com / contact licensing@divmora.com")
 				return nil
 			}
@@ -148,6 +148,9 @@ func newLicenseStatusCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "Status           : ACTIVE (Valid)")
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "License ID       : %s\n", claims.ID)
+			if claims.Product != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Product Scope    : %s\n", claims.Product)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Customer         : %s\n", claims.Customer.Name)
 			if claims.Customer.Email != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Contact Email    : %s\n", claims.Customer.Email)

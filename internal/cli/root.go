@@ -86,8 +86,8 @@ and pipeline retention across fleets of GitLab projects and groups.`,
 	pflags.StringVar(&globalFlags.ReportFormat, "report-format", "table", "Summary report output format (table, json, csv, markdown, summary)")
 	pflags.StringVarP(&globalFlags.OutputFile, "output-file", "o", "", "Destination file path for summary report (default: stdout)")
 	pflags.BoolVar(&globalFlags.NoColor, "no-color", false, "Disable ANSI color formatting in output logs and tables")
-	pflags.StringVar(&globalFlags.LicenseKey, "license-key", os.Getenv("FLEET_LICENSE_KEY"), "Commercial enterprise license key token (env: FLEET_LICENSE_KEY)")
-	pflags.StringVar(&globalFlags.LicenseFile, "license-file", os.Getenv("FLEET_LICENSE_FILE"), "Path to commercial enterprise license key file (env: FLEET_LICENSE_FILE)")
+	pflags.StringVar(&globalFlags.LicenseKey, "license-key", os.Getenv("DIVMORA_LICENSE_KEY"), "Commercial enterprise license key token (env: DIVMORA_LICENSE_KEY)")
+	pflags.StringVar(&globalFlags.LicenseFile, "license-file", os.Getenv("DIVMORA_LICENSE_FILE"), "Path to commercial enterprise license key file (env: DIVMORA_LICENSE_FILE)")
 
 	// Version string
 	rootCmd.Version = version.Get().String()

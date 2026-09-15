@@ -88,6 +88,7 @@ type issueFlags struct {
 	CustomerName   string
 	CustomerEmail  string
 	CustomerOrgID  string
+	Product        string
 	Tier           string
 	MaxProjects    int
 	ValidDays      int
@@ -166,7 +167,8 @@ func newIssueCmd() *cobra.Command {
 			licenseID := fmt.Sprintf("lic_%x", idBytes)
 
 			claims := &license.Claims{
-				ID: licenseID,
+				ID:      licenseID,
+				Product: flags.Product,
 				Customer: license.Customer{
 					Name:  flags.CustomerName,
 					Email: flags.CustomerEmail,
@@ -196,6 +198,9 @@ func newIssueCmd() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), "Commercial Enterprise License Token Generated")
 			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
 			fmt.Fprintf(cmd.OutOrStdout(), "License ID       : %s\n", claims.ID)
+			if claims.Product != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Product Scope    : %s\n", claims.Product)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Customer         : %s\n", claims.Customer.Name)
 			if claims.Customer.Email != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Contact Email    : %s\n", claims.Customer.Email)
@@ -221,10 +226,10 @@ func newIssueCmd() *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Entitlements     : %s\n", strings.Join(claims.Features, ", "))
 			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
-			fmt.Fprintln(cmd.OutOrStdout(), "\nFLEET_LICENSE_KEY Token:")
+			fmt.Fprintln(cmd.OutOrStdout(), "\nDIVMORA_LICENSE_KEY Token:")
 			fmt.Fprintln(cmd.OutOrStdout(), token)
 			fmt.Fprintln(cmd.OutOrStdout(), "\nTo use this license:")
-			fmt.Fprintf(cmd.OutOrStdout(), "  export FLEET_LICENSE_KEY=\"%s\"\n", token)
+			fmt.Fprintf(cmd.OutOrStdout(), "  export DIVMORA_LICENSE_KEY=\"%s\"\n", token)
 			fmt.Fprintf(cmd.OutOrStdout(), "  gitlab-fleet-governor run --license-key=\"%s\"\n", token)
 
 			return nil
@@ -234,6 +239,7 @@ func newIssueCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&flags.CustomerName, "customer", "c", "", "Customer / company organization name (required)")
 	cmd.Flags().StringVar(&flags.CustomerEmail, "email", "", "Customer contact email address")
 	cmd.Flags().StringVar(&flags.CustomerOrgID, "org-id", "", "Customer internal account / organization ID")
+	cmd.Flags().StringVar(&flags.Product, "product", "gitlab-fleet-governor", "DIVMORA product identifier ('gitlab-fleet-governor', '*', or 'divmora-suite')")
 	cmd.Flags().StringVarP(&flags.Tier, "tier", "t", "enterprise", "Subscription tier: enterprise, pro, community")
 	cmd.Flags().IntVarP(&flags.MaxProjects, "projects", "p", 500, "Maximum licensed fleet projects (0 for unlimited)")
 	cmd.Flags().IntVar(&flags.ValidDays, "valid-days", 365, "Validity period duration in days (default: 365)")
@@ -293,6 +299,11 @@ func newInspectCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Signature Check  : VERIFIED (Ed25519)\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "License Status   : %s\n", status.Message)
 			fmt.Fprintf(cmd.OutOrStdout(), "License ID       : %s\n", claims.ID)
+			if claims.Product != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Product Scope    : %s\n", claims.Product)
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), "Product Scope    : Any (*) (Legacy)")
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Customer         : %s\n", claims.Customer.Name)
 			if claims.Customer.Email != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Contact Email    : %s\n", claims.Customer.Email)

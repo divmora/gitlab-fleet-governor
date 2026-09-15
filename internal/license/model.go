@@ -27,6 +27,11 @@ type Claims struct {
 	// ID is the unique identifier for the issued license (e.g. "lic_9b1deb4d").
 	ID string `json:"id"`
 
+	// Product identifies the specific DIVMORA product this license is issued for
+	// (e.g. "gitlab-fleet-governor", "*", or "divmora-suite").
+	// When empty, the license is valid across any product for backwards compatibility.
+	Product string `json:"product,omitempty"`
+
 	// Customer contains licensee details.
 	Customer Customer `json:"customer"`
 
@@ -77,6 +82,17 @@ func (c *Claims) HasFeature(feature string) bool {
 		}
 	}
 	return false
+}
+
+// IsProductAllowed checks if this license is authorized for the given DIVMORA product.
+// Unspecified product (legacy tokens), "*", and "divmora-suite" are valid across all products.
+func (c *Claims) IsProductAllowed(product string) bool {
+	p := strings.ToLower(strings.TrimSpace(c.Product))
+	if p == "" || p == "*" || p == "divmora-suite" {
+		return true
+	}
+	target := strings.ToLower(strings.TrimSpace(product))
+	return p == target
 }
 
 // ExtractHost normalizes a GitLab Base URL or hostname string into a lowercase host string.

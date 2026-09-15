@@ -463,6 +463,14 @@ func TestLicenseCommand(t *testing.T) {
 		assert.Contains(t, stdout, `"tier": "enterprise"`)
 	})
 
+	t.Run("License Status via DIVMORA_LICENSE_KEY environment variable", func(t *testing.T) {
+		t.Setenv("DIVMORA_LICENSE_KEY", validToken)
+		stdout, _, err := executeCommand(ctx, "license", "status")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Test CLI Corp")
+		assert.Contains(t, stdout, "ENTERPRISE")
+	})
+
 	t.Run("License Check Without Token", func(t *testing.T) {
 		stdout, _, err := executeCommand(ctx, "license", "check")
 		require.NoError(t, err)

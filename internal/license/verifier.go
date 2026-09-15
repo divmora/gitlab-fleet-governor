@@ -95,6 +95,10 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 		return nil, errors.New("invalid license: missing expiration date")
 	}
 
+	if !claims.IsProductAllowed("gitlab-fleet-governor") {
+		return nil, fmt.Errorf("license token is issued for product '%s', not 'gitlab-fleet-governor'", claims.Product)
+	}
+
 	if evalTime.IsZero() {
 		evalTime = time.Now().UTC()
 	}
