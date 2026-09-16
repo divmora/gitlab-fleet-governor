@@ -278,19 +278,19 @@ func ParseAndVerifyReleaseToken(token string, pubKey ed25519.PublicKey) (*Releas
 }
 
 // ResolveReleaseSignature resolves the cryptographic release token from:
-// 1. Compile-time variable ReleaseSignature (if not empty and not "none")
+// 1. Compile-time variable ReleaseSignature (if not empty and not placeholder)
 // 2. FLEET_RELEASE_SIGNATURE environment variable
 // 3. Sidecar file release.sig or gitlab-fleet-governor.sig
 func ResolveReleaseSignature() (string, string) {
 	// 1. Embedded ldflags
 	sig := strings.TrimSpace(ReleaseSignature)
-	if sig != "" && sig != "none" {
+	if isAuthenticSignatureCandidate(sig) {
 		return sig, "embedded (ldflags)"
 	}
 
 	// 2. Environment variable
 	envSig := strings.TrimSpace(os.Getenv("FLEET_RELEASE_SIGNATURE"))
-	if envSig != "" {
+	if isAuthenticSignatureCandidate(envSig) {
 		return envSig, "environment (FLEET_RELEASE_SIGNATURE)"
 	}
 
@@ -311,13 +311,26 @@ func ResolveReleaseSignature() (string, string) {
 	for _, path := range candidates {
 		if content, err := os.ReadFile(path); err == nil {
 			s := strings.TrimSpace(string(content))
-			if s != "" {
+			if isAuthenticSignatureCandidate(s) {
 				return s, fmt.Sprintf("sidecar file (%s)", path)
 			}
 		}
 	}
 
 	return "", "none"
+}
+
+func isAuthenticSignatureCandidate(s string) bool {
+	if s == "" {
+		return false
+	}
+	lower := strings.ToLower(s)
+	switch lower {
+	case "none", "dev", "unattested", "null", "false", "undefined":
+		return false
+	default:
+		return true
+	}
 }
 
 // EvaluateProvenance inspects the binary's release signature and verifies that the compiled
@@ -333,6 +346,118 @@ func (i Info) EvaluateProvenance(pubKey ed25519.PublicKey) ReleaseProvenance {
 		}
 	}
 
+	var keyRing *liblicense.KeyRing
+	if len(pubKey) > 0 {
+		keyRing = liblicense.NewKeyRing(pubKey)
+	} else {
+		resolvedKey, err := GetReleaseVerificationPublicKey()
+		if err != nil {
+			return ReleaseProvenance{
+				Status:   ProvenanceTamperedSignature,
+				Verified: false,
+				Source:   source,
+				Error:    fmt.Sprintf("Failed to resolve release verification public key: %v", err),
+			}
+		}
+		keyRing = liblicense.NewKeyRing(resolvedKey)
+	}
+
+	// 1. Canonical DIVREL1 or Armored PEM Block -> Delegate to liblicense.EvaluateProvenance
+	if strings.HasPrefix(sig, liblicense.ProtocolPrefixRelease+".") || strings.HasPrefix(sig, "-----BEGIN") {
+		var execPath string
+		if p, err := os.Executable(); err == nil && p != "" {
+			execPath = p
+		}
+		buildTime, _ := parseAnyDate(i.BuildDate)
+
+		params := liblicense.ProvenanceParams{
+			ExpectedProduct:  "gitlab-fleet-governor",
+			CurrentVersion:   i.Version,
+			CurrentCommit:    i.GitCommit,
+			CurrentBuildDate: buildTime,
+			BinaryPath:       execPath,
+		}
+
+		prov, err := liblicense.EvaluateProvenance(sig, keyRing, params)
+		if err != nil {
+			status := ProvenanceTamperedSignature
+			errStr := err.Error()
+
+			if errors.Is(err, liblicense.ErrReleaseProductMismatch) {
+				status = ProvenanceTamperedMetadata
+				errStr = fmt.Sprintf("Product mismatch: %v", err)
+			} else if errors.Is(err, liblicense.ErrReleaseDigestMismatch) {
+				status = ProvenanceTamperedMetadata
+				errStr = fmt.Sprintf("Binary digest mismatch: %v", err)
+			} else {
+				var tampErr *liblicense.ReleaseTamperingError
+				if errors.As(err, &tampErr) {
+					status = ProvenanceTamperedMetadata
+					switch tampErr.Field {
+					case "version":
+						errStr = fmt.Sprintf("Version mismatch: %v", err)
+					case "git_commit":
+						errStr = fmt.Sprintf("Commit mismatch: %v", err)
+					case "build_date":
+						errStr = fmt.Sprintf("Build date mismatch: %v", err)
+					}
+				} else if prov != nil && prov.Tampered {
+					status = ProvenanceTamperedMetadata
+				}
+			}
+
+			var signedClaims *ReleaseClaims
+			if prov != nil && prov.Claims != nil {
+				signedClaims = toVersionClaims(prov.Claims)
+			} else if inspected, inspectErr := liblicense.InspectRelease(sig); inspectErr == nil {
+				signedClaims = toVersionClaims(inspected)
+			}
+
+			authority := ""
+			authorityID := ""
+			if signedClaims != nil {
+				authority = signedClaims.Authority
+				authorityID = signedClaims.AuthorityID
+			}
+
+			return ReleaseProvenance{
+				Status:       status,
+				Verified:     false,
+				Authority:    authority,
+				AuthorityID:  authorityID,
+				Source:       source,
+				Error:        errStr,
+				SignedClaims: signedClaims,
+			}
+		}
+
+		// Defense against upstream Issue #19 (one-way 24h drift in liblicense):
+		// Assert that compiled build date matches attested build date to within 2 seconds.
+		if prov.Claims != nil && !prov.Claims.BuildDate.IsZero() {
+			if !datesMatch(i.BuildDate, prov.Claims.BuildDate.UTC().Format(time.RFC3339)) {
+				return ReleaseProvenance{
+					Status:       ProvenanceTamperedMetadata,
+					Verified:     false,
+					Authority:    prov.Authority,
+					AuthorityID:  prov.VerifiedByKeyID,
+					Source:       source,
+					Error:        fmt.Sprintf("Build date mismatch: binary compiled with date '%s', but signed claims specify '%s'", i.BuildDate, prov.Claims.BuildDate.UTC().Format(time.RFC3339)),
+					SignedClaims: toVersionClaims(prov.Claims),
+				}
+			}
+		}
+
+		return ReleaseProvenance{
+			Status:       ProvenanceVerifiedOfficial,
+			Verified:     true,
+			Source:       source,
+			Authority:    prov.Authority,
+			AuthorityID:  prov.VerifiedByKeyID,
+			SignedClaims: toVersionClaims(prov.Claims),
+		}
+	}
+
+	// 2. Legacy 2-part token (<payload>.<signature>) fallback
 	claims, err := ParseAndVerifyReleaseToken(sig, pubKey)
 	if err != nil {
 		return ReleaseProvenance{
@@ -432,6 +557,30 @@ func (i Info) EvaluateProvenance(pubKey ed25519.PublicKey) ReleaseProvenance {
 		Authority:    claims.Authority,
 		AuthorityID:  claims.AuthorityID,
 		SignedClaims: claims,
+	}
+}
+
+func toVersionClaims(c *liblicense.ReleaseClaims) *ReleaseClaims {
+	if c == nil {
+		return nil
+	}
+	buildDateStr := ""
+	if !c.BuildDate.IsZero() {
+		buildDateStr = c.BuildDate.UTC().Format(time.RFC3339)
+	}
+	releaseDateStr := ""
+	if !c.ReleaseDate.IsZero() {
+		releaseDateStr = c.ReleaseDate.UTC().Format(time.RFC3339)
+	}
+	return &ReleaseClaims{
+		Product:      c.Product,
+		Version:      c.Version,
+		GitCommit:    c.GitCommit,
+		BuildDate:    buildDateStr,
+		ReleaseDate:  releaseDateStr,
+		BinaryDigest: c.BinaryDigest,
+		Authority:    c.Authority,
+		AuthorityID:  c.KeyID,
 	}
 }
 

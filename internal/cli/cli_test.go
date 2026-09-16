@@ -453,8 +453,8 @@ func TestLicenseCommand(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, stdout, "Test CLI Corp")
 		assert.Contains(t, stdout, "ENTERPRISE")
-		assert.Contains(t, stdout, "250 Managed Projects")
-		assert.Contains(t, stdout, "VERIFIED (Ed25519")
+		assert.Contains(t, stdout, "250")
+		assert.Contains(t, stdout, "ACTIVE")
 	})
 
 	t.Run("License Status JSON With Valid Token", func(t *testing.T) {

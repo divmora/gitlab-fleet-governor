@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
@@ -139,63 +137,9 @@ func newLicenseStatusCmd() *cobra.Command {
 				return enc.Encode(out)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
-			fmt.Fprintln(cmd.OutOrStdout(), "GitLab Fleet Governor Commercial License Status")
-			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
-			if status.InGracePeriod {
-				fmt.Fprintln(cmd.OutOrStdout(), "Status           : EXPIRED (Operating within grace period)")
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Status           : ACTIVE (Valid)")
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "License ID       : %s\n", claims.ID)
-			if claims.Product != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Product Scope    : %s\n", claims.Product)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Customer         : %s\n", claims.Customer.Name)
-			if claims.Customer.Email != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Contact Email    : %s\n", claims.Customer.Email)
-			}
-			if claims.Customer.OrgID != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Organization ID  : %s\n", claims.Customer.OrgID)
-			}
-			plan := license.GetClaimsPlan(claims)
-			maxProjects := license.GetClaimsMaxProjects(claims)
-			fmt.Fprintf(cmd.OutOrStdout(), "Subscription Tier: %s\n", strings.ToUpper(plan))
-			if maxProjects == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "Fleet Capacity   : Unlimited Projects")
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Fleet Capacity   : %d Managed Projects\n", maxProjects)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Issued At        : %s\n", claims.IssuedAt.UTC().Format(time.RFC3339))
-			fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s\n", claims.ExpiresAt.UTC().Format(time.RFC3339))
-			if status.InGracePeriod {
-				fmt.Fprintf(cmd.OutOrStdout(), "Grace Remaining  : %d days\n", status.DaysRemaining)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Days Remaining   : %d days\n", status.DaysRemaining)
-			}
-			if claims.Scope != nil && len(claims.Scope.Hosts) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.Scope.Hosts, ", "))
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Hosts    : Any (*)")
-			}
-			if claims.Scope != nil && len(claims.Scope.Namespaces) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.Scope.Namespaces, ", "))
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Groups   : Any (*)")
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Entitlements     : %s\n", strings.Join(claims.Features, ", "))
-			fmt.Fprintln(cmd.OutOrStdout(), "Signature Check  : VERIFIED (Ed25519 Asymmetric Signature)")
-			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
-
-			if len(claims.Limits) > 0 {
-				fmt.Fprint(cmd.OutOrStdout(), "\n"+claims.FormatStatus(
-					liblicense.WithStatusBannerTitle("RESOURCE QUOTA ALLOCATIONS"),
-					liblicense.WithStatusIncludeFeatures(false),
-					liblicense.WithStatusIncludeScopes(false),
-					liblicense.WithStatusIncludeProvenance(false),
-				))
-			}
-
+			fmt.Fprint(cmd.OutOrStdout(), claims.FormatStatus(
+				liblicense.WithStatusBannerTitle("GitLab Fleet Governor Commercial License Status"),
+			))
 			return nil
 		},
 	}

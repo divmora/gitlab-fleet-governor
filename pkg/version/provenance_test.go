@@ -324,3 +324,21 @@ func TestEvaluateProvenance_LegacyTwoPartToken(t *testing.T) {
 	assert.Equal(t, version.ProvenanceVerifiedOfficial, info.Provenance.Status)
 	assert.Equal(t, "DIVMORA Technologies", info.Provenance.Authority)
 }
+
+func TestEvaluateProvenance_PlaceholderValues(t *testing.T) {
+	origSig := version.ReleaseSignature
+	defer func() {
+		version.ReleaseSignature = origSig
+	}()
+
+	placeholders := []string{"none", "NONE", "dev", "DEV", "unattested", "UNATTESTED", "null", "false", ""}
+	for _, ph := range placeholders {
+		t.Run("Placeholder_"+ph, func(t *testing.T) {
+			version.ReleaseSignature = ph
+			info := version.Get()
+			assert.False(t, info.Provenance.Verified)
+			assert.Equal(t, version.ProvenanceUnattestedCustom, info.Provenance.Status)
+			assert.Contains(t, info.Provenance.Error, "No cryptographic release signature present")
+		})
+	}
+}

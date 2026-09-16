@@ -21,7 +21,10 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "fleet-license-gen",
 		Short: "DIVMORA Technologies: Fleet Governor License Minting & Verification Utility",
-		Long: `Administrative utility for generating Ed25519 keypairs, issuing signed commercial
+		Long: `DEPRECATION NOTICE: 'fleet-license-gen' is deprecated and will be retired in v1.0.0.
+Please migrate to the official multi-product 'license-cli' from github.com/divmora/license-go.
+
+Administrative utility for generating Ed25519 keypairs, issuing signed commercial
 customer license tokens, signing release metadata envelopes, and inspecting token claims for
 GitLab Fleet Governor under Business Source License 1.1 terms.`,
 	}
