@@ -321,16 +321,7 @@ func ResolveReleaseSignature() (string, string) {
 }
 
 func isAuthenticSignatureCandidate(s string) bool {
-	if s == "" {
-		return false
-	}
-	lower := strings.ToLower(s)
-	switch lower {
-	case "none", "dev", "unattested", "null", "false", "undefined":
-		return false
-	default:
-		return true
-	}
+	return !liblicense.IsPlaceholderAttestation(s)
 }
 
 // EvaluateProvenance inspects the binary's release signature and verifies that the compiled

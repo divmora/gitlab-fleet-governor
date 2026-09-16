@@ -26,10 +26,21 @@ func ResetVerificationPublicKey() {
 // 3. DIVMORA_PUBLIC_KEY environment variable (base64-encoded single key or PEM).
 // 4. Embedded DefaultPublicKeyBase64.
 func GetVerificationKeyRing() (*liblicense.KeyRing, error) {
-	return liblicense.ResolveKeyRing(DefaultPublicKeyBase64)
+	resolved, err := liblicense.ResolveKeyRingWithEnvPrecedence(DefaultPublicKeyBase64)
+	if err != nil {
+		return nil, err
+	}
+	return resolved.KeyRing, nil
 }
 
 // GetVerificationPublicKey resolves the primary Ed25519 public key used to verify license tokens.
 func GetVerificationPublicKey() (ed25519.PublicKey, error) {
-	return liblicense.ResolvePublicKey(DefaultPublicKeyBase64)
+	ring, err := GetVerificationKeyRing()
+	if err != nil {
+		return nil, err
+	}
+	if ring.Primary() == nil {
+		return nil, liblicense.ErrMissingPublicKey
+	}
+	return ring.Primary().PublicKey, nil
 }
