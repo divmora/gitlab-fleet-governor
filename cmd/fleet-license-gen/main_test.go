@@ -214,3 +214,52 @@ func TestFleetLicenseGen_IssueVersionAndMaintenance(t *testing.T) {
 	assert.Contains(t, output, "Maintenance Ends :")
 	assert.Contains(t, output, "500 Managed Projects")
 }
+
+func TestFleetLicenseGen_SignReleaseArmoredAndBinaryDigest(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	privB64 := base64.StdEncoding.EncodeToString(priv)
+	pubB64 := base64.StdEncoding.EncodeToString(pub)
+
+	tempDir := t.TempDir()
+	binPath := filepath.Join(tempDir, "mock-bin")
+	require.NoError(t, os.WriteFile(binPath, []byte("mock-executable-binary-contents"), 0755))
+	sigPath := filepath.Join(tempDir, "release.sig")
+
+	// Sign release with armored PEM and binary digest
+	signCmd := newSignReleaseCmd()
+	var signBuf bytes.Buffer
+	signCmd.SetOut(&signBuf)
+	signCmd.SetArgs([]string{
+		"--version=0.6.0",
+		"--commit=abcdef123456",
+		"--build-date=2026-09-16T12:00:00Z",
+		"--binary=" + binPath,
+		"--armored",
+		"--private-key=" + privB64,
+		"--out-file=" + sigPath,
+	})
+
+	err = signCmd.Execute()
+	require.NoError(t, err)
+	assert.FileExists(t, sigPath)
+	sigContent, err := os.ReadFile(sigPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(sigContent), "-----BEGIN DIVMORA RELEASE ATTESTATION-----")
+	assert.Contains(t, signBuf.String(), "Binary Digest")
+
+	// Verify release
+	verifyCmd := newVerifyReleaseCmd()
+	var verifyBuf bytes.Buffer
+	verifyCmd.SetOut(&verifyBuf)
+	verifyCmd.SetArgs([]string{
+		"--token-file=" + sigPath,
+		"--public-key=" + pubB64,
+	})
+
+	err = verifyCmd.Execute()
+	require.NoError(t, err)
+	assert.Contains(t, verifyBuf.String(), "VALID & VERIFIED")
+	assert.Contains(t, verifyBuf.String(), "0.6.0")
+	assert.Contains(t, verifyBuf.String(), "Binary Digest")
+}

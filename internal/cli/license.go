@@ -10,6 +10,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
+	liblicense "github.com/divmora/license-go/pkg/license"
 	"github.com/spf13/cobra"
 )
 
@@ -185,6 +186,15 @@ func newLicenseStatusCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Entitlements     : %s\n", strings.Join(claims.Features, ", "))
 			fmt.Fprintln(cmd.OutOrStdout(), "Signature Check  : VERIFIED (Ed25519 Asymmetric Signature)")
 			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+
+			if len(claims.Limits) > 0 {
+				fmt.Fprint(cmd.OutOrStdout(), "\n"+claims.FormatStatus(
+					liblicense.WithStatusBannerTitle("RESOURCE QUOTA ALLOCATIONS"),
+					liblicense.WithStatusIncludeFeatures(false),
+					liblicense.WithStatusIncludeScopes(false),
+					liblicense.WithStatusIncludeProvenance(false),
+				))
+			}
 
 			return nil
 		},

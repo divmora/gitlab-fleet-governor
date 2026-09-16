@@ -456,6 +456,8 @@ type signReleaseFlags struct {
 	PrivateKeyFile string
 	OutputFile     string
 	TokenOnly      bool
+	Binary         string
+	Armored        bool
 }
 
 func newSignReleaseCmd() *cobra.Command {
@@ -475,10 +477,11 @@ commit SHA, and build timestamp to enable autonomous 3-year Change Date conversi
     --token-only \
     --private-key="$DIVMORA_PRIVATE_KEY"
 
-  # Sign release and write to sidecar release.sig file
+  # Sign release with binary digest and write to sidecar release.sig file
   bin/fleet-license-gen sign-release \
     --version="0.5.0" \
     --commit="e1e3d1c9842" \
+    --binary=bin/gitlab-fleet-governor \
     --private-key-file=/path/to/divmora-private.key \
     --out-file=release.sig`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -511,15 +514,31 @@ commit SHA, and build timestamp to enable autonomous 3-year Change Date conversi
 				authority = "DIVMORA Technologies Release Authority"
 			}
 
-			claims := &version.ReleaseClaims{
-				Version:     flags.Version,
-				GitCommit:   flags.GitCommit,
-				BuildDate:   buildDate,
-				Authority:   authority,
-				AuthorityID: flags.AuthorityID,
+			binaryDigest := ""
+			if flags.Binary != "" {
+				d, err := liblicense.ComputeFileDigest(flags.Binary)
+				if err != nil {
+					return fmt.Errorf("failed to compute binary digest from %s: %w", flags.Binary, err)
+				}
+				binaryDigest = d
 			}
 
-			token, err := version.SignRelease(claims, privKey)
+			claims := &version.ReleaseClaims{
+				Product:      "gitlab-fleet-governor",
+				Version:      flags.Version,
+				GitCommit:    flags.GitCommit,
+				BuildDate:    buildDate,
+				BinaryDigest: binaryDigest,
+				Authority:    authority,
+				AuthorityID:  flags.AuthorityID,
+			}
+
+			var token string
+			if flags.Armored {
+				token, err = version.SignReleaseArmored(claims, privKey)
+			} else {
+				token, err = version.SignRelease(claims, privKey)
+			}
 			if err != nil {
 				return fmt.Errorf("failed to sign release: %w", err)
 			}
@@ -544,6 +563,9 @@ commit SHA, and build timestamp to enable autonomous 3-year Change Date conversi
 			fmt.Fprintf(cmd.OutOrStdout(), "Version         : %s\n", flags.Version)
 			fmt.Fprintf(cmd.OutOrStdout(), "Git Commit      : %s\n", flags.GitCommit)
 			fmt.Fprintf(cmd.OutOrStdout(), "Build Date      : %s\n", buildDate)
+			if binaryDigest != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Binary Digest   : %s\n", binaryDigest)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Authority       : %s\n", authority)
 			if flags.AuthorityID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Authority ID    : %s\n", flags.AuthorityID)
@@ -563,12 +585,14 @@ commit SHA, and build timestamp to enable autonomous 3-year Change Date conversi
 	cmd.Flags().StringVar(&flags.Version, "version", "", "Release version (e.g. '0.5.0')")
 	cmd.Flags().StringVar(&flags.GitCommit, "commit", "", "Git commit SHA (e.g. '4b825dc...')")
 	cmd.Flags().StringVar(&flags.BuildDate, "build-date", "", "Release build timestamp RFC3339 (defaults to current UTC time)")
+	cmd.Flags().StringVar(&flags.Binary, "binary", "", "Optional path to binary executable to compute and embed SHA-256 digest")
 	cmd.Flags().StringVar(&flags.Authority, "authority", "DIVMORA Technologies Release Authority", "Release authority name")
 	cmd.Flags().StringVar(&flags.AuthorityID, "authority-id", "", "Release authority identifier (e.g. 'divmora-prod-release-1')")
 	cmd.Flags().StringVar(&flags.PrivateKey, "private-key", "", "Base64-encoded Ed25519 private signing key")
 	cmd.Flags().StringVar(&flags.PrivateKeyFile, "private-key-file", "", "Path to file containing private signing key")
 	cmd.Flags().StringVarP(&flags.OutputFile, "out-file", "o", "", "Path to write release.sig output file")
 	cmd.Flags().BoolVarP(&flags.TokenOnly, "token-only", "q", false, "Output only the raw signature token")
+	cmd.Flags().BoolVar(&flags.Armored, "armored", false, "Output as armored PEM block rather than compact token")
 
 	return cmd
 }
@@ -637,6 +661,9 @@ func newVerifyReleaseCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Version          : %s\n", claims.Version)
 			fmt.Fprintf(cmd.OutOrStdout(), "Git Commit       : %s\n", claims.GitCommit)
 			fmt.Fprintf(cmd.OutOrStdout(), "Build Date       : %s\n", claims.BuildDate)
+			if claims.BinaryDigest != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Binary Digest    : %s\n", claims.BinaryDigest)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Release Authority: %s\n", claims.Authority)
 			if claims.AuthorityID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Authority ID     : %s\n", claims.AuthorityID)

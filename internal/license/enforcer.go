@@ -218,7 +218,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		return status, nil
 	}
 
-	// 3. Non-Production & Dry-Run Simulation Exemption (when no commercial token is provided)
+	// 3. Evaluate BSL 1.1 Entitlements (when no commercial token is provided)
 	if opts.IsDryRun {
 		slog.Debug("License check: execution is in dry-run simulation mode (permitted free of charge under BSL 1.1 Additional Use Grant a)",
 			"command", opts.Command,
@@ -230,8 +230,28 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 4. Free Production Fleet Tier (<= 25 Projects without commercial key)
-	if opts.DiscoveredProjects <= FreeTierMaxProjects {
+	bslPolicy := GetBSLPolicy()
+	env := os.Getenv("ENV")
+	if env == "" {
+		env = os.Getenv("ENVIRONMENT")
+	}
+	if env == "" {
+		env = "production"
+	}
+
+	usageReq := liblicense.BSLUsageRequest{
+		Environment: env,
+		Usage: map[string]int64{
+			"max_projects": int64(opts.DiscoveredProjects),
+		},
+		Time: evalTime,
+		Metadata: map[string]string{
+			"command": opts.Command,
+		},
+	}
+
+	entitlement := bslPolicy.EvaluateEntitlement(usageReq)
+	if entitlement.Authorized {
 		slog.Info("License tier: Free Community Tier active",
 			"managed_projects", opts.DiscoveredProjects,
 			"limit", FreeTierMaxProjects,
@@ -242,7 +262,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		}, nil
 	}
 
-	// 5. Production Fleet Size > 25 Projects without a license: Hard Block
+	// 4. Production Fleet Size > 25 Projects without a license: Hard Block
 	return nil, fmt.Errorf(`COMMERCIAL LICENSE REQUIRED: Governing %d projects in production exceeds the free Community Tier limit (%d projects) permitted under the Business Source License 1.1.
 
 To continue managing fleets of this size:
@@ -251,6 +271,42 @@ To continue managing fleets of this size:
        export DIVMORA_LICENSE_KEY="<token>"
      or provide it via CLI flag:
        --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
+}
+
+// GetBSLPolicy returns the canonical BSL 1.1 licensing policy for GitLab Fleet Governor,
+// including autonomous Apache 2.0 Change Date conversion and Additional Use Grants.
+func GetBSLPolicy() liblicense.BSLPolicy {
+	vInfo := version.Get()
+	var releaseDate time.Time
+	// Layer 3: Only certified, officially attested releases convert to open source upon Change Date.
+	// Unattested builds maintain ReleaseDate as zero so they do not convert based on self-reported timestamps.
+	if vInfo.Provenance.Verified {
+		if relTime, ok := vInfo.ReleaseTime(); ok {
+			releaseDate = relTime
+		}
+	}
+
+	nonProdGrant := liblicense.NewNonProductionGrant("Non-Production & Simulation Exemption")
+	nonProdGrant.MatchFunc = func(req liblicense.BSLUsageRequest) (bool, string) {
+		if req.Metadata != nil && req.Metadata["dry_run"] == "true" {
+			return true, "Execution is in non-destructive dry-run simulation mode"
+		}
+		return false, ""
+	}
+
+	freeTierGrant := liblicense.NewFreeTierGrant("Free Community Tier", map[string]int64{
+		"max_projects": int64(FreeTierMaxProjects),
+	})
+
+	return liblicense.BSLPolicy{
+		Product:           "gitlab-fleet-governor",
+		ReleaseDate:       releaseDate,
+		ChangePeriodYears: 3,
+		AdditionalUseGrants: []liblicense.BSLAdditionalUseGrant{
+			nonProdGrant,
+			freeTierGrant,
+		},
+	}
 }
 
 func isHostAllowed(claims *Claims, rawURL string) bool {
