@@ -347,11 +347,12 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 				Name:  "Fintech Enterprise Corp",
 				Email: "ciso@fintechcorp.com",
 			},
-			Tier:        "enterprise",
-			MaxProjects: 500,
-			Features:    []string{"all"},
-			IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
-			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+			Product:   "gitlab-fleet-governor",
+			Plan:      "enterprise",
+			Limits:    map[string]int64{"max_projects": 500},
+			Features:  []string{"all"},
+			IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
+			ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 		}
 		token, err := license.SignLicense(claims, priv)
 		require.NoError(t, err)
@@ -388,11 +389,12 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 				Name:  "Pixelvide",
 				Email: "admin@pixelvide.com",
 			},
-			Tier:        "enterprise",
-			MaxProjects: 500,
-			Features:    []string{"all"},
-			IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
-			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+			Product:   "gitlab-fleet-governor",
+			Plan:      "enterprise",
+			Limits:    map[string]int64{"max_projects": 500},
+			Features:  []string{"all"},
+			IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
+			ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 		}
 		token, err := license.SignLicense(claims, priv)
 		require.NoError(t, err)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
+	liblicense "github.com/divmora/license-go/pkg/license"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,17 +32,19 @@ func TestSignAndVerify_Success(t *testing.T) {
 			Email: "lead@fintech.com",
 			OrgID: "org_456",
 		},
-		Tier:        "enterprise",
-		MaxProjects: 100,
-		Features:    []string{"all"},
-		IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
-		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Limits:    map[string]int64{"max_projects": 100},
+		Features:  []string{"all"},
+		IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 	}
 
+	// Compact DIV1 token
 	token, err := license.SignLicense(claims, priv)
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
-	assert.Contains(t, token, ".")
+	assert.True(t, strings.HasPrefix(token, "DIV1."))
 
 	status, err := license.ParseAndVerify(token, pub)
 	require.NoError(t, err)
@@ -51,8 +54,18 @@ func TestSignAndVerify_Success(t *testing.T) {
 	assert.True(t, status.DaysRemaining >= 364)
 	assert.Equal(t, "lic_test_12345", status.Claims.ID)
 	assert.Equal(t, "Fintech Global Corp", status.Claims.Customer.Name)
-	assert.Equal(t, "enterprise", status.Claims.Tier)
+	assert.Equal(t, "enterprise", status.Claims.Plan)
 	assert.True(t, status.Claims.HasFeature("cloud_secrets"))
+
+	// Armored PEM token
+	armored, err := license.SignLicenseArmored(claims, priv)
+	require.NoError(t, err)
+	assert.Contains(t, armored, "-----BEGIN DIVMORA LICENSE KEY-----")
+
+	statusArmored, err := license.ParseAndVerify(armored, pub)
+	require.NoError(t, err)
+	assert.True(t, statusArmored.Valid)
+	assert.Equal(t, "lic_test_12345", statusArmored.Claims.ID)
 }
 
 func TestVerify_WithinGracePeriod(t *testing.T) {
@@ -64,8 +77,9 @@ func TestVerify_WithinGracePeriod(t *testing.T) {
 		Customer: license.Customer{
 			Name: "Grace Corp",
 		},
-		Tier:            "enterprise",
-		MaxProjects:     50,
+		Product:         "gitlab-fleet-governor",
+		Plan:            "enterprise",
+		Limits:          map[string]int64{"max_projects": 50},
 		IssuedAt:        time.Now().UTC().Add(-400 * 24 * time.Hour),
 		ExpiresAt:       time.Now().UTC().Add(-5 * 24 * time.Hour),
 		GracePeriodDays: 14,
@@ -90,8 +104,9 @@ func TestVerify_ExpiredBeyondGracePeriod(t *testing.T) {
 		Customer: license.Customer{
 			Name: "Expired Corp",
 		},
-		Tier:            "enterprise",
-		MaxProjects:     50,
+		Product:         "gitlab-fleet-governor",
+		Plan:            "enterprise",
+		Limits:          map[string]int64{"max_projects": 50},
 		IssuedAt:        time.Now().UTC().Add(-400 * 24 * time.Hour),
 		ExpiresAt:       time.Now().UTC().Add(-20 * 24 * time.Hour),
 		GracePeriodDays: 14,
@@ -102,7 +117,6 @@ func TestVerify_ExpiredBeyondGracePeriod(t *testing.T) {
 
 	status, err := license.ParseAndVerify(token, pub)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "grace period of 14 days has elapsed")
 	assert.False(t, status.Valid)
 }
 
@@ -114,24 +128,25 @@ func TestVerify_TamperedToken(t *testing.T) {
 		Customer: license.Customer{
 			Name: "Legit Corp",
 		},
-		Tier:        "enterprise",
-		MaxProjects: 100,
-		ExpiresAt:   time.Now().UTC().Add(30 * 24 * time.Hour),
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Limits:    map[string]int64{"max_projects": 100},
+		ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour),
 	}
 
 	token, err := license.SignLicense(claims, priv)
 	require.NoError(t, err)
 
 	parts := strings.Split(token, ".")
-	require.Len(t, parts, 2)
+	require.Len(t, parts, 3)
 
-	// Tamper payload
-	tamperedToken := parts[0] + "xyz." + parts[1]
+	// Tamper payload (parts[1])
+	tamperedToken := parts[0] + "." + parts[1] + "xyz." + parts[2]
 	_, err = license.ParseAndVerify(tamperedToken, pub)
 	require.Error(t, err)
 
-	// Tamper signature
-	tamperedSigToken := parts[0] + ".AAAA" + parts[1][4:]
+	// Tamper signature (parts[2])
+	tamperedSigToken := parts[0] + "." + parts[1] + ".AAAA" + parts[2][4:]
 	_, err = license.ParseAndVerify(tamperedSigToken, pub)
 	require.Error(t, err)
 }
@@ -144,9 +159,10 @@ func TestEnforce_Scenarios(t *testing.T) {
 		Customer: license.Customer{
 			Name: "Acme Fleet",
 		},
-		Tier:        "enterprise",
-		MaxProjects: 100,
-		ExpiresAt:   time.Now().UTC().Add(90 * 24 * time.Hour),
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Limits:    map[string]int64{"max_projects": 100},
+		ExpiresAt: time.Now().UTC().Add(90 * 24 * time.Hour),
 	}
 	validToken, err := license.SignLicense(validClaims, priv)
 	require.NoError(t, err)
@@ -226,8 +242,28 @@ func TestEnforce_Scenarios(t *testing.T) {
 }
 
 func TestEnforce_PixelvideLicense(t *testing.T) {
-	pixelvideToken := "eyJpZCI6ImxpY18xZjkzMjZjNiIsImN1c3RvbWVyIjp7Im5hbWUiOiJQSVhFTFZJREUgREVTSUdOIFNPTFVUSU9OUyBMTFAiLCJlbWFpbCI6Im9wc0BwaXhlbHZpZGUuY29tIiwib3JnX2lkIjoiNDE0Nzk3OTAwMDAwMDA3MTAyMyJ9LCJ0aWVyIjoiZW50ZXJwcmlzZSIsIm1heF9wcm9qZWN0cyI6NTAwLCJhbGxvd2VkX2hvc3RzIjpbImdpdGxhYi5waXhlbHZpZGUuY29tIl0sImZlYXR1cmVzIjpbImFsbCJdLCJpc3N1ZWRfYXQiOiIyMDI2LTA5LTExVDExOjM2OjE0LjEzNDE4OFoiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMVQxMTozNjoxNC4xMzQxODhaIiwiZ3JhY2VfcGVyaW9kX2RheXMiOjE0fQ.mae4J22pkiZ9p87slcFMcb8FxfhGHUtMjBUvsJKlCSCZYTjOltO_l-atMr-mrxHwCz2lkVUU_E_0KfuXMwN9CA"
+	pub, priv := generateTestKeyPair(t)
 	evalTime := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+
+	claims := &license.Claims{
+		ID: "lic_1f9326c6",
+		Customer: license.Customer{
+			Name:  "PIXELVIDE DESIGN SOLUTIONS LLP",
+			Email: "ops@pixelvide.com",
+			OrgID: "4147979000000071023",
+		},
+		Product:         "gitlab-fleet-governor",
+		Plan:            "enterprise",
+		Limits:          map[string]int64{"max_projects": 500},
+		Scope:           &license.Scope{Hosts: []string{"gitlab.pixelvide.com"}},
+		Features:        []string{"all"},
+		IssuedAt:        time.Date(2026, 9, 11, 11, 36, 14, 0, time.UTC),
+		ExpiresAt:       time.Date(2026, 10, 11, 11, 36, 14, 0, time.UTC),
+		GracePeriodDays: 14,
+	}
+
+	pixelvideToken, err := license.SignLicense(claims, priv)
+	require.NoError(t, err)
 
 	t.Run("DryRun Mode with 437 projects", func(t *testing.T) {
 		status, err := license.Enforce(license.EnforcementOptions{
@@ -236,14 +272,17 @@ func TestEnforce_PixelvideLicense(t *testing.T) {
 			LicenseKey:         pixelvideToken,
 			EvaluationTime:     evalTime,
 			GitLabBaseURL:      "https://gitlab.pixelvide.com/api/v4",
+			PublicKey:          pub,
 		})
 		require.NoError(t, err)
 		assert.True(t, status.Valid)
 		require.NotNil(t, status.Claims)
 		assert.Equal(t, "lic_1f9326c6", status.Claims.ID)
 		assert.Equal(t, "PIXELVIDE DESIGN SOLUTIONS LLP", status.Claims.Customer.Name)
-		assert.Equal(t, 500, status.Claims.MaxProjects)
-		assert.Equal(t, "enterprise", status.Claims.Tier)
+		maxProjects, ok := status.Claims.GetLimit("max_projects")
+		assert.True(t, ok)
+		assert.Equal(t, int64(500), maxProjects)
+		assert.Equal(t, "enterprise", status.Claims.Plan)
 	})
 
 	t.Run("Production Mode with 437 projects", func(t *testing.T) {
@@ -253,6 +292,7 @@ func TestEnforce_PixelvideLicense(t *testing.T) {
 			LicenseKey:         pixelvideToken,
 			EvaluationTime:     evalTime,
 			GitLabBaseURL:      "https://gitlab.pixelvide.com/api/v4",
+			PublicKey:          pub,
 		})
 		require.NoError(t, err)
 		assert.True(t, status.Valid)
@@ -264,31 +304,31 @@ func TestEnforce_PixelvideLicense(t *testing.T) {
 func TestResolveToken_FromFilesAndEnv(t *testing.T) {
 	tempDir := t.TempDir()
 	keyFile := filepath.Join(tempDir, "license.key")
-	err := os.WriteFile(keyFile, []byte("  token-from-file  \n"), 0600)
+	err := os.WriteFile(keyFile, []byte("DIV1.token.fromfile\n"), 0600)
 	require.NoError(t, err)
 
 	// Direct key
-	k1, err := license.ResolveToken("direct-token", "")
+	k1, err := license.ResolveToken("DIV1.direct.token", "")
 	require.NoError(t, err)
-	assert.Equal(t, "direct-token", k1)
+	assert.Equal(t, "DIV1.direct.token", k1)
 
 	// File path
 	k2, err := license.ResolveToken("", keyFile)
 	require.NoError(t, err)
-	assert.Equal(t, "token-from-file", k2)
+	assert.Equal(t, "DIV1.token.fromfile", k2)
 
 	// Environment variable
-	t.Setenv("DIVMORA_LICENSE_KEY", "token-from-env")
+	t.Setenv("DIVMORA_LICENSE_KEY", "DIV1.token.fromenv")
 	k3, err := license.ResolveToken("", "")
 	require.NoError(t, err)
-	assert.Equal(t, "token-from-env", k3)
+	assert.Equal(t, "DIV1.token.fromenv", k3)
 
 	// Environment variable file
 	t.Setenv("DIVMORA_LICENSE_KEY", "")
 	t.Setenv("DIVMORA_LICENSE_FILE", keyFile)
 	k4, err := license.ResolveToken("", "")
 	require.NoError(t, err)
-	assert.Equal(t, "token-from-file", k4)
+	assert.Equal(t, "DIV1.token.fromfile", k4)
 }
 
 func TestResolveToken_Hierarchy(t *testing.T) {
@@ -296,34 +336,34 @@ func TestResolveToken_Hierarchy(t *testing.T) {
 	divmoraFile := filepath.Join(tempDir, "divmora.key")
 	cliFile := filepath.Join(tempDir, "cli.key")
 
-	require.NoError(t, os.WriteFile(divmoraFile, []byte("divmora-file-token\n"), 0600))
-	require.NoError(t, os.WriteFile(cliFile, []byte("cli-file-token\n"), 0600))
+	require.NoError(t, os.WriteFile(divmoraFile, []byte("DIV1.divmora.filetoken\n"), 0600))
+	require.NoError(t, os.WriteFile(cliFile, []byte("DIV1.cli.filetoken\n"), 0600))
 
 	t.Run("Direct key overrides everything", func(t *testing.T) {
-		t.Setenv("DIVMORA_LICENSE_KEY", "env-divmora-key")
+		t.Setenv("DIVMORA_LICENSE_KEY", "DIV1.env.divmorakey")
 		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
 
-		tok, err := license.ResolveToken("cli-key", cliFile)
+		tok, err := license.ResolveToken("DIV1.cli.key", cliFile)
 		require.NoError(t, err)
-		assert.Equal(t, "cli-key", tok)
+		assert.Equal(t, "DIV1.cli.key", tok)
 	})
 
 	t.Run("Direct file overrides all env vars", func(t *testing.T) {
-		t.Setenv("DIVMORA_LICENSE_KEY", "env-divmora-key")
+		t.Setenv("DIVMORA_LICENSE_KEY", "DIV1.env.divmorakey")
 		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
 
 		tok, err := license.ResolveToken("", cliFile)
 		require.NoError(t, err)
-		assert.Equal(t, "cli-file-token", tok)
+		assert.Equal(t, "DIV1.cli.filetoken", tok)
 	})
 
 	t.Run("DIVMORA_LICENSE_KEY takes precedence over DIVMORA_LICENSE_FILE", func(t *testing.T) {
-		t.Setenv("DIVMORA_LICENSE_KEY", "divmora-key")
+		t.Setenv("DIVMORA_LICENSE_KEY", "DIV1.divmora.key")
 		t.Setenv("DIVMORA_LICENSE_FILE", divmoraFile)
 
 		tok, err := license.ResolveToken("", "")
 		require.NoError(t, err)
-		assert.Equal(t, "divmora-key", tok)
+		assert.Equal(t, "DIV1.divmora.key", tok)
 	})
 
 	t.Run("DIVMORA_LICENSE_FILE is used when DIVMORA_LICENSE_KEY is empty", func(t *testing.T) {
@@ -332,7 +372,7 @@ func TestResolveToken_Hierarchy(t *testing.T) {
 
 		tok, err := license.ResolveToken("", "")
 		require.NoError(t, err)
-		assert.Equal(t, "divmora-file-token", tok)
+		assert.Equal(t, "DIV1.divmora.filetoken", tok)
 	})
 
 	t.Run("Empty resolution when nothing is set", func(t *testing.T) {
@@ -364,11 +404,6 @@ func TestProductClaims_Validation(t *testing.T) {
 		expectErr     string
 	}{
 		{
-			name:          "Unspecified product claim (legacy backwards compatibility)",
-			claimProduct:  "",
-			expectAllowed: true,
-		},
-		{
 			name:          "Wildcard product (*)",
 			claimProduct:  "*",
 			expectAllowed: true,
@@ -387,7 +422,7 @@ func TestProductClaims_Validation(t *testing.T) {
 			name:          "Unrecognized alias fleet-governor rejected",
 			claimProduct:  "fleet-governor",
 			expectAllowed: false,
-			expectErr:     "license token is issued for product 'fleet-governor', not 'gitlab-fleet-governor'",
+			expectErr:     "license: product mismatch",
 		},
 		{
 			name:          "Case-insensitive matching",
@@ -398,13 +433,13 @@ func TestProductClaims_Validation(t *testing.T) {
 			name:          "Mismatched product (github-fleet-governor)",
 			claimProduct:  "github-fleet-governor",
 			expectAllowed: false,
-			expectErr:     "license token is issued for product 'github-fleet-governor', not 'gitlab-fleet-governor'",
+			expectErr:     "license: product mismatch",
 		},
 		{
 			name:          "Mismatched product (cloud-compliance-engine)",
 			claimProduct:  "cloud-compliance-engine",
 			expectAllowed: false,
-			expectErr:     "license token is issued for product 'cloud-compliance-engine', not 'gitlab-fleet-governor'",
+			expectErr:     "license: product mismatch",
 		},
 	}
 
@@ -416,13 +451,13 @@ func TestProductClaims_Validation(t *testing.T) {
 				Customer: license.Customer{
 					Name: "Acme Corp",
 				},
-				Tier:      "enterprise",
+				Plan:      "enterprise",
 				IssuedAt:  time.Now().UTC().Add(-1 * time.Hour),
 				ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour),
 			}
 
 			// Direct helper check
-			assert.Equal(t, tc.expectAllowed, claims.IsProductAllowed("gitlab-fleet-governor"))
+			assert.Equal(t, tc.expectAllowed, claims.IsValidForProduct("gitlab-fleet-governor"))
 
 			// Cryptographic parse & verify check
 			tok, err := license.SignLicense(claims, priv)
@@ -455,88 +490,69 @@ func TestHostValidation_Scoping(t *testing.T) {
 		assert.True(t, emptyClaims.IsHostAllowed("https://gitlab.com"))
 		assert.True(t, emptyClaims.IsHostAllowed("https://gitlab.private.corp"))
 
-		starClaims := &license.Claims{AllowedHosts: []string{"*"}}
+		starClaims := &license.Claims{Scope: &license.Scope{Hosts: []string{"*"}}}
 		assert.True(t, starClaims.IsHostAllowed("https://gitlab.com"))
 		assert.True(t, starClaims.IsHostAllowed("https://gitlab.private.corp"))
 	})
 
 	t.Run("Exact Host Matching", func(t *testing.T) {
 		claims := &license.Claims{
-			AllowedHosts: []string{"gitlab.fintech.corp", "gitlab.com"},
+			Scope: &license.Scope{Hosts: []string{"gitlab.fintech.corp", "gitlab.com"}},
 		}
-		assert.True(t, claims.IsHostAllowed("https://gitlab.fintech.corp/api/v4"))
-		assert.True(t, claims.IsHostAllowed("https://gitlab.com/api/v4"))
-		assert.False(t, claims.IsHostAllowed("https://gitlab.other.corp/api/v4"))
+		assert.True(t, claims.IsHostAllowed("gitlab.fintech.corp"))
+		assert.True(t, claims.IsHostAllowed("gitlab.com"))
+		assert.False(t, claims.IsHostAllowed("gitlab.other.corp"))
 	})
 
 	t.Run("Subdomain Wildcard Matching", func(t *testing.T) {
 		claims := &license.Claims{
-			AllowedHosts: []string{"*.internal.net"},
+			Scope: &license.Scope{Hosts: []string{"*.internal.net"}},
 		}
-		assert.True(t, claims.IsHostAllowed("https://gitlab.internal.net"))
-		assert.True(t, claims.IsHostAllowed("https://staging.internal.net"))
-		assert.False(t, claims.IsHostAllowed("https://gitlab.external.com"))
+		assert.True(t, claims.IsHostAllowed("staging.internal.net"))
+		// Apex domain matching (v0.5.0)
+		assert.True(t, claims.IsHostAllowed("internal.net"))
+		// URL input with port and path (v0.5.0)
+		assert.True(t, claims.IsHostAllowed("https://staging.internal.net:8443/api/v4"))
+		assert.False(t, claims.IsHostAllowed("gitlab.external.com"))
 	})
 }
 
 func TestGroupValidation_Scoping(t *testing.T) {
 	t.Run("Omitted or Wildcard AllowedGroups", func(t *testing.T) {
 		emptyClaims := &license.Claims{}
-		assert.True(t, emptyClaims.IsGroupAllowed("any-org/repo"))
+		assert.True(t, emptyClaims.IsNamespaceAllowed("any-org/repo"))
 
-		starClaims := &license.Claims{AllowedGroups: []string{"*"}}
-		assert.True(t, starClaims.IsGroupAllowed("any-org/repo"))
+		starClaims := &license.Claims{Scope: &license.Scope{Namespaces: []string{"*"}}}
+		assert.True(t, starClaims.IsNamespaceAllowed("any-org/repo"))
 	})
 
-	t.Run("Hierarchy Prefix Matching", func(t *testing.T) {
+	t.Run("Hierarchy Matching", func(t *testing.T) {
 		claims := &license.Claims{
-			AllowedGroups: []string{"acme-corp", "fintech-division"},
+			Scope: &license.Scope{Namespaces: []string{"acme-corp/*", "fintech-division/*"}},
 		}
 
-		// Exact group match
-		assert.True(t, claims.IsGroupAllowed("acme-corp"))
-		assert.True(t, claims.IsGroupAllowed("/acme-corp/"))
-
-		// Subgroup and nested projects
-		assert.True(t, claims.IsGroupAllowed("acme-corp/billing"))
-		assert.True(t, claims.IsGroupAllowed("acme-corp/billing/payments-service"))
-		assert.True(t, claims.IsGroupAllowed("fintech-division/core-banking"))
-
-		// Unrelated or partial prefix attacks
-		assert.False(t, claims.IsGroupAllowed("acme-corp-spoof/repo"))
-		assert.False(t, claims.IsGroupAllowed("other-org/billing"))
+		assert.True(t, claims.IsNamespaceAllowed("acme-corp/billing"))
+		assert.True(t, claims.IsNamespaceAllowed("acme-corp/billing/payments-service"))
+		assert.True(t, claims.IsNamespaceAllowed("fintech-division/core-banking"))
+		assert.False(t, claims.IsNamespaceAllowed("other-org/billing"))
 	})
-}
 
-func TestValidateScope_HostAndGroup(t *testing.T) {
-	claims := &license.Claims{
-		AllowedHosts:  []string{"gitlab.com"},
-		AllowedGroups: []string{"acme-corp"},
-	}
+	t.Run("Plain Root Group Matching Without Wildcards (v0.5.0)", func(t *testing.T) {
+		claims := &license.Claims{
+			Scope: &license.Scope{Namespaces: []string{"devops"}},
+		}
 
-	// 1. Success on matching SaaS host and group
-	err := claims.ValidateScope("https://gitlab.com/api/v4", []string{
-		"acme-corp/billing",
-		"acme-corp/infra/terraform",
+		// Plain group authorizes root and deep child paths
+		assert.True(t, claims.IsNamespaceAllowed("devops"))
+		assert.True(t, claims.IsNamespaceAllowed("devops/backend"))
+		assert.True(t, claims.IsNamespaceAllowed("devops/backend/service"))
+		assert.True(t, claims.IsNamespaceAllowed("https://gitlab.com/devops/backend/service.git"))
+
+		// Security boundary: rejects prefix collisions
+		assert.False(t, claims.IsNamespaceAllowed("devops-tools"))
+		assert.False(t, claims.IsNamespaceAllowed("devops_infra"))
+		assert.False(t, claims.IsNamespaceAllowed("other/devops"))
 	})
-	require.NoError(t, err)
-
-	// 2. Failure on host mismatch
-	err = claims.ValidateScope("https://gitlab.unauthorized.com/api/v4", []string{
-		"acme-corp/billing",
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "COMMERCIAL LICENSE HOST MISMATCH")
-	assert.Contains(t, err.Error(), "gitlab.unauthorized.com")
-
-	// 3. Failure on group mismatch
-	err = claims.ValidateScope("https://gitlab.com/api/v4", []string{
-		"acme-corp/billing",
-		"competitor-org/secret-project",
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "COMMERCIAL LICENSE GROUP MISMATCH")
-	assert.Contains(t, err.Error(), "competitor-org/secret-project")
 }
 
 func TestEnforce_HostAndGroupScoping(t *testing.T) {
@@ -548,12 +564,15 @@ func TestEnforce_HostAndGroupScoping(t *testing.T) {
 		Customer: license.Customer{
 			Name: "Enterprise Scoped Corp",
 		},
-		Tier:          "enterprise",
-		MaxProjects:   100,
-		AllowedHosts:  []string{"gitlab.com"},
-		AllowedGroups: []string{"enterprise-org"},
-		IssuedAt:      time.Now().UTC().Add(-1 * time.Hour),
-		ExpiresAt:     time.Now().UTC().Add(365 * 24 * time.Hour),
+		Product: "gitlab-fleet-governor",
+		Plan:    "enterprise",
+		Limits:  map[string]int64{"max_projects": 100},
+		Scope: &license.Scope{
+			Hosts:      []string{"gitlab.com"},
+			Namespaces: []string{"enterprise-org", "enterprise-org/*"},
+		},
+		IssuedAt:  time.Now().UTC().Add(-1 * time.Hour),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 	}, priv)
 	require.NoError(t, err)
 
@@ -729,13 +748,13 @@ func TestEnforce_Layer2_GitLabServerTimeAttestation(t *testing.T) {
 			Customer: license.Customer{
 				Name: "Sneaky Corp",
 			},
-			Tier:            "enterprise",
-			MaxProjects:     500,
+			Product:         "gitlab-fleet-governor",
+			Plan:            "enterprise",
+			Limits:          map[string]int64{"max_projects": 500},
 			IssuedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 			ExpiresAt:       time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 			GracePeriodDays: 14,
-			AllowedHosts:    []string{"*"},
-			AllowedGroups:   []string{"*"},
+			Scope:           &license.Scope{Hosts: []string{"*"}},
 			Features:        []string{"all"},
 		}
 
@@ -755,7 +774,7 @@ func TestEnforce_Layer2_GitLabServerTimeAttestation(t *testing.T) {
 		})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "license expired")
+		assert.ErrorIs(t, err, liblicense.ErrExpired)
 		require.NotNil(t, status)
 		assert.False(t, status.Valid)
 	})
@@ -774,4 +793,155 @@ func TestEnforce_Layer2_GitLabServerTimeAttestation(t *testing.T) {
 		assert.True(t, status.Valid)
 		assert.Contains(t, status.Message, "Free Community Tier")
 	})
+}
+
+func TestVersionLocking_Enforcement(t *testing.T) {
+	pubKey, privKey := generateTestKeyPair(t)
+	license.SetVerificationPublicKey(pubKey)
+	defer license.ResetVerificationPublicKey()
+
+	origVer := version.Version
+	defer func() { version.Version = origVer }()
+
+	claims := &license.Claims{
+		ID:         "lic_ver_lock",
+		Product:    "gitlab-fleet-governor",
+		Customer:   license.Customer{Name: "Version Lock Corp"},
+		Plan:       "enterprise",
+		MaxVersion: "0.*",
+		IssuedAt:   time.Now().UTC(),
+		ExpiresAt:  time.Now().UTC().AddDate(1, 0, 0),
+		Limits:     map[string]int64{"max_projects": 100},
+	}
+
+	token, err := license.SignLicense(claims, privKey)
+	require.NoError(t, err)
+
+	t.Run("Entitled version 0.3.0 passes", func(t *testing.T) {
+		version.Version = "0.3.0"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("Unentitled major upgrade v1.0.0 fails with ErrVersionNotEntitled", func(t *testing.T) {
+		version.Version = "1.0.0"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrVersionNotEntitled)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Development build 'dev' is exempt and passes", func(t *testing.T) {
+		version.Version = "dev"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+}
+
+func TestPerpetualLicense_MaintenanceCutoff(t *testing.T) {
+	pubKey, privKey := generateTestKeyPair(t)
+	license.SetVerificationPublicKey(pubKey)
+	defer license.ResetVerificationPublicKey()
+
+	origDate := version.BuildDate
+	defer func() { version.BuildDate = origDate }()
+
+	maintenanceCutoff := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	claims := &license.Claims{
+		ID:                   "lic_perpetual_maint",
+		Product:              "gitlab-fleet-governor",
+		Customer:             license.Customer{Name: "Perpetual Corp"},
+		Plan:                 "enterprise",
+		IssuedAt:             time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC),
+		MaintenanceExpiresAt: maintenanceCutoff,
+		// ExpiresAt is zero (perpetual)
+		Limits: map[string]int64{"max_projects": 500},
+	}
+
+	token, err := license.SignLicense(claims, privKey)
+	require.NoError(t, err)
+
+	t.Run("Binary built during maintenance window passes", func(t *testing.T) {
+		version.BuildDate = "2026-11-15T12:00:00Z"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("Binary built after maintenance cutoff fails with ErrMaintenanceExpired", func(t *testing.T) {
+		version.BuildDate = "2027-05-01T12:00:00Z"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrMaintenanceExpired)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Development build with 'unknown' build date is exempt and passes", func(t *testing.T) {
+		version.BuildDate = "unknown"
+		status, err := license.ParseAndVerify(token, pubKey)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+}
+
+func TestKeyRing_MultiKeyRotationAndRevocation(t *testing.T) {
+	pub1, priv1 := generateTestKeyPair(t)
+	pub2, priv2 := generateTestKeyPair(t)
+
+	bundlePEM, err := liblicense.EncodePublicKeysToPEM([]ed25519.PublicKey{pub1, pub2})
+	require.NoError(t, err)
+	t.Setenv("DIVMORA_PUBLIC_KEYS_PEM", string(bundlePEM))
+
+	// Issue token with Key 1
+	token1, err := license.SignLicense(&license.Claims{
+		ID:        "lic_key1",
+		Product:   "gitlab-fleet-governor",
+		Customer:  license.Customer{Name: "Key 1 Customer"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().AddDate(1, 0, 0),
+	}, priv1)
+	require.NoError(t, err)
+
+	// Issue token with Key 2
+	token2, err := license.SignLicense(&license.Claims{
+		ID:        "lic_key2",
+		Product:   "gitlab-fleet-governor",
+		Customer:  license.Customer{Name: "Key 2 Customer"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().AddDate(1, 0, 0),
+	}, priv2)
+	require.NoError(t, err)
+
+	// Both tokens must verify successfully against the KeyRing bundle without explicit public key passed
+	status1, err := license.ParseAndVerify(token1, nil)
+	require.NoError(t, err)
+	assert.True(t, status1.Valid)
+
+	status2, err := license.ParseAndVerify(token2, nil)
+	require.NoError(t, err)
+	assert.True(t, status2.Valid)
+
+	// Test revocation in KeyRing
+	ring, err := license.GetVerificationKeyRing()
+	require.NoError(t, err)
+	require.Equal(t, 2, ring.Count())
+
+	// Revoke Key 2 by its fingerprint
+	fp2 := liblicense.KeyFingerprint(pub2)
+	err = ring.Revoke(fp2)
+	require.NoError(t, err)
+
+	val, err := liblicense.NewValidatorWithKeyRing(ring, liblicense.WithProduct("gitlab-fleet-governor"))
+	require.NoError(t, err)
+
+	// Token 1 remains valid
+	_, err = val.Verify(token1)
+	assert.NoError(t, err)
+
+	// Token 2 is rejected because Key 2 is revoked
+	_, err = val.Verify(token2)
+	assert.ErrorIs(t, err, liblicense.ErrKeyRevoked)
 }

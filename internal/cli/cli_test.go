@@ -416,11 +416,12 @@ func TestLicenseCommand(t *testing.T) {
 			Name:  "Test CLI Corp",
 			Email: "cli@test.com",
 		},
-		Tier:        "enterprise",
-		MaxProjects: 250,
-		Features:    []string{"all"},
-		IssuedAt:    time.Now().UTC().Add(-24 * time.Hour),
-		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Limits:    map[string]int64{"max_projects": 250},
+		Features:  []string{"all"},
+		IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 	}
 	validToken, err := license.SignLicense(claims, priv)
 	require.NoError(t, err)
@@ -460,7 +461,7 @@ func TestLicenseCommand(t *testing.T) {
 		stdout, _, err := executeCommand(ctx, "license", "status", "--license-key="+validToken, "--json")
 		require.NoError(t, err)
 		assert.Contains(t, stdout, `"valid": true`)
-		assert.Contains(t, stdout, `"tier": "enterprise"`)
+		assert.Contains(t, stdout, `"plan": "enterprise"`)
 	})
 
 	t.Run("License Status via DIVMORA_LICENSE_KEY environment variable", func(t *testing.T) {

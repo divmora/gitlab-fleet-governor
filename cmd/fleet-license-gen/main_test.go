@@ -180,3 +180,37 @@ func TestFleetLicenseGen_SignReleaseAndVerify(t *testing.T) {
 	assert.Contains(t, verifyBuf.String(), "4b825dc642cb")
 	assert.Contains(t, verifyBuf.String(), "DIVMORA Technologies Release Authority")
 }
+
+func TestFleetLicenseGen_IssueVersionAndMaintenance(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	privB64 := base64.StdEncoding.EncodeToString(priv)
+	pubB64 := base64.StdEncoding.EncodeToString(pub)
+
+	t.Setenv("DIVMORA_PUBLIC_KEY", pubB64)
+
+	issueCmd := newIssueCmd()
+	var issueBuf bytes.Buffer
+	issueCmd.SetOut(&issueBuf)
+	issueCmd.SetArgs([]string{
+		"--customer=Perpetual COTS Corp",
+		"--email=licensing@cotscorp.com",
+		"--tier=enterprise",
+		"--projects=500",
+		"--perpetual",
+		"--max-version=0.*",
+		"--allowed-versions=0.*,1.0.*",
+		"--maintenance-days=365",
+		"--private-key=" + privB64,
+	})
+
+	err = issueCmd.Execute()
+	require.NoError(t, err)
+	output := issueBuf.String()
+
+	assert.Contains(t, output, "Perpetual (No Expiration)")
+	assert.Contains(t, output, "Max Version      : 0.*")
+	assert.Contains(t, output, "Allowed Versions : 0.*, 1.0.*")
+	assert.Contains(t, output, "Maintenance Ends :")
+	assert.Contains(t, output, "500 Managed Projects")
+}

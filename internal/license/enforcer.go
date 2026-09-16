@@ -2,6 +2,7 @@ package license
 
 import (
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
+	liblicense "github.com/divmora/license-go/pkg/license"
 )
 
 // EnforcementOptions encapsulates the operational parameters required to evaluate
@@ -47,11 +49,10 @@ type EnforcementOptions struct {
 }
 
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
-// It applies the resolution order:
-// 1. Explicit license token parameter (CLI flag or programmatic option)
-// 2. Explicit license file path parameter (CLI flag or programmatic option)
-// 3. Environment variable: DIVMORA_LICENSE_KEY
-// 4. License file environment variable: DIVMORA_LICENSE_FILE
+// If an explicit key is provided, it is returned directly.
+// If an explicit file is provided, its contents are read from disk.
+// Otherwise, it delegates to liblicense.ResolveToken to check environment variables and system paths.
+// If no license is configured anywhere, it returns ("", nil) to permit Community Tier execution.
 func ResolveToken(key, file string) (string, error) {
 	key = strings.TrimSpace(key)
 	if key != "" {
@@ -67,18 +68,14 @@ func ResolveToken(key, file string) (string, error) {
 		return strings.TrimSpace(string(content)), nil
 	}
 
-	if envKey := strings.TrimSpace(os.Getenv("DIVMORA_LICENSE_KEY")); envKey != "" {
-		return envKey, nil
-	}
-	if envFile := strings.TrimSpace(os.Getenv("DIVMORA_LICENSE_FILE")); envFile != "" {
-		content, err := os.ReadFile(envFile)
-		if err != nil {
-			return "", fmt.Errorf("failed to read license file from DIVMORA_LICENSE_FILE (%s): %w", envFile, err)
+	token, err := liblicense.ResolveToken()
+	if err != nil {
+		if errors.Is(err, liblicense.ErrLicenseNotFound) {
+			return "", nil
 		}
-		return strings.TrimSpace(string(content)), nil
+		return "", err
 	}
-
-	return "", nil
+	return strings.TrimSpace(token), nil
 }
 
 // Enforce evaluates the active execution context against the Business Source License 1.1 terms:
@@ -152,25 +149,51 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 			return status, fmt.Errorf("commercial license verification failed: %w", err)
 		}
 
+		maxProjects := GetClaimsMaxProjects(status.Claims)
+		planName := GetClaimsPlan(status.Claims)
+
 		// Enforce fleet capacity limit (if not unlimited)
-		if status.Claims.MaxProjects > 0 && opts.DiscoveredProjects > status.Claims.MaxProjects {
+		if err := status.Claims.CheckLimit("max_projects", int64(opts.DiscoveredProjects)); err != nil {
 			if opts.IsDryRun {
 				slog.Warn("Fleet project count exceeds licensed capacity (allowed under dry-run simulation)",
 					"discovered", opts.DiscoveredProjects,
-					"capacity", status.Claims.MaxProjects,
+					"capacity", maxProjects,
 				)
 			} else {
 				return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
-					opts.DiscoveredProjects, status.Claims.MaxProjects, status.Claims.Tier)
+					opts.DiscoveredProjects, maxProjects, strings.ToUpper(planName))
 			}
 		}
 
 		// Enforce GitLab host and group scope boundaries
-		if err := status.Claims.ValidateScope(opts.GitLabBaseURL, opts.TargetPaths); err != nil {
+		if !isHostAllowed(status.Claims, opts.GitLabBaseURL) {
+			targetHost := ExtractHost(opts.GitLabBaseURL)
+			var allowedHosts []string
+			if status.Claims.Scope != nil {
+				allowedHosts = status.Claims.Scope.Hosts
+			}
+			hostErr := fmt.Errorf("COMMERCIAL LICENSE HOST MISMATCH: License is restricted to GitLab host(s) %v, but active target is '%s'. Please obtain a commercial license for this host or contact licensing@divmora.com", allowedHosts, targetHost)
 			if opts.IsDryRun {
-				slog.Warn("GitLab host or group scope validation warning in dry-run mode", "error", err)
+				slog.Warn("GitLab host scope validation warning in dry-run mode", "error", hostErr)
 			} else {
-				return status, err
+				return status, hostErr
+			}
+		}
+
+		if len(opts.TargetPaths) > 0 {
+			for _, path := range opts.TargetPaths {
+				if !isNamespaceAllowed(status.Claims, path) {
+					var allowedNamespaces []string
+					if status.Claims.Scope != nil {
+						allowedNamespaces = status.Claims.Scope.Namespaces
+					}
+					groupErr := fmt.Errorf("COMMERCIAL LICENSE GROUP MISMATCH: License is restricted to GitLab group hierarchy %v, but targeted resource '%s' falls outside permitted groups. Please contact licensing@divmora.com to extend your license scope", allowedNamespaces, path)
+					if opts.IsDryRun {
+						slog.Warn("GitLab group scope validation warning in dry-run mode", "error", groupErr)
+					} else {
+						return status, groupErr
+					}
+				}
 			}
 		}
 
@@ -184,9 +207,9 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 			)
 		} else {
 			slog.Info("Commercial enterprise license verified",
-				"tier", status.Claims.Tier,
+				"tier", planName,
 				"customer", status.Claims.Customer.Name,
-				"capacity", status.Claims.MaxProjects,
+				"capacity", maxProjects,
 				"active_projects", opts.DiscoveredProjects,
 				"days_remaining", status.DaysRemaining,
 			)
@@ -228,4 +251,18 @@ To continue managing fleets of this size:
        export DIVMORA_LICENSE_KEY="<token>"
      or provide it via CLI flag:
        --license-key="<token>"`, opts.DiscoveredProjects, FreeTierMaxProjects)
+}
+
+func isHostAllowed(claims *Claims, rawURL string) bool {
+	if claims == nil || claims.Scope == nil || len(claims.Scope.Hosts) == 0 {
+		return true
+	}
+	return claims.IsHostAllowed(rawURL)
+}
+
+func isNamespaceAllowed(claims *Claims, path string) bool {
+	if claims == nil || claims.Scope == nil || len(claims.Scope.Namespaces) == 0 {
+		return true
+	}
+	return claims.IsNamespaceAllowed(path)
 }

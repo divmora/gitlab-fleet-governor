@@ -300,12 +300,18 @@ License tokens are resolved in the following priority order:
 3. **Policy Setting**: `settings.license.key` or `settings.license.file` in policy YAML/JSON
 4. **Environment Variable**: `DIVMORA_LICENSE_KEY`
 5. **Environment File**: `DIVMORA_LICENSE_FILE`
+6. **Default System Path**: `/etc/divmora/license.key`
 
-### Multi-Product Licensing
+### Token Formats & Multi-Product Licensing
 
-DIVMORA commercial licenses can be scoped to specific products:
+DIVMORA commercial licenses can be provided as either:
+- **Canonical Compact Token**: `DIV1.<payload>.<signature>`
+- **Armored PEM Block**: `-----BEGIN DIVMORA LICENSE KEY----- ... -----END DIVMORA LICENSE KEY-----`
+
+Tokens can be scoped to specific products:
 - `gitlab-fleet-governor`: Scoped strictly to GitLab Fleet Governor.
 - `*` or `divmora-suite`: Enterprise master token valid across all DIVMORA products.
 
-A single unified environment variable (`DIVMORA_LICENSE_KEY`) can be deployed across your infrastructure, and each tool cryptographically verifies that the token's product claim allows execution.
+A single unified environment variable (`DIVMORA_LICENSE_KEY`) or system file (`/etc/divmora/license.key`) can be deployed across your infrastructure, and each tool cryptographically verifies that the token's product claim allows execution.
+
 

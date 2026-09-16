@@ -243,10 +243,11 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 			Name:  "Enterprise Tier 4 Test Corp",
 			Email: "admin@enterprise.corp",
 		},
-		Tier:        "enterprise",
-		MaxProjects: 1000,
-		IssuedAt:    time.Now().UTC().Add(-1 * time.Hour),
-		ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Limits:    map[string]int64{"max_projects": 1000},
+		IssuedAt:  time.Now().UTC().Add(-1 * time.Hour),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
 	}, licPriv)
 	require.NoError(t, err)
 

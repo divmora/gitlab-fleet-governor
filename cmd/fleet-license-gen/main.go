@@ -13,6 +13,7 @@ import (
 
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
+	liblicense "github.com/divmora/license-go/pkg/license"
 	"github.com/spf13/cobra"
 )
 
@@ -85,20 +86,24 @@ func newInitKeysCmd() *cobra.Command {
 }
 
 type issueFlags struct {
-	CustomerName   string
-	CustomerEmail  string
-	CustomerOrgID  string
-	Product        string
-	Tier           string
-	MaxProjects    int
-	ValidDays      int
-	AllowedHosts   string
-	AllowedGroups  string
-	Features       string
-	PrivateKey     string
-	PrivateKeyFile string
-	GracePeriod    int
-	TokenOnly      bool
+	CustomerName    string
+	CustomerEmail   string
+	CustomerOrgID   string
+	Product         string
+	Tier            string
+	MaxProjects     int
+	ValidDays       int
+	AllowedHosts    string
+	AllowedGroups   string
+	Features        string
+	PrivateKey      string
+	PrivateKeyFile  string
+	GracePeriod     int
+	TokenOnly       bool
+	MaxVersion      string
+	AllowedVersions string
+	MaintenanceDays int
+	Perpetual       bool
 }
 
 func newIssueCmd() *cobra.Command {
@@ -127,7 +132,25 @@ func newIssueCmd() *cobra.Command {
 			}
 
 			now := time.Now().UTC()
-			expiresAt := now.AddDate(0, 0, flags.ValidDays)
+			var expiresAt time.Time
+			if !flags.Perpetual {
+				expiresAt = now.AddDate(0, 0, flags.ValidDays)
+			}
+
+			var maintenanceExpiresAt time.Time
+			if flags.MaintenanceDays > 0 {
+				maintenanceExpiresAt = now.AddDate(0, 0, flags.MaintenanceDays)
+			}
+
+			var allowedVersions []string
+			if flags.AllowedVersions != "" {
+				for _, v := range strings.Split(flags.AllowedVersions, ",") {
+					trimmed := strings.TrimSpace(v)
+					if trimmed != "" {
+						allowedVersions = append(allowedVersions, trimmed)
+					}
+				}
+			}
 
 			var features []string
 			if flags.Features != "" {
@@ -174,14 +197,21 @@ func newIssueCmd() *cobra.Command {
 					Email: flags.CustomerEmail,
 					OrgID: flags.CustomerOrgID,
 				},
-				Tier:            flags.Tier,
-				MaxProjects:     flags.MaxProjects,
-				AllowedHosts:    allowedHosts,
-				AllowedGroups:   allowedGroups,
-				Features:        features,
-				IssuedAt:        now,
-				ExpiresAt:       expiresAt,
-				GracePeriodDays: flags.GracePeriod,
+				Plan: flags.Tier,
+				Limits: map[string]int64{
+					"max_projects": int64(flags.MaxProjects),
+				},
+				Scope: &license.Scope{
+					Hosts:      allowedHosts,
+					Namespaces: allowedGroups,
+				},
+				Features:             features,
+				IssuedAt:             now,
+				ExpiresAt:            expiresAt,
+				GracePeriodDays:      flags.GracePeriod,
+				MaxVersion:           strings.TrimSpace(flags.MaxVersion),
+				AllowedVersions:      allowedVersions,
+				MaintenanceExpiresAt: maintenanceExpiresAt,
 			}
 
 			token, err := license.SignLicense(claims, ed25519.PrivateKey(privKeyBytes))
@@ -205,22 +235,37 @@ func newIssueCmd() *cobra.Command {
 			if claims.Customer.Email != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Contact Email    : %s\n", claims.Customer.Email)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Subscription Tier: %s\n", claims.Tier)
-			if claims.MaxProjects == 0 {
+			plan := license.GetClaimsPlan(claims)
+			maxProjects := license.GetClaimsMaxProjects(claims)
+			fmt.Fprintf(cmd.OutOrStdout(), "Subscription Tier: %s\n", plan)
+			if maxProjects == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "Fleet Capacity   : Unlimited Projects")
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Fleet Capacity   : %d Managed Projects\n", claims.MaxProjects)
+				fmt.Fprintf(cmd.OutOrStdout(), "Fleet Capacity   : %d Managed Projects\n", maxProjects)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Issued At        : %s\n", claims.IssuedAt.Format(time.RFC3339))
-			fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s (%d days)\n", claims.ExpiresAt.Format(time.RFC3339), flags.ValidDays)
-			fmt.Fprintf(cmd.OutOrStdout(), "Grace Period     : %d days\n", claims.EffectiveGracePeriodDays())
-			if len(claims.AllowedHosts) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			if claims.IsPerpetual() {
+				fmt.Fprintln(cmd.OutOrStdout(), "Expires At       : Perpetual (No Expiration)")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s (%d days)\n", claims.ExpiresAt.Format(time.RFC3339), flags.ValidDays)
+				fmt.Fprintf(cmd.OutOrStdout(), "Grace Period     : %d days\n", claims.GracePeriodDays)
+			}
+			if claims.MaxVersion != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Max Version      : %s\n", claims.MaxVersion)
+			}
+			if len(claims.AllowedVersions) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Versions : %s\n", strings.Join(claims.AllowedVersions, ", "))
+			}
+			if !claims.MaintenanceExpiresAt.IsZero() {
+				fmt.Fprintf(cmd.OutOrStdout(), "Maintenance Ends : %s (%d days)\n", claims.MaintenanceExpiresAt.Format(time.RFC3339), flags.MaintenanceDays)
+			}
+			if claims.Scope != nil && len(claims.Scope.Hosts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.Scope.Hosts, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Hosts    : Any (*)")
 			}
-			if len(claims.AllowedGroups) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			if claims.Scope != nil && len(claims.Scope.Namespaces) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.Scope.Namespaces, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Groups   : Any (*)")
 			}
@@ -250,6 +295,10 @@ func newIssueCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.PrivateKeyFile, "private-key-file", "", "Path to file containing Ed25519 private key")
 	cmd.Flags().IntVar(&flags.GracePeriod, "grace-period", 14, "Grace period duration in days post-expiration (default: 14)")
 	cmd.Flags().BoolVarP(&flags.TokenOnly, "token-only", "q", false, "Output only the raw signed license token string")
+	cmd.Flags().StringVar(&flags.MaxVersion, "max-version", "", "Maximum authorized SemVer version (e.g. '0.*', '<=1.5.0')")
+	cmd.Flags().StringVar(&flags.AllowedVersions, "allowed-versions", "", "Comma-separated list of authorized version patterns (e.g. '0.*,1.0.*')")
+	cmd.Flags().IntVar(&flags.MaintenanceDays, "maintenance-days", 0, "Number of days from issuance for software updates/maintenance cutoff")
+	cmd.Flags().BoolVar(&flags.Perpetual, "perpetual", false, "Issue a perpetual license with no runtime expiration date")
 
 	return cmd
 }
@@ -278,13 +327,11 @@ func newInspectCmd() *cobra.Command {
 
 			var pubKey ed25519.PublicKey
 			if publicKey != "" {
-				b, err := base64.StdEncoding.DecodeString(publicKey)
+				k, err := liblicense.ParsePublicKeyFromBase64(publicKey)
 				if err != nil {
-					b, err = base64.RawURLEncoding.DecodeString(publicKey)
+					return fmt.Errorf("failed to decode public key: %w", err)
 				}
-				if err == nil && len(b) == ed25519.PublicKeySize {
-					pubKey = ed25519.PublicKey(b)
-				}
+				pubKey = k
 			}
 
 			status, err := license.ParseAndVerify(token, pubKey)
@@ -311,23 +358,39 @@ func newInspectCmd() *cobra.Command {
 			if claims.Customer.OrgID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Organization ID  : %s\n", claims.Customer.OrgID)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Tier             : %s\n", claims.Tier)
-			if claims.MaxProjects == 0 {
+			plan := license.GetClaimsPlan(claims)
+			maxProjects := license.GetClaimsMaxProjects(claims)
+			fmt.Fprintf(cmd.OutOrStdout(), "Tier             : %s\n", plan)
+			if maxProjects == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "Capacity Limit   : Unlimited Projects")
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Capacity Limit   : %d Managed Projects\n", claims.MaxProjects)
+				fmt.Fprintf(cmd.OutOrStdout(), "Capacity Limit   : %d Managed Projects\n", maxProjects)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Issued At        : %s\n", claims.IssuedAt.Format(time.RFC3339))
-			fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s\n", claims.ExpiresAt.Format(time.RFC3339))
-			fmt.Fprintf(cmd.OutOrStdout(), "Days Remaining   : %d\n", status.DaysRemaining)
-			fmt.Fprintf(cmd.OutOrStdout(), "In Grace Period  : %t\n", status.InGracePeriod)
-			if len(claims.AllowedHosts) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			if claims.IsPerpetual() {
+				fmt.Fprintln(cmd.OutOrStdout(), "Expires At       : Perpetual (No Expiration)")
+				fmt.Fprintln(cmd.OutOrStdout(), "Days Remaining   : Perpetual")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s\n", claims.ExpiresAt.Format(time.RFC3339))
+				fmt.Fprintf(cmd.OutOrStdout(), "Days Remaining   : %d\n", status.DaysRemaining)
+				fmt.Fprintf(cmd.OutOrStdout(), "In Grace Period  : %t\n", status.InGracePeriod)
+			}
+			if claims.MaxVersion != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Max Version      : %s\n", claims.MaxVersion)
+			}
+			if len(claims.AllowedVersions) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Versions : %s\n", strings.Join(claims.AllowedVersions, ", "))
+			}
+			if !claims.MaintenanceExpiresAt.IsZero() {
+				fmt.Fprintf(cmd.OutOrStdout(), "Maintenance Ends : %s\n", claims.MaintenanceExpiresAt.Format(time.RFC3339))
+			}
+			if claims.Scope != nil && len(claims.Scope.Hosts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.Scope.Hosts, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Hosts    : Any (*)")
 			}
-			if len(claims.AllowedGroups) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			if claims.Scope != nil && len(claims.Scope.Namespaces) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.Scope.Namespaces, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Groups   : Any (*)")
 			}
@@ -539,24 +602,21 @@ func newVerifyReleaseCmd() *cobra.Command {
 
 			var pubKey ed25519.PublicKey
 			if flags.PublicKey != "" {
-				b, err := base64.StdEncoding.DecodeString(flags.PublicKey)
+				k, err := liblicense.ParsePublicKeyFromBase64(flags.PublicKey)
 				if err != nil {
-					b, err = base64.RawURLEncoding.DecodeString(flags.PublicKey)
-					if err != nil {
-						return fmt.Errorf("failed to decode public key: %w", err)
-					}
+					return fmt.Errorf("failed to decode public key: %w", err)
 				}
-				pubKey = ed25519.PublicKey(b)
+				pubKey = k
 			} else if flags.PublicKeyFile != "" {
 				content, err := os.ReadFile(flags.PublicKeyFile)
 				if err != nil {
 					return fmt.Errorf("failed to read public key file: %w", err)
 				}
-				b, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(content)))
+				k, err := liblicense.ParsePublicKeyFromBase64(strings.TrimSpace(string(content)))
 				if err != nil {
 					return fmt.Errorf("failed to decode public key: %w", err)
 				}
-				pubKey = ed25519.PublicKey(b)
+				pubKey = k
 			}
 
 			claims, err := version.ParseAndVerifyReleaseToken(token, pubKey)

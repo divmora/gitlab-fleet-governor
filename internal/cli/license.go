@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -158,11 +157,13 @@ func newLicenseStatusCmd() *cobra.Command {
 			if claims.Customer.OrgID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Organization ID  : %s\n", claims.Customer.OrgID)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Subscription Tier: %s\n", strings.ToUpper(claims.Tier))
-			if claims.MaxProjects == 0 {
+			plan := license.GetClaimsPlan(claims)
+			maxProjects := license.GetClaimsMaxProjects(claims)
+			fmt.Fprintf(cmd.OutOrStdout(), "Subscription Tier: %s\n", strings.ToUpper(plan))
+			if maxProjects == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "Fleet Capacity   : Unlimited Projects")
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Fleet Capacity   : %d Managed Projects\n", claims.MaxProjects)
+				fmt.Fprintf(cmd.OutOrStdout(), "Fleet Capacity   : %d Managed Projects\n", maxProjects)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Issued At        : %s\n", claims.IssuedAt.UTC().Format(time.RFC3339))
 			fmt.Fprintf(cmd.OutOrStdout(), "Expires At       : %s\n", claims.ExpiresAt.UTC().Format(time.RFC3339))
@@ -171,13 +172,13 @@ func newLicenseStatusCmd() *cobra.Command {
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "Days Remaining   : %d days\n", status.DaysRemaining)
 			}
-			if len(claims.AllowedHosts) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.AllowedHosts, ", "))
+			if claims.Scope != nil && len(claims.Scope.Hosts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Hosts    : %s\n", strings.Join(claims.Scope.Hosts, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Hosts    : Any (*)")
 			}
-			if len(claims.AllowedGroups) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.AllowedGroups, ", "))
+			if claims.Scope != nil && len(claims.Scope.Namespaces) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Allowed Groups   : %s\n", strings.Join(claims.Scope.Namespaces, ", "))
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "Allowed Groups   : Any (*)")
 			}
@@ -228,7 +229,7 @@ func newLicenseCheckCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "OK: License %s is valid for %s (%s tier, %d days remaining)\n",
-				status.Claims.ID, status.Claims.Customer.Name, status.Claims.Tier, status.DaysRemaining)
+				status.Claims.ID, status.Claims.Customer.Name, license.GetClaimsPlan(status.Claims), status.DaysRemaining)
 			return nil
 		},
 	}
@@ -237,16 +238,8 @@ func newLicenseCheckCmd() *cobra.Command {
 }
 
 func resolveActiveLicenseToken(ctx context.Context) (string, error) {
-	if globalFlags.LicenseKey != "" {
-		return strings.TrimSpace(globalFlags.LicenseKey), nil
-	}
-
-	if globalFlags.LicenseFile != "" {
-		content, err := os.ReadFile(globalFlags.LicenseFile)
-		if err != nil {
-			return "", fmt.Errorf("failed to read license file %s: %w", globalFlags.LicenseFile, err)
-		}
-		return strings.TrimSpace(string(content)), nil
+	if globalFlags.LicenseKey != "" || globalFlags.LicenseFile != "" {
+		return license.ResolveToken(globalFlags.LicenseKey, globalFlags.LicenseFile)
 	}
 
 	// If a config file was specified, try loading it to check settings.license
@@ -256,19 +249,12 @@ func resolveActiveLicenseToken(ctx context.Context) (string, error) {
 		}
 		cfg, _, err := config.Load(ctx, globalFlags.ConfigPath, config.LoadOptions{})
 		if err == nil && cfg != nil {
-			if cfg.Settings.License.Key != "" {
-				return strings.TrimSpace(cfg.Settings.License.Key), nil
-			}
-			if cfg.Settings.License.File != "" {
-				content, err := os.ReadFile(cfg.Settings.License.File)
-				if err != nil {
-					return "", fmt.Errorf("failed to read license file from config %s: %w", cfg.Settings.License.File, err)
-				}
-				return strings.TrimSpace(string(content)), nil
+			if cfg.Settings.License.Key != "" || cfg.Settings.License.File != "" {
+				return license.ResolveToken(cfg.Settings.License.Key, cfg.Settings.License.File)
 			}
 		}
 	}
 
-	// Fallback to environment variables
+	// Fallback to environment variables / default path
 	return license.ResolveToken("", "")
 }

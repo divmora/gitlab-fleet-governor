@@ -514,17 +514,19 @@ func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, proj
 		if status.InGracePeriod {
 			statusStr = "OPERATING_IN_GRACE_PERIOD"
 		}
+		plan := license.GetClaimsPlan(status.Claims)
+		maxProjects := license.GetClaimsMaxProjects(status.Claims)
 		return &LicenseAttestation{
 			GovernorVersion:      vInfo.Version,
 			Status:               statusStr,
 			LicenseModel:         "BSL-1.1",
-			Tier:                 strings.ToUpper(status.Claims.Tier),
+			Tier:                 strings.ToUpper(plan),
 			LicensedTo:           status.Claims.Customer.Name,
 			LicenseID:            status.Claims.ID,
-			MaxProjects:          status.Claims.MaxProjects,
+			MaxProjects:          maxProjects,
 			DiscoveredProjects:   projectCount,
 			ChangeDate:           changeDateStr,
-			AttestationStatement: fmt.Sprintf("Certified commercial governance under Business Source License 1.1. Licensed to %s (%s Tier, Capacity: %d projects, License ID: %s). Cryptographically attested via Ed25519 asymmetric signature.", status.Claims.Customer.Name, strings.ToUpper(status.Claims.Tier), status.Claims.MaxProjects, status.Claims.ID),
+			AttestationStatement: fmt.Sprintf("Certified commercial governance under Business Source License 1.1. Licensed to %s (%s Tier, Capacity: %d projects, License ID: %s). Cryptographically attested via Ed25519 asymmetric signature.", status.Claims.Customer.Name, strings.ToUpper(plan), maxProjects, status.Claims.ID),
 		}
 	}
 
