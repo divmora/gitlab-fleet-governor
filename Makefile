@@ -5,6 +5,8 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
+export PATH := $(shell go env GOPATH)/bin:$(PATH)
+
 # Module & Paths
 MODULE       := github.com/divmora/gitlab-fleet-governor
 BIN_NAME     := gitlab-fleet-governor
@@ -213,6 +215,62 @@ docker-build-lambda-multiarch: ## Build multi-arch AWS Lambda container image wi
 # Release & Cleanup
 # ==============================================================================
 
+.PHONY: sign-release
+sign-release: check-go-version build ## Sign release binary attestation using license-cli
+	@echo "==> Signing release attestation for $(BIN_NAME)"
+	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+	@if [ -z "$${DIVMORA_RELEASE_PRIVATE_KEY:-}" ]; then \
+		echo "ERROR: DIVMORA_RELEASE_PRIVATE_KEY environment variable is required to sign releases" >&2; \
+		exit 1; \
+	fi
+	@mkdir -p $(BIN_DIR)
+	@KEY_FILE=$$(mktemp); \
+	if [ -f "$${DIVMORA_RELEASE_PRIVATE_KEY}" ]; then \
+		cp "$${DIVMORA_RELEASE_PRIVATE_KEY}" "$$KEY_FILE"; \
+	else \
+		echo "$${DIVMORA_RELEASE_PRIVATE_KEY}" > "$$KEY_FILE"; \
+	fi; \
+	license-cli release sign \
+		-private-key "$$KEY_FILE" \
+		-product "$(BIN_NAME)" \
+		-version "$(VERSION)" \
+		-git-commit "$(GIT_COMMIT)" \
+		-binary "$(BIN_DIR)/$(BIN_NAME)" \
+		-out "$(BIN_DIR)/release.sig" \
+		-armored; \
+	STATUS=$$?; \
+	rm -f "$$KEY_FILE"; \
+	if [ $$STATUS -eq 0 ]; then \
+		cp "$(BIN_DIR)/release.sig" ./release.sig; \
+		echo "Attestation generated at $(BIN_DIR)/release.sig and ./release.sig"; \
+	fi; \
+	exit $$STATUS
+
+.PHONY: verify-release
+verify-release: check-go-version ## Verify release binary attestation using license-cli
+	@echo "==> Verifying release attestation for $(BIN_NAME)"
+	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+	@SIG_PATH="$(BIN_DIR)/release.sig"; \
+	if [ ! -f "$$SIG_PATH" ] && [ -f "./release.sig" ]; then \
+		SIG_PATH="./release.sig"; \
+	fi; \
+	KEY_ARG=""; \
+	if [ -n "$${DIVMORA_RELEASE_PUBLIC_KEY:-}" ]; then \
+		if [ -f "$${DIVMORA_RELEASE_PUBLIC_KEY}" ]; then \
+			KEY_ARG="-public-key $${DIVMORA_RELEASE_PUBLIC_KEY}"; \
+		else \
+			PUB_FILE=$$(mktemp); \
+			echo "$${DIVMORA_RELEASE_PUBLIC_KEY}" > "$$PUB_FILE"; \
+			KEY_ARG="-public-key $$PUB_FILE"; \
+		fi; \
+	fi; \
+	license-cli release verify \
+		$$KEY_ARG \
+		-attestation "$$SIG_PATH" \
+		-product "$(BIN_NAME)" \
+		-version "$(VERSION)" \
+		-binary "$(BIN_DIR)/$(BIN_NAME)"
+
 .PHONY: release-snapshot
 release-snapshot: ## Test GoReleaser release workflow locally in snapshot mode
 	@echo "==> Testing GoReleaser snapshot build"
@@ -221,7 +279,7 @@ release-snapshot: ## Test GoReleaser release workflow locally in snapshot mode
 .PHONY: clean
 clean: ## Clean up build artifacts, dist files, and test coverage
 	@echo "==> Cleaning build outputs"
-	@rm -rf $(BIN_DIR) $(DIST_DIR) $(COVERAGE_DIR) coverage.out coverage.txt
+	@rm -rf $(BIN_DIR) $(DIST_DIR) $(COVERAGE_DIR) coverage.out coverage.txt release.sig
 
 # ==============================================================================
 # Self-Documenting Help
