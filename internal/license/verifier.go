@@ -12,65 +12,20 @@ import (
 	liblicense "github.com/divmora/license-go/pkg/license"
 )
 
-// SignLicense serializes and cryptographically signs a set of Claims using an Ed25519 private key,
-// returning a canonical DIV1 compact token string ("DIV1.<payload>.<sig>").
-func SignLicense(claims *Claims, privKey ed25519.PrivateKey) (string, error) {
-	if claims == nil {
-		return "", errors.New("cannot sign nil license claims")
-	}
-	if len(privKey) != ed25519.PrivateKeySize {
-		return "", fmt.Errorf("invalid Ed25519 private key size: expected %d bytes, got %d", ed25519.PrivateKeySize, len(privKey))
-	}
-
-	signer, err := liblicense.NewSigner(privKey)
-	if err != nil {
-		return "", err
-	}
-	return signer.Sign(*claims)
-}
-
-// SignLicenseArmored serializes and cryptographically signs a set of Claims using an Ed25519 private key,
-// returning an armored PEM text block.
-func SignLicenseArmored(claims *Claims, privKey ed25519.PrivateKey) (string, error) {
-	if claims == nil {
-		return "", errors.New("cannot sign nil license claims")
-	}
-	if len(privKey) != ed25519.PrivateKeySize {
-		return "", fmt.Errorf("invalid Ed25519 private key size: expected %d bytes, got %d", ed25519.PrivateKeySize, len(privKey))
-	}
-
-	signer, err := liblicense.NewSigner(privKey)
-	if err != nil {
-		return "", err
-	}
-	return signer.SignArmored(*claims)
-}
-
 // ParseAndVerify decodes, parses, and cryptographically verifies an Ed25519 signed license token
 // against the current system time.
-// If pubKey is nil or empty, GetVerificationPublicKey() is used to resolve the public key.
+// If pubKey is nil or empty, DefaultPublicKeyBase64 is used as the immutable root of trust.
 func ParseAndVerify(token string, pubKey ed25519.PublicKey) (*ValidationStatus, error) {
 	return ParseAndVerifyAt(token, pubKey, time.Now().UTC())
 }
 
 // ParseAndVerifyAt decodes, parses, and cryptographically verifies an Ed25519 signed license token
 // against a specified evaluation time.
-// If pubKey is nil or empty, GetVerificationPublicKey() is used to resolve the public key.
+// If pubKey is nil or empty, DefaultPublicKeyBase64 is used as the immutable root of trust.
 func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time) (*ValidationStatus, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil, errors.New("license token cannot be empty")
-	}
-
-	var keyRing *liblicense.KeyRing
-	if len(pubKey) > 0 {
-		keyRing = liblicense.NewKeyRing(pubKey)
-	} else {
-		resolvedRing, err := GetVerificationKeyRing()
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve verification keyring: %w", err)
-		}
-		keyRing = resolvedRing
 	}
 
 	var validatorOpts []liblicense.ValidatorOption
@@ -94,7 +49,13 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 		validatorOpts = append(validatorOpts, liblicense.WithBuildDate(releaseTime))
 	}
 
-	validator, err := liblicense.NewValidatorWithKeyRing(keyRing, validatorOpts...)
+	var validator *liblicense.Validator
+	var err error
+	if len(pubKey) > 0 {
+		validator, err = liblicense.NewValidator(pubKey, validatorOpts...)
+	} else {
+		validator, err = liblicense.NewValidatorWithFallbackKey(DefaultPublicKeyBase64, validatorOpts...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize license validator: %w", err)
 	}

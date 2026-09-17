@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -217,7 +218,7 @@ func newIssueCmd() *cobra.Command {
 				MaintenanceExpiresAt: maintenanceExpiresAt,
 			}
 
-			token, err := license.SignLicense(claims, ed25519.PrivateKey(privKeyBytes))
+			token, err := signLicense(claims, ed25519.PrivateKey(privKeyBytes))
 			if err != nil {
 				return fmt.Errorf("failed to sign license: %w", err)
 			}
@@ -447,6 +448,24 @@ func decodeKeyBytes(raw string) ([]byte, error) {
 		return b, nil
 	}
 	return nil, fmt.Errorf("failed to decode private key (must be %d-byte base64 string)", ed25519.PrivateKeySize)
+}
+
+func signLicense(claims *license.Claims, privKey ed25519.PrivateKey) (string, error) {
+	if claims == nil {
+		return "", errors.New("cannot sign nil license claims")
+	}
+	if len(privKey) != ed25519.PrivateKeySize {
+		return "", fmt.Errorf("invalid Ed25519 private key size: expected %d bytes, got %d", ed25519.PrivateKeySize, len(privKey))
+	}
+	payloadJSON, err := json.Marshal(claims)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal license claims: %w", err)
+	}
+	tempToken := liblicense.EncodeToken(payloadJSON, nil)
+	dotIdx := len(tempToken) - 1
+	signedData := []byte(tempToken[:dotIdx])
+	sig := ed25519.Sign(privKey, signedData)
+	return liblicense.EncodeToken(payloadJSON, sig), nil
 }
 
 type signReleaseFlags struct {

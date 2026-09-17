@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
@@ -404,27 +405,11 @@ targets:
 func TestLicenseCommand(t *testing.T) {
 	ctx := context.Background()
 
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
+	pub := testutil.GetTestPublicKey()
 	license.SetVerificationPublicKey(pub)
 	defer license.ResetVerificationPublicKey()
 
-	claims := &license.Claims{
-		ID: "lic_cli_test",
-		Customer: license.Customer{
-			Name:  "Test CLI Corp",
-			Email: "cli@test.com",
-		},
-		Product:   "gitlab-fleet-governor",
-		Plan:      "enterprise",
-		Limits:    map[string]int64{"max_projects": 250},
-		Features:  []string{"all"},
-		IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
-		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
-	}
-	validToken, err := license.SignLicense(claims, priv)
-	require.NoError(t, err)
+	validToken := testutil.CLITestToken
 
 	t.Run("License Help", func(t *testing.T) {
 		stdout, _, err := executeCommand(ctx, "license", "--help")

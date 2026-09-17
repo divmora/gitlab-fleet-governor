@@ -12,6 +12,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
@@ -336,26 +337,11 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 	})
 
 	t.Run("Valid Commercial License", func(t *testing.T) {
-		pub, priv, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		pub := testutil.GetTestPublicKey()
 		license.SetVerificationPublicKey(pub)
 		defer license.ResetVerificationPublicKey()
 
-		claims := &license.Claims{
-			ID: "lic-audit-ent-999",
-			Customer: license.Customer{
-				Name:  "Fintech Enterprise Corp",
-				Email: "ciso@fintechcorp.com",
-			},
-			Product:   "gitlab-fleet-governor",
-			Plan:      "enterprise",
-			Limits:    map[string]int64{"max_projects": 500},
-			Features:  []string{"all"},
-			IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
-			ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
-		}
-		token, err := license.SignLicense(claims, priv)
-		require.NoError(t, err)
+		token := testutil.AuditEntToken
 
 		auditor, err := audit.NewAuditor(client,
 			targetOpts,
@@ -378,26 +364,11 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 	})
 
 	t.Run("Valid Commercial License in DryRun Mode", func(t *testing.T) {
-		pub, priv, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		pub := testutil.GetTestPublicKey()
 		license.SetVerificationPublicKey(pub)
 		defer license.ResetVerificationPublicKey()
 
-		claims := &license.Claims{
-			ID: "lic-audit-pixelvide-001",
-			Customer: license.Customer{
-				Name:  "Pixelvide",
-				Email: "admin@pixelvide.com",
-			},
-			Product:   "gitlab-fleet-governor",
-			Plan:      "enterprise",
-			Limits:    map[string]int64{"max_projects": 500},
-			Features:  []string{"all"},
-			IssuedAt:  time.Now().UTC().Add(-24 * time.Hour),
-			ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
-		}
-		token, err := license.SignLicense(claims, priv)
-		require.NoError(t, err)
+		token := testutil.AuditPixelvideToken
 
 		auditor, err := audit.NewAuditor(client,
 			targetOpts,

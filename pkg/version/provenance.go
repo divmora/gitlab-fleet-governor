@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -152,47 +153,29 @@ func SignRelease(claims *ReleaseClaims, privKey ed25519.PrivateKey) (string, err
 		KeyID:        claims.AuthorityID,
 	}
 
-	return liblicense.SignRelease(libClaims, privKey)
+	payloadJSON, err := json.Marshal(libClaims)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal release claims: %w", err)
+	}
+
+	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+	canonicalData := []byte(fmt.Sprintf("%s.%s", liblicense.ProtocolPrefixRelease, payloadB64))
+
+	sig := ed25519.Sign(privKey, canonicalData)
+	return liblicense.EncodeReleaseToken(payloadJSON, sig), nil
 }
 
 // SignReleaseArmored signs release claims and formats as an armored PEM block.
 func SignReleaseArmored(claims *ReleaseClaims, privKey ed25519.PrivateKey) (string, error) {
-	if claims == nil {
-		return "", errors.New("cannot sign nil release claims")
+	token, err := SignRelease(claims, privKey)
+	if err != nil {
+		return "", err
 	}
-	if len(privKey) != ed25519.PrivateKeySize {
-		return "", fmt.Errorf("invalid Ed25519 private key size: expected %d bytes, got %d", ed25519.PrivateKeySize, len(privKey))
+	block := &pem.Block{
+		Type:  liblicense.PEMTypeReleaseAttestation,
+		Bytes: []byte(token),
 	}
-	product := claims.Product
-	if product == "" {
-		product = "gitlab-fleet-governor"
-	}
-	authority := claims.Authority
-	if authority == "" {
-		authority = "DIVMORA Technologies Release Authority"
-	}
-
-	bDate, _ := parseAnyDate(claims.BuildDate)
-	if bDate.IsZero() {
-		bDate = time.Now().UTC()
-	}
-	rDate, _ := parseAnyDate(claims.ReleaseDate)
-	if rDate.IsZero() {
-		rDate = bDate
-	}
-
-	libClaims := liblicense.ReleaseClaims{
-		Product:      product,
-		Version:      claims.Version,
-		GitCommit:    claims.GitCommit,
-		BuildDate:    bDate,
-		ReleaseDate:  rDate,
-		BinaryDigest: claims.BinaryDigest,
-		Authority:    authority,
-		KeyID:        claims.AuthorityID,
-	}
-
-	return liblicense.SignReleaseArmored(libClaims, privKey)
+	return string(pem.EncodeToMemory(block)), nil
 }
 
 // ParseAndVerifyReleaseToken decodes, parses, and cryptographically verifies an Ed25519 signed release token.
