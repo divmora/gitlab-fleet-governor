@@ -1,5 +1,12 @@
 # Changelog
 
+### Breaking Changes
+
+* **license:** `fleet-license-gen` administrative utility has been deprecated and removed. Operators and administrators should install the official centralized multi-product license CLI:
+  ```bash
+  go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+  ```
+
 ## [0.7.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.6.1...v0.7.0) (2026-09-11)
 
 
