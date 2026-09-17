@@ -51,19 +51,15 @@ RUN if [ "${RELEASE_SIG}" != "none" ] && [ -n "${RELEASE_SIG}" ]; then \
 # ==============================================================================
 FROM public.ecr.aws/lambda/provided:al2023
 
-# Copy bootstrap executable and release signature to Lambda task root and runtime directory
-COPY --from=builder /build/bootstrap ${LAMBDA_RUNTIME_DIR}/bootstrap
+# Copy bootstrap executable and release signature to Lambda task root
 COPY --from=builder /build/bootstrap ${LAMBDA_TASK_ROOT}/bootstrap
 COPY --from=builder /build/release.sig* ${LAMBDA_TASK_ROOT}/
-RUN rm -f ${LAMBDA_TASK_ROOT}/release.sig.none
+RUN rm -f ${LAMBDA_TASK_ROOT}/release.sig.none && \
+    chmod 755 ${LAMBDA_TASK_ROOT}/bootstrap
 
 # Copy certificates and timezone information
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-
-# Ensure executable permissions
-RUN chmod 755 ${LAMBDA_RUNTIME_DIR}/bootstrap && \
-    chmod 755 ${LAMBDA_TASK_ROOT}/bootstrap
 
 LABEL org.opencontainers.image.title="gitlab-fleet-governor-lambda" \
       org.opencontainers.image.description="AWS Lambda container runtime for GitLab Fleet Governor" \
@@ -73,4 +69,4 @@ LABEL org.opencontainers.image.title="gitlab-fleet-governor-lambda" \
       org.opencontainers.image.licenses="BSL-1.1"
 
 # AWS Lambda Runtime entrypoint executes bootstrap automatically
-CMD ["main"]
+CMD ["bootstrap"]
