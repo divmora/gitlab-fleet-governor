@@ -352,3 +352,40 @@ This project is licensed under the **Business Source License 1.1 (BSL 1.1)**.
 - **Change Date**: Converts automatically to **Apache License 2.0** three (3) years after the release date of the specific version.
  
 For commercial inquiries and enterprise licensing, please contact **[licensing@divmora.com](mailto:licensing@divmora.com)** or visit **[divmora.com](https://divmora.com)**. See [LICENSE](LICENSE) and [DIVMORA Licensing Policy](https://github.com/divmora/.github/blob/main/LICENSING.md) for full terms.
+
+### Commercial License Management with `license-cli`
+
+For inspecting commercial licenses, generating air-gapped node requests, or validating quota cards across multi-product environments, operators and customers can install the official multi-product CLI:
+
+```bash
+go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+```
+
+#### Common Operator Commands
+
+- **Inspect License Claims & Scopes**:
+  ```bash
+  license-cli inspect -license /path/to/license.key
+  ```
+
+- **View Live Status Card & Fleet Quota**:
+  ```bash
+  license-cli status -license /path/to/license.key -usage "max_projects=42"
+  ```
+
+- **Generate Air-Gapped Offline License Request (`.divreq`)**:
+  ```bash
+  license-cli request -product "gitlab-fleet-governor" -customer "Acme Corp" -out ./node.divreq
+  ```
+
+- **Native Governor License Commands**:
+  ```bash
+  # Check active license tier and capacity in the current environment
+  gitlab-fleet-governor license status
+
+  # Output structured JSON for monitoring and alerts
+  gitlab-fleet-governor license status --json
+
+  # Headless compliance check for automated scripts and CI pipelines (exit code 0 if compliant)
+  gitlab-fleet-governor license check
+  ```

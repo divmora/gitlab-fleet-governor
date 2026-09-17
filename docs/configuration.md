@@ -314,4 +314,50 @@ Tokens can be scoped to specific products:
 
 A single unified environment variable (`DIVMORA_LICENSE_KEY`) or system file (`/etc/divmora/license.key`) can be deployed across your infrastructure, and each tool cryptographically verifies that the token's product claim allows execution.
 
+### Managing Commercial Licenses (`license-cli`)
+
+DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/license-go` for operators, platform teams, and enterprise administrators.
+
+#### Installation
+
+Install the official multi-product CLI via Go:
+
+```bash
+go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+```
+
+#### Operator Workflows
+
+- **Inspecting Licenses**:
+  Decode and verify cryptographic claims, expiry dates, authorized accounts, and product scopes:
+  ```bash
+  license-cli inspect -license /path/to/license.key
+  ```
+
+- **Viewing Live Status Card & Fleet Quota**:
+  Display the standardized status banner and evaluate current fleet metrics against token limits:
+  ```bash
+  license-cli status -license /path/to/license.key -usage "max_projects=42"
+  ```
+
+- **Air-Gapped Offline License Requests (`.divreq`)**:
+  Generate cryptographically bound air-gapped license requests for secure nodes or VPCs without direct outbound access:
+  ```bash
+  license-cli request -product "gitlab-fleet-governor" -customer "Acme Corp" -out ./node.divreq
+  ```
+
+- **Native CLI Commands**:
+  GitLab Fleet Governor also provides built-in inspection commands:
+  ```bash
+  # Display formatted terminal status card
+  gitlab-fleet-governor license status
+
+  # Output structured JSON for monitoring and alerts
+  gitlab-fleet-governor license status --json
+
+  # Headless compliance check for automated scripts and CI/CD pipelines
+  gitlab-fleet-governor license check
+  ```
+
+
 
