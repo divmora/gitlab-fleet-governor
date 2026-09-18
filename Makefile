@@ -218,7 +218,7 @@ docker-build-lambda-multiarch: ## Build multi-arch AWS Lambda container image wi
 .PHONY: sign-release
 sign-release: check-go-version build ## Sign release binary attestation using license-cli
 	@echo "==> Signing release attestation for $(BIN_NAME)"
-	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.1.0
 	@if [ -z "$${DIVMORA_RELEASE_PRIVATE_KEY:-}" ]; then \
 		echo "ERROR: DIVMORA_RELEASE_PRIVATE_KEY environment variable is required to sign releases" >&2; \
 		exit 1; \
@@ -249,7 +249,7 @@ sign-release: check-go-version build ## Sign release binary attestation using li
 .PHONY: verify-release
 verify-release: check-go-version ## Verify release binary attestation using license-cli
 	@echo "==> Verifying release attestation for $(BIN_NAME)"
-	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.0.0
+	@which license-cli >/dev/null 2>&1 || $(GO) install github.com/divmora/license-go/cmd/license-cli@v1.1.0
 	@SIG_PATH="$(BIN_DIR)/release.sig"; \
 	if [ ! -f "$$SIG_PATH" ] && [ -f "./release.sig" ]; then \
 		SIG_PATH="./release.sig"; \

@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	liblicense "github.com/divmora/license-go/pkg/license"
+	"github.com/spf13/cobra"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
-	liblicense "github.com/divmora/license-go/pkg/license"
-	"github.com/spf13/cobra"
 )
 
 func newLicenseCmd() *cobra.Command {
@@ -21,7 +22,7 @@ fleet capacity, and commercial subscription status for GitLab Fleet Governor.
 
 For centralized multi-product license management (inspections, offline node
 requests, and status cards), install the official license-cli:
-  go install github.com/divmora/license-go/cmd/license-cli@v1.0.0`,
+  go install github.com/divmora/license-go/cmd/license-cli@v1.1.0`,
 	}
 
 	cmd.AddCommand(newLicenseStatusCmd())
@@ -106,7 +107,7 @@ func newLicenseStatusCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "  export DIVMORA_LICENSE_KEY=\"<your-license-token>\"")
 				fmt.Fprintln(cmd.OutOrStdout(), "  or visit https://divmora.com / contact licensing@divmora.com")
 				fmt.Fprintln(cmd.OutOrStdout(), "\nFor centralized license management and air-gapped requests:")
-				fmt.Fprintln(cmd.OutOrStdout(), "  go install github.com/divmora/license-go/cmd/license-cli@v1.0.0")
+				fmt.Fprintln(cmd.OutOrStdout(), "  go install github.com/divmora/license-go/cmd/license-cli@v1.1.0")
 				fmt.Fprintln(cmd.OutOrStdout(), "  license-cli request -product \"gitlab-fleet-governor\" -customer \"<Company>\" -out ./node.divreq")
 				return nil
 			}
