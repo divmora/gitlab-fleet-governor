@@ -17,7 +17,7 @@ import (
 )
 
 // DefaultReleasePublicKeyBase64 is the embedded production Ed25519 public verification key for DIVMORA Technologies.
-const DefaultReleasePublicKeyBase64 = "FhmwiOvzcfqm0O1n62EAi101cOsWxDLM4rWE7Y0GbPs="
+const DefaultReleasePublicKeyBase64 = "K8GS3G93kHK5kfav+jxrLwZMIh710EWVyL0tvHLfE5A="
 
 // ReleaseSignature holds the cryptographic release token injected at compile time via -ldflags:
 // -X github.com/divmora/gitlab-fleet-governor/pkg/version.ReleaseSignature=<token>
