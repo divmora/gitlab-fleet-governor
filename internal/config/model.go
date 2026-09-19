@@ -73,6 +73,12 @@ type LicenseSettingsConfig struct {
 
 	// File is the file path pointing to the license token.
 	File string `yaml:"file,omitempty" json:"file,omitempty"`
+
+	// CRL is the optional Certificate Revocation List (compact token or armored PEM block).
+	CRL string `yaml:"crl,omitempty" json:"crl,omitempty"`
+
+	// CRLFile is the optional file path pointing to an offline Certificate Revocation List (.divcrl) file.
+	CRLFile string `yaml:"crl_file,omitempty" json:"crl_file,omitempty"`
 }
 
 // SetDefaults applies built-in default values to SettingsConfig.

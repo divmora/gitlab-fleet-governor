@@ -16,14 +16,20 @@ import (
 // ParseAndVerify decodes, parses, and cryptographically verifies an Ed25519 signed license token
 // against the current system time.
 // If pubKey is nil or empty, DefaultPublicKeyBase64 is used as the immutable root of trust.
-func ParseAndVerify(token string, pubKey ed25519.PublicKey) (*ValidationStatus, error) {
-	return ParseAndVerifyAt(token, pubKey, time.Now().UTC())
+// Optional crlSources can be provided as inline CRL tokens or file paths. If omitted,
+// standard environment variables (DIVMORA_CRL, DIVMORA_CRL_FILE) and system path (/etc/divmora/crl.divcrl)
+// are checked.
+func ParseAndVerify(token string, pubKey ed25519.PublicKey, crlSources ...string) (*ValidationStatus, error) {
+	return ParseAndVerifyAt(token, pubKey, time.Now().UTC(), crlSources...)
 }
 
 // ParseAndVerifyAt decodes, parses, and cryptographically verifies an Ed25519 signed license token
 // against a specified evaluation time.
 // If pubKey is nil or empty, DefaultPublicKeyBase64 is used as the immutable root of trust.
-func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time) (*ValidationStatus, error) {
+// Optional crlSources can be provided as inline CRL tokens or file paths. If omitted,
+// standard environment variables (DIVMORA_CRL, DIVMORA_CRL_FILE) and system path (/etc/divmora/crl.divcrl)
+// are checked.
+func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time, crlSources ...string) (*ValidationStatus, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil, errors.New("license token cannot be empty")
@@ -51,8 +57,18 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 		validatorOpts = append(validatorOpts, liblicense.WithBuildDate(releaseTime))
 	}
 
+	// 3. Certificate Revocation List (CRL) Enforcement:
+	// Resolve CRL from explicit sources (CLI flags / config file), environment variables,
+	// or standard system file paths (/etc/divmora/crl.divcrl).
+	crlData, err := ResolveCRL(crlSources...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve certificate revocation list (CRL): %w", err)
+	}
+	if crlData != "" {
+		validatorOpts = append(validatorOpts, liblicense.WithRevocationList(crlData))
+	}
+
 	var validator *liblicense.Validator
-	var err error
 	if len(pubKey) > 0 {
 		validator, err = liblicense.NewValidator(pubKey, validatorOpts...)
 	} else {
@@ -131,4 +147,26 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 		Message:       msg,
 		Claims:        res.Claims,
 	}, nil
+}
+
+// ResolveCRL determines the active Certificate Revocation List (CRL) contents from explicit
+// token strings, file paths, environment variables (DIVMORA_CRL, DIVMORA_CRL_FILE), or
+// the standard system path (/etc/divmora/crl.divcrl).
+// If no CRL is configured anywhere, it returns ("", nil) because CRL checking is optional.
+func ResolveCRL(sources ...string) (string, error) {
+	var explicit []string
+	for _, s := range sources {
+		if trimmed := strings.TrimSpace(s); trimmed != "" {
+			explicit = append(explicit, trimmed)
+		}
+	}
+
+	resolved, err := liblicense.ResolveCRL(explicit...)
+	if err != nil {
+		if err.Error() == "license: crl not found" {
+			return "", nil
+		}
+		return "", err
+	}
+	return resolved.Content, nil
 }

@@ -35,6 +35,12 @@ type EnforcementOptions struct {
 	// LicenseFile is the path to a file containing the license token.
 	LicenseFile string
 
+	// CRL optionally specifies an inline Certificate Revocation List (token or armored PEM).
+	CRL string
+
+	// CRLFile optionally specifies a path to a Certificate Revocation List (.divcrl) file.
+	CRLFile string
+
 	// Command identifies the calling command (e.g. "run", "audit").
 	Command string
 
@@ -142,8 +148,18 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 
 	// 2. If a commercial license token is provided, verify and enforce entitlements
 	if token != "" {
-		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime)
+		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime, opts.CRL, opts.CRLFile)
 		if err != nil {
+			if errors.Is(err, liblicense.ErrLicenseRevoked) {
+				if opts.IsDryRun {
+					slog.Warn("Commercial license has been revoked by Certificate Revocation List (CRL), falling back to dry-run simulation exemption", "error", err)
+					return &ValidationStatus{
+						Valid:   true,
+						Message: "Simulation / dry-run mode exempted under BSL 1.1 Additional Use Grant (a)",
+					}, nil
+				}
+				return status, fmt.Errorf("COMMERCIAL LICENSE REVOKED: %w", err)
+			}
 			if opts.IsDryRun {
 				slog.Warn("Commercial license verification failed, falling back to dry-run simulation exemption", "error", err)
 				return &ValidationStatus{
