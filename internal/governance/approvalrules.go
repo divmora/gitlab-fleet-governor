@@ -8,9 +8,10 @@ import (
 	"sync"
 	"time"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // CachingResolver resolves GitLab usernames and group paths to numeric IDs

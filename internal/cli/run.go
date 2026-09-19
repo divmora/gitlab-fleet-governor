@@ -6,11 +6,12 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
-	"github.com/spf13/cobra"
 )
 
 type runFlags struct {

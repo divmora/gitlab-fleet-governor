@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/audit"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/audit"
 )
 
 // XLSXReportGenerator encapsulates Excel document construction and styling.

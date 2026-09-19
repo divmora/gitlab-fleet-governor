@@ -1,6 +1,7 @@
 package license
 
 import (
+	"fmt"
 	"strings"
 
 	liblicense "github.com/divmora/license-go/pkg/license"
@@ -70,4 +71,85 @@ func ExtractHost(rawURL string) string {
 		return "gitlab.com"
 	}
 	return liblicense.NormalizeHost(raw)
+}
+
+// DefaultTierFeatures defines the first-class entitlement matrix mapping commercial plans
+// ("pro", "enterprise") to feature flags for GitLab Fleet Governor.
+var DefaultTierFeatures = liblicense.TierFeatures{
+	"pro": {
+		"governance.push_rules",
+		"governance.protected_branches",
+		"governance.project_settings",
+		"governance.members",
+		"governance.variables",
+		"governance.approval_rules",
+		"governance.runners",
+		"governance.webhooks",
+		"governance.pipeline_retention",
+		"report.*",
+	},
+	"enterprise": {
+		"*",
+	},
+}
+
+// IsCommunityFeature reports whether a feature belongs to the free Community Tier.
+// Community features are inherently free and unencumbered; they completely bypass
+// all license verification and feature assertion functions.
+func IsCommunityFeature(feature string) bool {
+	switch strings.TrimSpace(strings.ToLower(feature)) {
+	case "governance.push_rules",
+		"governance.protected_branches",
+		"governance.project_settings",
+		"governance.members",
+		"governance.variables",
+		"report.table", "report.json", "report.csv", "report.markdown", "report.summary",
+		"report.*":
+		return true
+	default:
+		return false
+	}
+}
+
+// RequiredTierForFeature returns the minimum subscription tier ("community", "pro", or "enterprise")
+// required to unlock the specified feature.
+func RequiredTierForFeature(feature string) string {
+	if IsCommunityFeature(feature) {
+		return "community"
+	}
+	switch strings.TrimSpace(strings.ToLower(feature)) {
+	case "governance.approval_rules",
+		"governance.runners",
+		"governance.webhooks",
+		"governance.pipeline_retention":
+		return "pro"
+	default:
+		return "enterprise"
+	}
+}
+
+// AssertFeature checks if a feature is authorized.
+// If the feature belongs to the Community Tier, it returns nil immediately without invoking
+// any license verification functions.
+// Otherwise, it verifies that valid commercial claims are present and that the active plan tier
+// or explicit feature grants entitle the feature.
+func AssertFeature(status *ValidationStatus, feature string) error {
+	if IsCommunityFeature(feature) {
+		return nil
+	}
+	tierReq := RequiredTierForFeature(feature)
+	if status == nil || status.Claims == nil {
+		return fmt.Errorf("COMMERCIAL LICENSE REQUIRED: Feature %q requires a commercial %s or higher subscription. Visit https://divmora.com or contact licensing@divmora.com",
+			feature, strings.ToUpper(tierReq))
+	}
+	if err := status.Claims.AssertFeature(feature); err != nil {
+		return fmt.Errorf("FEATURE NOT ENTITLED: Feature %q is not authorized under your current license plan %q (%w). Please upgrade to %s at https://divmora.com or contact licensing@divmora.com",
+			feature, status.Claims.Plan, err, strings.ToUpper(tierReq))
+	}
+	return nil
+}
+
+// AssertFeature checks if a feature is authorized on this ValidationStatus instance.
+func (v *ValidationStatus) AssertFeature(feature string) error {
+	return AssertFeature(v, feature)
 }

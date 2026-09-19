@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ProtectedBranchesAuditor audits project branch protection configurations.

@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/audit"
-	"github.com/divmora/gitlab-fleet-governor/internal/audit/smtp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/audit"
+	"github.com/divmora/gitlab-fleet-governor/internal/audit/smtp"
 )
 
 func TestBuildAuditEmail(t *testing.T) {

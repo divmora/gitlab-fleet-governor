@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
-	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
+	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 )
 
 func TestProjectFilter_NewProjectFilter(t *testing.T) {

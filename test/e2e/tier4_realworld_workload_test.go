@@ -11,6 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
@@ -18,9 +22,6 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ----------------------------------------------------------------------------
@@ -581,6 +582,10 @@ func TestTier4_RealWorld_CLIExecution_EndToEnd(t *testing.T) {
 	server := mockserver.NewMockGitLabServer()
 	defer server.Close()
 
+	licPub := testutil.GetTestPublicKey()
+	license.SetVerificationPublicKey(licPub)
+	t.Cleanup(license.ResetVerificationPublicKey)
+
 	ctx := context.Background()
 	tempDir := t.TempDir()
 	now := time.Now()
@@ -633,6 +638,7 @@ policies:
 		"run",
 		"-c", configFile,
 		"--dry-run=false",
+		"--license-key", testutil.CLITestToken,
 		"--concurrency=5",
 		"--report-format=json",
 		"-o", reportFile,

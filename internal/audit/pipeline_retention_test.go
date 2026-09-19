@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/audit"
-	auditreport "github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/audit"
+	auditreport "github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 )
 
 func TestPipelineRetentionAuditor_ConfiguredRetention_WithStalePipelines(t *testing.T) {

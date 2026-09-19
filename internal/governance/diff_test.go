@@ -3,8 +3,9 @@ package governance_test
 import (
 	"testing"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/governance"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/governance"
 )
 
 func TestFieldDiff_Formatting(t *testing.T) {

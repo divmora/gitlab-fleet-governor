@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ActionType defines the category of mutation planned or applied by a reconciler.

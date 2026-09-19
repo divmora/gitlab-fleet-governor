@@ -5,8 +5,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
 )
 
 // FilterDecision indicates why a project was accepted or rejected.

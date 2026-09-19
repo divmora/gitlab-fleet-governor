@@ -6,10 +6,11 @@ import (
 	"sort"
 	"sync"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // OperationsRegistry manages the registration, ordering, and execution of all governance operations.

@@ -62,6 +62,7 @@ flowchart TD
 ## Quick Navigation
 
 - [Getting Started](getting-started.md): Installation, authentication, and running your first simulation.
+- [Subscription Plans & Feature Matrix](plans.md): Free Community Tier, Pro, and Enterprise feature entitlements.
 - [Configuration Guide](configuration.md): Complete reference for policy YAML/JSON schemas.
 - [Operations Guide](operations.md): In-depth mechanics of all 10 governance reconcilers and the Security Audit Suite.
 - [AWS Lambda Deployment](lambda.md): Serverless cron and event-driven automation.

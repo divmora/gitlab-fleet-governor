@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
@@ -22,8 +24,8 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/governance"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ----------------------------------------------------------------------------
@@ -151,6 +153,8 @@ settings:
   dry_run: true
   concurrency: 2
   report_format: "json"
+  license:
+    key: "%s"
   gitlab:
     base_url: "%s"
     token: "mock-token"
@@ -166,7 +170,7 @@ policies:
     only_allow_merge_if_pipeline_succeeds: true
   pipeline_retention:
     retention_days: 90
-`, h.Server.BaseURL())
+`, testutil.ValidCompactToken, h.Server.BaseURL())
 
 	policyPath := h.WriteConfigFile("run_lifecycle_policy.yaml", policyContent)
 

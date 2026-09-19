@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	liblicense "github.com/divmora/license-go/pkg/license"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 // EnforcementOptions encapsulates the operational parameters required to evaluate
@@ -46,6 +47,10 @@ type EnforcementOptions struct {
 	// GitLabServerTime is the authoritative timestamp parsed from the GitLab server's HTTP Date response header.
 	// When provided, it serves as a tamper-resistant reference to detect local system clock manipulation.
 	GitLabServerTime time.Time
+
+	// RequiredFeatures lists the feature identifiers actively required by the current execution.
+	// Community features bypass checking completely; non-community features require an entitled commercial license.
+	RequiredFeatures []string
 }
 
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
@@ -197,6 +202,27 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 			}
 		}
 
+		// Enforce required commercial features (if any)
+		for _, feat := range opts.RequiredFeatures {
+			if IsCommunityFeature(feat) {
+				continue
+			}
+			if err := status.Claims.AssertFeature(feat); err != nil {
+				reqTier := strings.ToUpper(RequiredTierForFeature(feat))
+				if opts.IsDryRun {
+					slog.Warn("Feature not entitled under active license tier (permitted in dry-run simulation)",
+						"feature", feat,
+						"current_plan", status.Claims.Plan,
+						"required_tier", reqTier,
+						"error", err,
+					)
+					continue
+				}
+				return status, fmt.Errorf("FEATURE NOT ENTITLED: Feature %q is not authorized under license tier %q (%w). Upgrade to %s at https://divmora.com or contact licensing@divmora.com",
+					feat, status.Claims.Plan, err, reqTier)
+			}
+		}
+
 		// Log warnings if operating in grace period
 		if status.InGracePeriod {
 			slog.Warn("COMMERCIAL LICENSE NOTICE: License has expired but is operating within its grace period",
@@ -218,7 +244,24 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 		return status, nil
 	}
 
-	// 3. Evaluate BSL 1.1 Entitlements (when no commercial token is provided)
+	// 3. Evaluate non-community required features when no commercial token is provided
+	for _, feat := range opts.RequiredFeatures {
+		if IsCommunityFeature(feat) {
+			continue
+		}
+		reqTier := strings.ToUpper(RequiredTierForFeature(feat))
+		if opts.IsDryRun {
+			slog.Warn("Feature requires a commercial subscription (permitted under dry-run simulation)",
+				"feature", feat,
+				"required_tier", reqTier,
+			)
+			continue
+		}
+		return nil, fmt.Errorf("COMMERCIAL LICENSE REQUIRED: Feature %q requires a %s subscription. Community Tier only includes baseline repository governance. Visit https://divmora.com or contact licensing@divmora.com",
+			feat, reqTier)
+	}
+
+	// 4. Evaluate BSL 1.1 Entitlements (when no commercial token is provided)
 	if opts.IsDryRun {
 		slog.Debug("License check: execution is in dry-run simulation mode (permitted free of charge under BSL 1.1 Additional Use Grant a)",
 			"command", opts.Command,

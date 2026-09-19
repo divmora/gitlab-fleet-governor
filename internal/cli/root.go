@@ -6,10 +6,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/logging"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
-	"github.com/spf13/cobra"
 )
 
 // GlobalFlags holds all persistent global CLI flags.

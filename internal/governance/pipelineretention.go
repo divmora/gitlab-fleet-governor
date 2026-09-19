@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // PipelineRetentionReconciler reconciles automatic pipeline retention duration

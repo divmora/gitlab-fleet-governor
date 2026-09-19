@@ -12,13 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ----------------------------------------------------------------------------

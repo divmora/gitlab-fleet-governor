@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
 )
 
 // Client is the concrete high-level GitLab governance client implementation

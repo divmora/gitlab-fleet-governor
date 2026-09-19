@@ -353,6 +353,31 @@ This project is licensed under the **Business Source License 1.1 (BSL 1.1)**.
  
 For commercial inquiries and enterprise licensing, please contact **[licensing@divmora.com](mailto:licensing@divmora.com)** or visit **[divmora.com](https://divmora.com)**. See [LICENSE](LICENSE) and [DIVMORA Licensing Policy](https://github.com/divmora/.github/blob/main/LICENSING.md) for full terms.
 
+### 📊 Plan & Subscription Tier Comparison
+
+| Capability / Module | Feature Key | Free Community Tier (BSL 1.1) | Pro Plan | Enterprise Plan |
+|---|---|:---:|:---:|:---:|
+| **Push Rules Reconciler** | `governance.push_rules` | ✅ Free | ✅ Included | ✅ Included |
+| **Protected Branches** | `governance.protected_branches` | ✅ Free | ✅ Included | ✅ Included |
+| **Project Settings** | `governance.project_settings` | ✅ Free | ✅ Included | ✅ Included |
+| **Members & Expiration** | `governance.members` | ✅ Free | ✅ Included | ✅ Included |
+| **CI/CD Variables** | `governance.variables` | ✅ Free | ✅ Included | ✅ Included |
+| **Standard CLI Reports (table/json/csv/md)** | `report.*` | ✅ Free | ✅ Included | ✅ Included |
+| **Merge Request Approval Rules** | `governance.approval_rules` | ❌ | ✅ Included | ✅ Included |
+| **CI/CD Runner Fleet Governance** | `governance.runners` | ❌ | ✅ Included | ✅ Included |
+| **Webhook Integrations & Security** | `governance.webhooks` | ❌ | ✅ Included | ✅ Included |
+| **Pipeline Retention & Pruning** | `governance.pipeline_retention` | ❌ | ✅ Included | ✅ Included |
+| **Compliance & Security Audit Suite** | `audit.*` | ❌ | ❌ | ✅ Included |
+| **Executive Multi-Sheet Excel Reports** | `audit.export.xlsx` | ❌ | ❌ | ✅ Included |
+| **Automated Headless SMTP Dispatch** | `audit.smtp` | ❌ | ❌ | ✅ Included |
+| **GitLab Ultimate Compliance Frameworks** | `governance.compliance_frameworks` | ❌ | ❌ | ✅ Included |
+| **AWS Lambda Serverless Runtime** | `runtime.lambda` | ❌ | ❌ | ✅ Included |
+| **Fleet Scale Limit** | `max_projects` | $\le$ 25 Projects | Custom / Quota | Unlimited |
+| **Dry-Run Simulation Mode** | `--dry-run` | ✅ Always Free | ✅ Free | ✅ Free |
+
+> [!NOTE]
+> **Community Zero-Check Bypass**: When policies exercise only Community Tier capabilities, GitLab Fleet Governor bypasses all license checks and token validations completely. See **[docs/plans.md](docs/plans.md)** for detailed feature descriptions, philosophy, and licensing guides.
+
 ### Commercial License Management with `license-cli`
 
 For inspecting commercial licenses, generating air-gapped node requests, or validating quota cards across multi-product environments, operators and customers can install the official multi-product CLI:

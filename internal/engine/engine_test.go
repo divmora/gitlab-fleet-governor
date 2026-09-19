@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/governance"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 func setupTestEngine(t *testing.T, dryRun bool) (*engine.GovernanceEngine, *mockserver.MockGitLabServer) {

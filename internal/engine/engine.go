@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -398,6 +399,27 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if e.client != nil {
 		serverTime = e.client.ServerTime()
 	}
+
+	var requiredFeatures []string
+	if cfg.Policies.ApprovalRules != nil {
+		requiredFeatures = append(requiredFeatures, "governance.approval_rules")
+	}
+	if cfg.Policies.Runners != nil {
+		requiredFeatures = append(requiredFeatures, "governance.runners")
+	}
+	if len(cfg.Policies.Webhooks) > 0 {
+		requiredFeatures = append(requiredFeatures, "governance.webhooks")
+	}
+	if cfg.Policies.PipelineRetention != nil {
+		requiredFeatures = append(requiredFeatures, "governance.pipeline_retention")
+	}
+	if cfg.Policies.Compliance != nil {
+		requiredFeatures = append(requiredFeatures, "governance.compliance_frameworks")
+	}
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
+		requiredFeatures = append(requiredFeatures, "runtime.lambda")
+	}
+
 	if _, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(fleet.Projects),
 		IsDryRun:           dryRun,
@@ -407,6 +429,7 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 		LicenseKey:         licenseKey,
 		LicenseFile:        licenseFile,
 		Command:            "run",
+		RequiredFeatures:   requiredFeatures,
 	}); err != nil {
 		metrics.Finalize(time.Since(startTime))
 		snap := metrics.Snapshot()

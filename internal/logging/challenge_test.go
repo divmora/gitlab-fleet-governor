@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/logging"
 )
 
 // TestChallenge_Logging_ConcurrentRace verifies thread-safety under heavy concurrent load.

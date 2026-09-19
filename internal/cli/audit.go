@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/audit"
 	auditreport "github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 	auditsmtp "github.com/divmora/gitlab-fleet-governor/internal/audit/smtp"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	"github.com/spf13/cobra"
 )
 
 type auditFlags struct {
@@ -197,25 +198,7 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		dryRun = *cfg.Settings.DryRun
 	}
 
-	// 5. Construct Auditor coordinator
-	auditor, err := audit.NewAuditor(client,
-		audit.WithAuditorConcurrency(concurrency),
-		audit.WithAuditorTargets(cfg.Targets),
-		audit.WithAuditorModules(modules),
-		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
-		audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize auditor: %w", err)
-	}
-
-	// 6. Run fleet discovery and audits
-	reportData, err := auditor.Execute(ctx)
-	if err != nil {
-		return fmt.Errorf("audit execution failed: %w", err)
-	}
-
-	// 6. Determine Export Format and Destination
+	// 5. Determine Export Format and Destination
 	outputFile := flags.OutputFile
 	if outputFile == "" {
 		outputFile = globalFlags.OutputFile
@@ -246,9 +229,35 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		}
 	}
 
-	// If format is XLSX and no output file was specified, set a default filename
 	if exportFormat == auditreport.FormatXLSX && outputFile == "" {
 		outputFile = "gitlab-fleet-audit.xlsx"
+	}
+
+	var requiredAuditFeatures []string
+	if exportFormat == auditreport.FormatXLSX {
+		requiredAuditFeatures = append(requiredAuditFeatures, "audit.export.xlsx")
+	}
+	if flags.SMTPHost != "" || flags.SMTPTo != "" || flags.SMTPCc != "" || flags.SMTPBcc != "" {
+		requiredAuditFeatures = append(requiredAuditFeatures, "audit.smtp")
+	}
+
+	// 6. Construct Auditor coordinator
+	auditor, err := audit.NewAuditor(client,
+		audit.WithAuditorConcurrency(concurrency),
+		audit.WithAuditorTargets(cfg.Targets),
+		audit.WithAuditorModules(modules),
+		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
+		audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
+		audit.WithAuditorRequiredFeatures(requiredAuditFeatures...),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize auditor: %w", err)
+	}
+
+	// 7. Run fleet discovery and audits
+	reportData, err := auditor.Execute(ctx)
+	if err != nil {
+		return fmt.Errorf("audit execution failed: %w", err)
 	}
 
 	// 7. Write Report Output

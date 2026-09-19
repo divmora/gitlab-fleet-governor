@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ----------------------------------------------------------------------------

@@ -2,18 +2,21 @@ package license_test
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/license"
-	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
-	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	liblicense "github.com/divmora/license-go/pkg/license"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 var staticReleasePrivKey = ed25519.NewKeyFromSeed([]byte("divmora-rel-test-seed-32bytes!!!"))
@@ -759,4 +762,207 @@ func TestKeyRing_MultiKeyRotationAndRevocation(t *testing.T) {
 	// Token 2 is rejected because Key 2 is revoked
 	_, err = val.Verify(token2)
 	assert.ErrorIs(t, err, liblicense.ErrKeyRevoked)
+}
+
+func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
+	// 1. IsCommunityFeature taxonomy verification
+	communityFeatures := []string{
+		"governance.push_rules",
+		"governance.protected_branches",
+		"governance.project_settings",
+		"governance.members",
+		"governance.variables",
+		"report.table",
+		"report.json",
+		"report.csv",
+		"report.markdown",
+		"report.*",
+	}
+	for _, cf := range communityFeatures {
+		assert.True(t, license.IsCommunityFeature(cf), "expected %s to be community feature", cf)
+		assert.Equal(t, "community", license.RequiredTierForFeature(cf))
+	}
+
+	proFeatures := []string{
+		"governance.approval_rules",
+		"governance.runners",
+		"governance.webhooks",
+		"governance.pipeline_retention",
+	}
+	for _, pf := range proFeatures {
+		assert.False(t, license.IsCommunityFeature(pf), "expected %s NOT to be community feature", pf)
+		assert.Equal(t, "pro", license.RequiredTierForFeature(pf))
+	}
+
+	enterpriseFeatures := []string{
+		"governance.compliance_frameworks",
+		"audit.run",
+		"audit.export.xlsx",
+		"audit.smtp",
+		"audit.*",
+		"runtime.lambda",
+	}
+	for _, ef := range enterpriseFeatures {
+		assert.False(t, license.IsCommunityFeature(ef), "expected %s NOT to be community feature", ef)
+		assert.Equal(t, "enterprise", license.RequiredTierForFeature(ef))
+	}
+
+	// 2. AssertFeature: Community features bypass with ZERO checks (even on nil status)
+	var nilStatus *license.ValidationStatus
+	for _, cf := range communityFeatures {
+		assert.NoError(t, nilStatus.AssertFeature(cf), "community feature %s must return nil on nil status", cf)
+	}
+
+	// Non-community features fail on nil status
+	assert.Error(t, nilStatus.AssertFeature("governance.approval_rules"))
+	assert.Error(t, nilStatus.AssertFeature("governance.compliance_frameworks"))
+
+	// 3. Generate keypair and sign test tokens for Pro and Enterprise
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signTestToken := func(claims liblicense.Claims) string {
+		payloadJSON, err := json.Marshal(claims)
+		require.NoError(t, err)
+
+		tempToken := liblicense.EncodeToken(payloadJSON, nil)
+		dotIdx := len(tempToken) - 1
+		signedData := []byte(tempToken[:dotIdx])
+
+		sig := ed25519.Sign(priv, signedData)
+		return liblicense.EncodeToken(payloadJSON, sig)
+	}
+
+	proClaims := liblicense.Claims{
+		ID:        "lic_test_pro_123",
+		Product:   "gitlab-fleet-governor",
+		Plan:      "pro",
+		Customer:  liblicense.Customer{Name: "Pro Team Corp"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
+		Limits:    map[string]int64{"max_projects": 100},
+	}
+	proToken := signTestToken(proClaims)
+
+	entClaims := liblicense.Claims{
+		ID:        "lic_test_ent_456",
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Customer:  liblicense.Customer{Name: "Enterprise Global Corp"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
+		Limits:    map[string]int64{"max_projects": 500},
+	}
+	entToken := signTestToken(entClaims)
+
+	// 4. Enforce: Community Execution (no license, <= 25 projects, only community features)
+	commStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 10,
+		IsDryRun:           false,
+		RequiredFeatures:   []string{"governance.push_rules", "governance.protected_branches"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, commStatus)
+	assert.True(t, commStatus.Valid)
+	assert.Contains(t, commStatus.Message, "Free Community Tier")
+
+	// 5. Enforce: Unlicensed attempting Pro feature in live mode -> FAILS
+	_, err = license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 10,
+		IsDryRun:           false,
+		RequiredFeatures:   []string{"governance.approval_rules"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REQUIRED")
+	assert.Contains(t, err.Error(), "governance.approval_rules")
+	assert.Contains(t, err.Error(), "PRO")
+
+	// 6. Enforce: Unlicensed attempting Pro feature in dry-run mode -> WARNS & SUCCEEDS
+	dryRunStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 10,
+		IsDryRun:           true,
+		RequiredFeatures:   []string{"governance.approval_rules"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dryRunStatus)
+	assert.True(t, dryRunStatus.Valid)
+
+	// 7. Enforce: Pro License token
+	// Pro license authorizes approval rules, runners, webhooks, pipeline retention
+	pStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 50,
+		IsDryRun:           false,
+		LicenseKey:         proToken,
+		PublicKey:          pub,
+		RequiredFeatures: []string{
+			"governance.approval_rules",
+			"governance.runners",
+			"governance.webhooks",
+			"governance.pipeline_retention",
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, pStatus)
+	assert.True(t, pStatus.Valid)
+
+	// Pro license attempting Enterprise feature (compliance_frameworks) -> FAILS in live mode
+	_, err = license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 50,
+		IsDryRun:           false,
+		LicenseKey:         proToken,
+		PublicKey:          pub,
+		RequiredFeatures:   []string{"governance.compliance_frameworks"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FEATURE NOT ENTITLED")
+	assert.Contains(t, err.Error(), "governance.compliance_frameworks")
+	assert.Contains(t, err.Error(), "ENTERPRISE")
+
+	// Pro license attempting audit.run (Enterprise) -> FAILS in live mode
+	_, err = license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 50,
+		IsDryRun:           false,
+		LicenseKey:         proToken,
+		PublicKey:          pub,
+		RequiredFeatures:   []string{"audit.run"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FEATURE NOT ENTITLED")
+	assert.Contains(t, err.Error(), "audit.run")
+	assert.Contains(t, err.Error(), "ENTERPRISE")
+
+	// Pro license attempting Enterprise feature in dry-run mode -> WARNS & SUCCEEDS
+	dryProStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 50,
+		IsDryRun:           true,
+		LicenseKey:         proToken,
+		PublicKey:          pub,
+		RequiredFeatures:   []string{"governance.compliance_frameworks", "audit.run"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dryProStatus)
+	assert.True(t, dryProStatus.Valid)
+
+	// 8. Enforce: Enterprise License token
+	// Enterprise license authorizes ALL features via wildcard *
+	entStatus, err := license.Enforce(license.EnforcementOptions{
+		DiscoveredProjects: 200,
+		IsDryRun:           false,
+		LicenseKey:         entToken,
+		PublicKey:          pub,
+		RequiredFeatures: []string{
+			"governance.approval_rules",
+			"governance.runners",
+			"governance.webhooks",
+			"governance.pipeline_retention",
+			"governance.compliance_frameworks",
+			"audit.run",
+			"audit.export.xlsx",
+			"audit.smtp",
+			"runtime.lambda",
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, entStatus)
+	assert.True(t, entStatus.Valid)
 }

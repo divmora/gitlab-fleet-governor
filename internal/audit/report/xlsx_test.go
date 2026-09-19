@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/audit"
-	"github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/audit"
+	"github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 )
 
 func sampleAuditReport() *audit.AuditReport {

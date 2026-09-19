@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ComplianceReconciler reconciles project compliance framework labels.

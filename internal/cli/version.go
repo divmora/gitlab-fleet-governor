@@ -3,8 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/spf13/cobra"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 type versionFlags struct {

@@ -12,15 +12,18 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -485,6 +488,10 @@ func TestTier3_Combinatorial_S3Config_LambdaEventBridge_DirectOverrides(t *testi
 	ctx := context.Background()
 	now := time.Now()
 
+	licPub := testutil.GetTestPublicKey()
+	license.SetVerificationPublicKey(licPub)
+	t.Cleanup(license.ResetVerificationPublicKey)
+
 	// Seed groups and projects
 	g10 := server.State().AddGroup(&gitlab.Group{ID: 10, Name: "Fintech", Path: "fintech", FullPath: "fintech"})
 	p100 := server.State().AddProject(&gitlab.Project{
@@ -543,6 +550,9 @@ policies:
 					"gitlab": {
 						"base_url": "%s",
 						"token": "s3-json-token"
+					},
+					"license": {
+						"key": "%s"
 					}
 				},
 				"targets": {
@@ -551,7 +561,7 @@ policies:
 				"policies": {
 					"pipeline_retention": { "retention_days": 7 }
 				}
-			}`, server.BaseURL())),
+			}`, server.BaseURL(), testutil.ValidCompactToken)),
 		},
 	}
 
@@ -692,6 +702,10 @@ func TestTier3_Combinatorial_ConcurrentFleetScan_TokenBucketRateLimiter_WithBack
 	server := mockserver.NewMockGitLabServer()
 	defer server.Close()
 
+	licPub := testutil.GetTestPublicKey()
+	license.SetVerificationPublicKey(licPub)
+	t.Cleanup(license.ResetVerificationPublicKey)
+
 	ctx := context.Background()
 	now := time.Now()
 
@@ -779,6 +793,9 @@ func TestTier3_Combinatorial_ConcurrentFleetScan_TokenBucketRateLimiter_WithBack
 			DryRun:      boolPtr(false),
 			Concurrency: 8, // Concurrency 8 across 20 projects
 			GitLab:      *clientSettings,
+			License: config.LicenseSettingsConfig{
+				Key: testutil.ValidCompactToken,
+			},
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{

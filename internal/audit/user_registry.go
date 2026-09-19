@@ -7,8 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 // UserRegistry manages thread-safe discovery, caching, and display formatting of all users across the fleet.

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 )
 

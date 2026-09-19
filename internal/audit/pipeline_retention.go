@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // PipelineRetentionAuditor audits project pipeline retention policies and flags

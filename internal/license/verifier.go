@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	liblicense "github.com/divmora/license-go/pkg/license"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 // ParseAndVerify decodes, parses, and cryptographically verifies an Ed25519 signed license token
@@ -30,6 +31,7 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 
 	var validatorOpts []liblicense.ValidatorOption
 	validatorOpts = append(validatorOpts, liblicense.WithProduct("gitlab-fleet-governor"))
+	validatorOpts = append(validatorOpts, liblicense.WithTierFeatures(DefaultTierFeatures))
 	if fp := strings.TrimSpace(os.Getenv("DIVMORA_FINGERPRINT")); fp != "" {
 		validatorOpts = append(validatorOpts, liblicense.WithExpectedFingerprint(fp))
 	}
@@ -71,6 +73,7 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 			// Token signature, product, and expiration are verified; scope is evaluated by Enforce against active targets.
 			claims, inspectErr := liblicense.Inspect(token)
 			if inspectErr == nil {
+				claims.SetTierFeatures(DefaultTierFeatures)
 				daysRemaining := claims.DaysRemaining()
 				inGrace := claims.IsInGracePeriodAt(evalTime)
 				if inGrace {
@@ -96,6 +99,9 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 		}
 
 		claims, _ := liblicense.Inspect(token)
+		if claims != nil {
+			claims.SetTierFeatures(DefaultTierFeatures)
+		}
 		return &ValidationStatus{
 			Valid:   false,
 			Message: err.Error(),

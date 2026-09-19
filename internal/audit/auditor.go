@@ -5,16 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // ProjectModuleAuditor is the interface implemented by audit modules.
@@ -55,13 +57,21 @@ type Auditor struct {
 	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
 	pipelineRetentionAud PipelineRetentionModuleAuditor
 
-	licenseKey  string
-	licenseFile string
-	dryRun      bool
+	licenseKey       string
+	licenseFile      string
+	dryRun           bool
+	requiredFeatures []string
 }
 
 // AuditorOption provides functional configuration for Auditor.
 type AuditorOption func(*Auditor)
+
+// WithAuditorRequiredFeatures configures required commercial feature flags for the audit run.
+func WithAuditorRequiredFeatures(features ...string) AuditorOption {
+	return func(a *Auditor) {
+		a.requiredFeatures = append(a.requiredFeatures, features...)
+	}
+}
 
 // WithAuditorLicense configures commercial license enforcement settings for the audit run.
 func WithAuditorLicense(key, file string, dryRun bool) AuditorOption {
@@ -232,6 +242,16 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		baseURL = a.client.BaseURL()
 		serverTime = a.client.ServerTime()
 	}
+
+	var requiredFeatures []string
+	if len(projects) > license.FreeTierMaxProjects || a.licenseKey != "" || a.licenseFile != "" {
+		requiredFeatures = append(requiredFeatures, "audit.run")
+	}
+	requiredFeatures = append(requiredFeatures, a.requiredFeatures...)
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
+		requiredFeatures = append(requiredFeatures, "runtime.lambda")
+	}
+
 	licStatus, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: len(projects),
 		IsDryRun:           a.dryRun,
@@ -241,6 +261,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		LicenseKey:         a.licenseKey,
 		LicenseFile:        a.licenseFile,
 		Command:            "audit",
+		RequiredFeatures:   requiredFeatures,
 	})
 	if err != nil {
 		return nil, err

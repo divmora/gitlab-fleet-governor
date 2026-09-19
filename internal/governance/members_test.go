@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
-	"github.com/divmora/gitlab-fleet-governor/internal/governance"
-	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
+	"github.com/divmora/gitlab-fleet-governor/internal/governance"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 )
 
 func TestMembersReconciler(t *testing.T) {

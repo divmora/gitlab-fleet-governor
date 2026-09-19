@@ -5,8 +5,9 @@ import (
 	"net/http/httptest"
 	"time"
 
-	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 // MockGitLabServer is an in-memory HTTP test server simulating GitLab v4 REST API.

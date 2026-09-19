@@ -6,8 +6,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
 )
 
 type validateFlags struct {

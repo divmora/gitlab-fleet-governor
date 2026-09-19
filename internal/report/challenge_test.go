@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/report"
 )
 
 // Helper to create sample report data with varied edge cases

@@ -7,8 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 	"github.com/spf13/cobra"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 )
 
 type lambdaFlags struct {

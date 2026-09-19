@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/audit"
-	"github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/audit"
+	"github.com/divmora/gitlab-fleet-governor/internal/audit/report"
 )
 
 func TestParseExportFormat(t *testing.T) {

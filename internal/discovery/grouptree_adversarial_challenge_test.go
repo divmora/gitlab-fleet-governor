@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/internal/config"
-	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
-	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
+	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
+	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 // mockGroupsClient implements gl.GitLabClient and gl.GroupsService for in-memory graph topologies.

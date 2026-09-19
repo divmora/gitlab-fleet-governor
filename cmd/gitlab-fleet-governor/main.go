@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	awslambda "github.com/aws/aws-lambda-go/lambda"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	lambdapk "github.com/divmora/gitlab-fleet-governor/internal/lambda"
 )

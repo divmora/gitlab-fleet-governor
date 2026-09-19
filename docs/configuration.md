@@ -69,6 +69,9 @@ Configurations are resolved in the following priority order:
 | `license.key` | string | `""` | Commercial enterprise license key token string. |
 | `license.file` | string | `""` | Path to commercial enterprise license key file. |
 
+> [!TIP]
+> For full details on subscription plans, feature entitlements (Free Community Tier, Pro Plan, Enterprise Plan), and the Community zero-check guarantee, see the **[Subscription Plans & Feature Matrix](plans.md)**.
+
 ---
 
 ## `targets` Reference

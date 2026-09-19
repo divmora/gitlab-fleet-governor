@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/divmora/gitlab-fleet-governor/pkg/version"
 )
 
 func generateTestReleaseKeyPair(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {

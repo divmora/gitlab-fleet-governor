@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // DiscoveredGroup represents a normalized GitLab group resolved during fleet discovery.

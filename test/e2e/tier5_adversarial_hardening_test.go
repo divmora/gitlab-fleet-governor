@@ -20,7 +20,9 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 )
 
@@ -30,6 +32,10 @@ func TestTier5_E2E_FullGovernancePipeline_AdversarialStress(t *testing.T) {
 	srv := mockserver.NewMockGitLabServer()
 	defer srv.Close()
 	srv.Seed()
+
+	licPub := testutil.GetTestPublicKey()
+	license.SetVerificationPublicKey(licPub)
+	t.Cleanup(license.ResetVerificationPublicKey)
 
 	tempDir := t.TempDir()
 
@@ -180,6 +186,7 @@ policies:
 			"run",
 			"-c", configFile,
 			"--dry-run=false",
+			"--license-key", testutil.CLITestToken,
 			"--concurrency=5",
 			"--report-format", "json",
 			"-o", reportFile,

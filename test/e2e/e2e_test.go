@@ -16,13 +16,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/require"
 
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/cli"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // MockS3Client implements config.S3ClientAPI for opaque-box S3 URI testing.
@@ -75,6 +78,9 @@ type E2EHarness struct {
 func NewE2EHarness(t *testing.T) *E2EHarness {
 	t.Helper()
 
+	licPub := testutil.GetTestPublicKey()
+	license.SetVerificationPublicKey(licPub)
+
 	server := mockserver.NewMockGitLabServer()
 	server.Seed()
 
@@ -89,6 +95,7 @@ func NewE2EHarness(t *testing.T) *E2EHarness {
 	}
 
 	t.Cleanup(func() {
+		license.ResetVerificationPublicKey()
 		server.Close()
 	})
 
@@ -146,6 +153,8 @@ settings:
   log_level: "info"
   log_format: "text"
   report_format: "table"
+  license:
+    key: "%s"
   gitlab:
     base_url: "%s"
     token: "mock-token"
@@ -162,7 +171,7 @@ targets:
     archived: false
 policies:
 %s
-`, h.Server.BaseURL(), customPolicy)
+`, testutil.ValidCompactToken, h.Server.BaseURL(), customPolicy)
 }
 
 // GovernorClient creates an initialized client pointing to the mock server.

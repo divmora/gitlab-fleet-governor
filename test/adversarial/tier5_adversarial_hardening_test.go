@@ -62,8 +62,10 @@ func TestTier5_Adversarial_RaceStress_100Goroutines(t *testing.T) {
 				AuthorEmailRegex: `@example\.com$`,
 				PreventSecrets:   gogitlab.Ptr(true),
 			},
-			PipelineRetention: &config.PipelineRetentionConfig{
-				RetentionDays: 30,
+			ProtectedBranches: []config.ProtectedBranchRuleConfig{
+				{
+					Name: "main",
+				},
 			},
 		},
 	}

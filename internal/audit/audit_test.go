@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	gogitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/divmora/gitlab-fleet-governor/internal/audit"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/discovery"
@@ -15,9 +19,6 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 	"github.com/divmora/gitlab-fleet-governor/pkg/version"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	gogitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 func setupMockGitLab(t *testing.T) (*mockserver.MockGitLabServer, gitlab.GitLabClient, *discovery.TargetProject) {
