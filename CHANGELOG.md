@@ -7,6 +7,35 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.8.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.7.0...v0.8.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **license:** cmd/fleet-license-gen has been removed. Operators should install github.com/divmora/license-go/cmd/license-cli@v1.0.0.
+
+### Features
+
+* **discovery:** handle projects marked for deletion in discovery, audit, and engine ([17a214d](https://github.com/divmora/gitlab-fleet-governor/commit/17a214dfdf493c9e3185898b925932da543c762e))
+* **license:** adopt pro and enterprise tier-to-features matrix resolution ([020782b](https://github.com/divmora/gitlab-fleet-governor/commit/020782b3ae9812fed352817faadc731978ed3b02))
+* **license:** modernize provenance evaluation, adopt standardized status cards, and deprecate fleet-license-gen ([89db5ca](https://github.com/divmora/gitlab-fleet-governor/commit/89db5ca3a5b3337e7c663a7b63456b49d44349fb))
+* **license:** unify commercial licensing under DIVMORA_LICENSE_KEY with multi-product claim scoping ([4016010](https://github.com/divmora/gitlab-fleet-governor/commit/40160107b3041c6af04a11b6ab926bf032f115f7))
+* **license:** upgrade to license-go v0.5.0 and adopt upstream keyring, scoping, and host primitives ([d2d38a7](https://github.com/divmora/gitlab-fleet-governor/commit/d2d38a769aa48885e46b4c31fc51fd855ba75d7f))
+* **license:** upgrade to license-go v0.6.0 and adopt release attestation, declarative BSL grants, and status formatters ([d43c4f8](https://github.com/divmora/gitlab-fleet-governor/commit/d43c4f8e6682811475c9b5a81d58514c017a26b1))
+* **license:** upgrade to license-go v0.7.0 and adopt native placeholder attestation ([6b98fa6](https://github.com/divmora/gitlab-fleet-governor/commit/6b98fa611401f99d5ca51125daae3fc2441cfe65))
+* **license:** upgrade to license-go v1.0.0 and standardize runtime verification without regressions ([#39](https://github.com/divmora/gitlab-fleet-governor/issues/39)) ([df56f54](https://github.com/divmora/gitlab-fleet-governor/commit/df56f54a65ec80c83ffe20a777ea47db83ddd13c))
+* **license:** upgrade to license-go v1.1.0 ([30dd8a3](https://github.com/divmora/gitlab-fleet-governor/commit/30dd8a3a93eb5b1a0b96a345fe634ddd16a7e3ef))
+
+
+### Bug Fixes
+
+* **docker:** correct entrypoint CMD to ["bootstrap"] and copy only to task root ([#38](https://github.com/divmora/gitlab-fleet-governor/issues/38)) ([e56d732](https://github.com/divmora/gitlab-fleet-governor/commit/e56d732c479c32e481d63c8390682fd9ec3a4922))
+
+
+### Miscellaneous Chores
+
+* **license:** deprecate and remove legacy cmd/fleet-license-gen ([#40](https://github.com/divmora/gitlab-fleet-governor/issues/40)) ([59cd745](https://github.com/divmora/gitlab-fleet-governor/commit/59cd745313b04233592f1a6fe592c2d2b50234ca))
+
 ## [0.7.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.6.1...v0.7.0) (2026-09-11)
 
 
