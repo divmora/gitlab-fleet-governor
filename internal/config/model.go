@@ -79,6 +79,9 @@ type LicenseSettingsConfig struct {
 
 	// CRLFile is the optional file path pointing to an offline Certificate Revocation List (.divcrl) file.
 	CRLFile string `yaml:"crl_file,omitempty" json:"crl_file,omitempty"`
+
+	// CRLURL is the optional remote HTTPS URL for dynamic Certificate Revocation List synchronization.
+	CRLURL string `yaml:"crl_url,omitempty" json:"crl_url,omitempty"`
 }
 
 // SetDefaults applies built-in default values to SettingsConfig.

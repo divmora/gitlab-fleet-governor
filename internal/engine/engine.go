@@ -390,6 +390,7 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	licenseFile := cfg.Settings.License.File
 	licenseCRL := cfg.Settings.License.CRL
 	licenseCRLFile := cfg.Settings.License.CRLFile
+	licenseCRLURL := cfg.Settings.License.CRLURL
 	var targetPaths []string
 	for _, p := range fleet.Projects {
 		targetPaths = append(targetPaths, p.PathWithNamespace)
@@ -432,6 +433,7 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 		LicenseFile:        licenseFile,
 		CRL:                licenseCRL,
 		CRLFile:            licenseCRLFile,
+		CRLURL:             licenseCRLURL,
 		Command:            "run",
 		RequiredFeatures:   requiredFeatures,
 	}); err != nil {

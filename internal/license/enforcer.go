@@ -41,6 +41,9 @@ type EnforcementOptions struct {
 	// CRLFile optionally specifies a path to a Certificate Revocation List (.divcrl) file.
 	CRLFile string
 
+	// CRLURL optionally specifies a remote HTTPS URL for dynamic Certificate Revocation List synchronization.
+	CRLURL string
+
 	// Command identifies the calling command (e.g. "run", "audit").
 	Command string
 
@@ -148,7 +151,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 
 	// 2. If a commercial license token is provided, verify and enforce entitlements
 	if token != "" {
-		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime, opts.CRL, opts.CRLFile)
+		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime, opts.CRL, opts.CRLFile, opts.CRLURL)
 		if err != nil {
 			if errors.Is(err, liblicense.ErrLicenseRevoked) {
 				if opts.IsDryRun {

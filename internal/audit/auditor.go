@@ -61,6 +61,7 @@ type Auditor struct {
 	licenseFile      string
 	licenseCRL       string
 	licenseCRLFile   string
+	licenseCRLURL    string
 	dryRun           bool
 	requiredFeatures []string
 }
@@ -89,6 +90,13 @@ func WithAuditorCRL(crl, file string) AuditorOption {
 	return func(a *Auditor) {
 		a.licenseCRL = crl
 		a.licenseCRLFile = file
+	}
+}
+
+// WithAuditorCRLURL configures remote dynamic Certificate Revocation List synchronization URL.
+func WithAuditorCRLURL(url string) AuditorOption {
+	return func(a *Auditor) {
+		a.licenseCRLURL = url
 	}
 }
 
@@ -272,6 +280,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		LicenseFile:        a.licenseFile,
 		CRL:                a.licenseCRL,
 		CRLFile:            a.licenseCRLFile,
+		CRLURL:             a.licenseCRLURL,
 		Command:            "audit",
 		RequiredFeatures:   requiredFeatures,
 	})

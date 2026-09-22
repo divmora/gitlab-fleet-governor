@@ -58,14 +58,33 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 	}
 
 	// 3. Certificate Revocation List (CRL) Enforcement:
-	// Resolve CRL from explicit sources (CLI flags / config file), environment variables,
+	// Support explicit remote CRL distribution URLs, local CRL files/tokens, environment variables,
 	// or standard system file paths (/etc/divmora/crl.divcrl).
-	crlData, err := ResolveCRL(crlSources...)
+	var crlFilesOrTokens []string
+	var crlURLs []string
+	for _, src := range crlSources {
+		trimmed := strings.TrimSpace(src)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+			crlURLs = append(crlURLs, trimmed)
+		} else {
+			crlFilesOrTokens = append(crlFilesOrTokens, trimmed)
+		}
+	}
+
+	crlData, err := ResolveCRL(crlFilesOrTokens...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve certificate revocation list (CRL): %w", err)
 	}
 	if crlData != "" {
 		validatorOpts = append(validatorOpts, liblicense.WithRevocationList(crlData))
+	} else if len(crlURLs) > 0 {
+		validatorOpts = append(validatorOpts, liblicense.WithCRLURL(crlURLs[0]))
+	} else {
+		// Enable auto-resolved CRL checking (local files or dynamic distribution points)
+		validatorOpts = append(validatorOpts, liblicense.WithAutoResolvedRevocationList())
 	}
 
 	var validator *liblicense.Validator

@@ -4,6 +4,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1125,6 +1127,31 @@ func TestCRL_RevocationAndResolution(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
 		assert.False(t, status.Valid)
+	})
+
+	t.Run("Remote dynamic CRL synchronization via HTTP URL", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/x-pem-file")
+			_, _ = w.Write([]byte(crlArmored))
+		}))
+		defer ts.Close()
+
+		status, err := license.ParseAndVerify(activeToken, pub, ts.URL)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+
+		statusEnforce, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			LicenseKey:         activeToken,
+			PublicKey:          pub,
+			CRLURL:             ts.URL,
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REVOKED")
+		assert.False(t, statusEnforce.Valid)
 	})
 
 	t.Run("ResolveCRL returns empty without error when no CRL is configured", func(t *testing.T) {
