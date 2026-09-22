@@ -914,9 +914,7 @@ func (s *defaultTargetBranchRulesService) DestroyTargetBranchRule(ctx context.Co
 
 func (s *defaultTargetBranchRulesService) graphqlURL() string {
 	u := strings.TrimSuffix(s.baseURL, "/")
-	if strings.HasSuffix(u, "/api/v4") {
-		u = strings.TrimSuffix(u, "/api/v4")
-	}
+	u = strings.TrimSuffix(u, "/api/v4")
 	return u + "/api/graphql"
 }
 
