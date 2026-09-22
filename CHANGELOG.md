@@ -7,6 +7,14 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.9.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.8.0...v0.9.0) (2026-09-22)
+
+
+### Features
+
+* **license:** upgrade to license-go v1.3.0 and support offline/remote CRL revocation ([#44](https://github.com/divmora/gitlab-fleet-governor/issues/44)) ([02344dc](https://github.com/divmora/gitlab-fleet-governor/commit/02344dcd830a35879373107f088c227ddca423fb))
+* **license:** upgrade to license-go v1.3.1 ([#47](https://github.com/divmora/gitlab-fleet-governor/issues/47)) ([0aa9f50](https://github.com/divmora/gitlab-fleet-governor/commit/0aa9f50f9411d7e154045cfda654a05d969bbb58))
+
 ## [0.8.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.7.0...v0.8.0) (2026-09-19)
 
 
