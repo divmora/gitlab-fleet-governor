@@ -22,6 +22,7 @@ type GitLabClient interface {
 	Users() UsersService
 	ProtectedEnvironments() ProtectedEnvironmentsService
 	Pipelines() PipelinesService
+	TargetBranchRules() TargetBranchRulesService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -147,4 +148,19 @@ type UsersService interface {
 // PipelinesService abstracts project pipeline queries.
 type PipelinesService interface {
 	ListProjectPipelines(pid any, opt *gitlab.ListProjectPipelinesOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.PipelineInfo, *gitlab.Response, error)
+}
+
+// TargetBranchRule represents a GitLab MR target branch rule entity from GraphQL.
+type TargetBranchRule struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	TargetBranch string    `json:"targetBranch"`
+	CreatedAt    time.Time `json:"createdAt,omitempty"`
+}
+
+// TargetBranchRulesService abstracts GraphQL operations for project target branch rules.
+type TargetBranchRulesService interface {
+	GetTargetBranchRules(ctx context.Context, projectFullPath string) ([]TargetBranchRule, error)
+	CreateTargetBranchRule(ctx context.Context, projectFullPath, name, targetBranch string) (*TargetBranchRule, error)
+	DestroyTargetBranchRule(ctx context.Context, ruleID string) error
 }

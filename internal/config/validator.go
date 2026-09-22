@@ -346,6 +346,28 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 	if p.Members != nil {
 		validateMembers(p.Members, prefix+".members", errs)
 	}
+
+	if p.TargetBranchRules != nil {
+		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs)
+	}
+}
+
+func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors) {
+	for i, rule := range t.Rules {
+		rulePrefix := fmt.Sprintf("%s.rules[%d]", prefix, i)
+		if strings.TrimSpace(rule.Name) == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".name",
+				Message: "target branch rule name (source pattern) cannot be empty",
+			})
+		}
+		if strings.TrimSpace(rule.TargetBranch) == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".target_branch",
+				Message: "target branch rule target_branch cannot be empty",
+			})
+		}
+	}
 }
 
 func validatePushRules(r *PushRulesConfig, prefix string, errs *ValidationErrors) {
