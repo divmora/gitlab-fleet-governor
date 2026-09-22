@@ -15,16 +15,19 @@ import (
 
 // GlobalFlags holds all persistent global CLI flags.
 type GlobalFlags struct {
-	ConfigPath   string
-	DryRun       bool
-	Concurrency  int
-	LogLevel     string
-	LogFormat    string
-	ReportFormat string
-	OutputFile   string
-	NoColor      bool
-	LicenseKey   string
-	LicenseFile  string
+	ConfigPath     string
+	DryRun         bool
+	Concurrency    int
+	LogLevel       string
+	LogFormat      string
+	ReportFormat   string
+	OutputFile     string
+	NoColor        bool
+	LicenseKey     string
+	LicenseFile    string
+	LicenseCRL     string
+	LicenseCRLFile string
+	LicenseCRLURL  string
 }
 
 var globalFlags GlobalFlags
@@ -89,6 +92,9 @@ and pipeline retention across fleets of GitLab projects and groups.`,
 	pflags.BoolVar(&globalFlags.NoColor, "no-color", false, "Disable ANSI color formatting in output logs and tables")
 	pflags.StringVar(&globalFlags.LicenseKey, "license-key", os.Getenv("DIVMORA_LICENSE_KEY"), "Commercial enterprise license key token (env: DIVMORA_LICENSE_KEY)")
 	pflags.StringVar(&globalFlags.LicenseFile, "license-file", os.Getenv("DIVMORA_LICENSE_FILE"), "Path to commercial enterprise license key file (env: DIVMORA_LICENSE_FILE)")
+	pflags.StringVar(&globalFlags.LicenseCRL, "license-crl", os.Getenv("DIVMORA_CRL"), "Certificate Revocation List string or token (env: DIVMORA_CRL)")
+	pflags.StringVar(&globalFlags.LicenseCRLFile, "license-crl-file", os.Getenv("DIVMORA_CRL_FILE"), "Path to Certificate Revocation List (.divcrl) file (env: DIVMORA_CRL_FILE)")
+	pflags.StringVar(&globalFlags.LicenseCRLURL, "license-crl-url", os.Getenv("DIVMORA_CRL_URL"), "Remote URL for dynamic Certificate Revocation List synchronization (env: DIVMORA_CRL_URL)")
 
 	// Version string
 	rootCmd.Version = version.Get().String()

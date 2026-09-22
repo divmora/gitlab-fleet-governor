@@ -317,6 +317,20 @@ Tokens can be scoped to specific products:
 
 A single unified environment variable (`DIVMORA_LICENSE_KEY`) or system file (`/etc/divmora/license.key`) can be deployed across your infrastructure, and each tool cryptographically verifies that the token's product claim allows execution.
 
+### Certificate Revocation List (CRL) Resolution
+
+GitLab Fleet Governor supports offline Certificate Revocation Lists (`.divcrl`) as well as dynamic HTTPS CRL synchronization signed by the DIVMORA root key to immediately invalidate compromised, refunded, or superseded commercial licenses:
+
+1. **CLI Flags**:
+   - `--license-crl="<crl-token-or-pem>"`: Inline compact token or PEM block.
+   - `--license-crl-file="/path/to/crl.divcrl"`: Offline filesystem path.
+   - `--license-crl-url="https://crl.divmora.com/..."`: Remote HTTPS distribution point with ETag caching.
+2. **Policy Settings**: `settings.license.crl`, `settings.license.crl_file`, or `settings.license.crl_url` in policy YAML/JSON
+3. **Environment Variables**: `DIVMORA_CRL`, `DIVMORA_CRL_FILE`, or `DIVMORA_CRL_URL`
+4. **Default System Path**: `/etc/divmora/crl.divcrl`
+
+When an active commercial license matches an entry in the resolved CRL, operations halt with an actionable `COMMERCIAL LICENSE REVOKED` error identifying the revoked license ID, revocation timestamp, reason, and CRL ID.
+
 ### Managing Commercial Licenses (`license-cli`)
 
 DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/license-go` for operators, platform teams, and enterprise administrators.
@@ -326,7 +340,7 @@ DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/
 Install the official multi-product CLI via Go:
 
 ```bash
-go install github.com/divmora/license-go/cmd/license-cli@v1.1.0
+go install github.com/divmora/license-go/cmd/license-cli@v1.3.0
 ```
 
 #### Operator Workflows

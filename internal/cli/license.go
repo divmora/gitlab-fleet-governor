@@ -22,7 +22,7 @@ fleet capacity, and commercial subscription status for GitLab Fleet Governor.
 
 For centralized multi-product license management (inspections, offline node
 requests, and status cards), install the official license-cli:
-  go install github.com/divmora/license-go/cmd/license-cli@v1.1.0`,
+  go install github.com/divmora/license-go/cmd/license-cli@v1.3.0`,
 	}
 
 	cmd.AddCommand(newLicenseStatusCmd())
@@ -107,19 +107,20 @@ func newLicenseStatusCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "  export DIVMORA_LICENSE_KEY=\"<your-license-token>\"")
 				fmt.Fprintln(cmd.OutOrStdout(), "  or visit https://divmora.com / contact licensing@divmora.com")
 				fmt.Fprintln(cmd.OutOrStdout(), "\nFor centralized license management and air-gapped requests:")
-				fmt.Fprintln(cmd.OutOrStdout(), "  go install github.com/divmora/license-go/cmd/license-cli@v1.1.0")
+				fmt.Fprintln(cmd.OutOrStdout(), "  go install github.com/divmora/license-go/cmd/license-cli@v1.3.0")
 				fmt.Fprintln(cmd.OutOrStdout(), "  license-cli request -product \"gitlab-fleet-governor\" -customer \"<Company>\" -out ./node.divreq")
 				return nil
 			}
 
-			status, err := license.ParseAndVerify(token, nil)
+			crl := resolveActiveCRL(cmd.Context())
+			status, err := license.ParseAndVerify(token, nil, crl)
 			if err != nil {
 				if jsonOutput {
 					out := map[string]interface{}{
 						"status":  "invalid",
 						"valid":   false,
 						"error":   err.Error(),
-						"message": "Cryptographic verification failed: invalid or tampered license token.",
+						"message": "Cryptographic verification failed: invalid, expired, or revoked license token.",
 					}
 					enc := json.NewEncoder(cmd.OutOrStdout())
 					enc.SetIndent("", "  ")
@@ -180,7 +181,8 @@ func newLicenseCheckCmd() *cobra.Command {
 				return nil
 			}
 
-			status, err := license.ParseAndVerify(token, nil)
+			crl := resolveActiveCRL(cmd.Context())
+			status, err := license.ParseAndVerify(token, nil, crl)
 			if err != nil {
 				return fmt.Errorf("license check failed: %w", err)
 			}
@@ -219,4 +221,37 @@ func resolveActiveLicenseToken(ctx context.Context) (string, error) {
 
 	// Fallback to environment variables / default path
 	return license.ResolveToken("", "")
+}
+
+func resolveActiveCRL(ctx context.Context) string {
+	if globalFlags.LicenseCRLURL != "" {
+		return globalFlags.LicenseCRLURL
+	}
+	if globalFlags.LicenseCRL != "" || globalFlags.LicenseCRLFile != "" {
+		if crl, err := license.ResolveCRL(globalFlags.LicenseCRL, globalFlags.LicenseCRLFile); err == nil && crl != "" {
+			return crl
+		}
+	}
+
+	// If a config file was specified, try loading it to check settings.license
+	if globalFlags.ConfigPath != "" {
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		cfg, _, err := config.Load(ctx, globalFlags.ConfigPath, config.LoadOptions{})
+		if err == nil && cfg != nil {
+			if cfg.Settings.License.CRLURL != "" {
+				return cfg.Settings.License.CRLURL
+			}
+			if cfg.Settings.License.CRL != "" || cfg.Settings.License.CRLFile != "" {
+				if crl, err := license.ResolveCRL(cfg.Settings.License.CRL, cfg.Settings.License.CRLFile); err == nil && crl != "" {
+					return crl
+				}
+			}
+		}
+	}
+
+	// Fallback to environment variables / default path
+	crl, _ := license.ResolveCRL()
+	return crl
 }

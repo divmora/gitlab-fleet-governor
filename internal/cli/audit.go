@@ -190,6 +190,18 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	if licenseFile == "" {
 		licenseFile = cfg.Settings.License.File
 	}
+	licenseCRL := globalFlags.LicenseCRL
+	if licenseCRL == "" {
+		licenseCRL = cfg.Settings.License.CRL
+	}
+	licenseCRLFile := globalFlags.LicenseCRLFile
+	if licenseCRLFile == "" {
+		licenseCRLFile = cfg.Settings.License.CRLFile
+	}
+	licenseCRLURL := globalFlags.LicenseCRLURL
+	if licenseCRLURL == "" {
+		licenseCRLURL = cfg.Settings.License.CRLURL
+	}
 
 	dryRun := false
 	if cmd.Flags().Changed("dry-run") || cmd.InheritedFlags().Changed("dry-run") {
@@ -248,6 +260,8 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		audit.WithAuditorModules(modules),
 		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
 		audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
+		audit.WithAuditorCRL(licenseCRL, licenseCRLFile),
+		audit.WithAuditorCRLURL(licenseCRLURL),
 		audit.WithAuditorRequiredFeatures(requiredAuditFeatures...),
 	)
 	if err != nil {

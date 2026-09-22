@@ -93,6 +93,15 @@ func executeRun(ctx context.Context, cmd *cobra.Command, flags runFlags) error {
 	if globalFlags.LicenseFile != "" {
 		cfg.Settings.License.File = globalFlags.LicenseFile
 	}
+	if globalFlags.LicenseCRL != "" {
+		cfg.Settings.License.CRL = globalFlags.LicenseCRL
+	}
+	if globalFlags.LicenseCRLFile != "" {
+		cfg.Settings.License.CRLFile = globalFlags.LicenseCRLFile
+	}
+	if globalFlags.LicenseCRLURL != "" {
+		cfg.Settings.License.CRLURL = globalFlags.LicenseCRLURL
+	}
 
 	slog.Info("Configuration loaded successfully",
 		"source", sourceDesc,

@@ -4,6 +4,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -965,4 +967,203 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entStatus)
 	assert.True(t, entStatus.Valid)
+}
+
+func TestCRL_RevocationAndResolution(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signTestToken := func(claims liblicense.Claims) string {
+		payloadJSON, err := json.Marshal(claims)
+		require.NoError(t, err)
+
+		tempToken := liblicense.EncodeToken(payloadJSON, nil)
+		dotIdx := len(tempToken) - 1
+		signedData := []byte(tempToken[:dotIdx])
+
+		sig := ed25519.Sign(priv, signedData)
+		return liblicense.EncodeToken(payloadJSON, sig)
+	}
+
+	activeToken := signTestToken(liblicense.Claims{
+		ID:        "lic_crl_active_001",
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Customer:  liblicense.Customer{Name: "Active Corp"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
+		Limits:    map[string]int64{"max_projects": 500},
+	})
+
+	otherToken := signTestToken(liblicense.Claims{
+		ID:        "lic_crl_other_002",
+		Product:   "gitlab-fleet-governor",
+		Plan:      "enterprise",
+		Customer:  liblicense.Customer{Name: "Other Corp"},
+		IssuedAt:  time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(365 * 24 * time.Hour),
+		Limits:    map[string]int64{"max_projects": 500},
+	})
+
+	crlClaims := liblicense.RevocationListClaims{
+		ID:       "crl_test_999",
+		Issuer:   "divmora.com/crl",
+		Product:  "gitlab-fleet-governor",
+		IssuedAt: time.Now().UTC(),
+		Entries: []liblicense.RevocationEntry{
+			{
+				ID:        "lic_crl_active_001",
+				RevokedAt: time.Now().UTC().Add(-1 * time.Hour),
+				Reason:    "customer requested cancellation",
+			},
+		},
+	}
+	crlArmored, err := liblicense.SignCRLArmored(crlClaims, priv)
+	require.NoError(t, err)
+
+	crlCompact, err := liblicense.SignCRL(crlClaims, priv)
+	require.NoError(t, err)
+
+	t.Run("Without CRL: active token passes verification", func(t *testing.T) {
+		status, err := license.ParseAndVerify(activeToken, pub)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("With armored CRL passed explicitly: active token is revoked", func(t *testing.T) {
+		status, err := license.ParseAndVerify(activeToken, pub, crlArmored)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		var revokedErr *liblicense.LicenseRevokedError
+		require.ErrorAs(t, err, &revokedErr)
+		assert.Equal(t, "lic_crl_active_001", revokedErr.LicenseID)
+		assert.Equal(t, "customer requested cancellation", revokedErr.Reason)
+		assert.Equal(t, "crl_test_999", revokedErr.CRLID)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("With compact CRL passed explicitly: active token is revoked", func(t *testing.T) {
+		status, err := license.ParseAndVerify(activeToken, pub, crlCompact)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Other non-revoked token passes with same CRL", func(t *testing.T) {
+		status, err := license.ParseAndVerify(otherToken, pub, crlArmored)
+		require.NoError(t, err)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("Enforce with revoked token in production mode fails with clean error", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			LicenseKey:         activeToken,
+			PublicKey:          pub,
+			CRL:                crlArmored,
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REVOKED")
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Enforce with revoked token in dry-run mode falls back to simulation exemption", func(t *testing.T) {
+		status, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           true,
+			LicenseKey:         activeToken,
+			PublicKey:          pub,
+			CRL:                crlArmored,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, status)
+		assert.True(t, status.Valid)
+		assert.Contains(t, status.Message, "Simulation / dry-run mode exempted")
+	})
+
+	t.Run("CRL File resolution via CRLFile", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		crlFile := filepath.Join(tmpDir, "test.divcrl")
+		err := os.WriteFile(crlFile, []byte(crlArmored), 0600)
+		require.NoError(t, err)
+
+		status, err := license.ParseAndVerify(activeToken, pub, crlFile)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+
+		statusEnforce, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			LicenseKey:         activeToken,
+			PublicKey:          pub,
+			CRLFile:            crlFile,
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REVOKED")
+		assert.False(t, statusEnforce.Valid)
+	})
+
+	t.Run("CRL resolution via DIVMORA_CRL env var", func(t *testing.T) {
+		t.Setenv("DIVMORA_CRL", crlArmored)
+		status, err := license.ParseAndVerify(activeToken, pub)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("CRL resolution via DIVMORA_CRL_FILE env var", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		crlFile := filepath.Join(tmpDir, "env_test.divcrl")
+		err := os.WriteFile(crlFile, []byte(crlArmored), 0600)
+		require.NoError(t, err)
+
+		t.Setenv("DIVMORA_CRL", "")
+		t.Setenv("DIVMORA_CRL_FILE", crlFile)
+		status, err := license.ParseAndVerify(activeToken, pub)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+	})
+
+	t.Run("Remote dynamic CRL synchronization via HTTP URL", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/x-pem-file")
+			_, _ = w.Write([]byte(crlArmored))
+		}))
+		defer ts.Close()
+
+		status, err := license.ParseAndVerify(activeToken, pub, ts.URL)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.False(t, status.Valid)
+
+		statusEnforce, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 50,
+			IsDryRun:           false,
+			LicenseKey:         activeToken,
+			PublicKey:          pub,
+			CRLURL:             ts.URL,
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REVOKED")
+		assert.False(t, statusEnforce.Valid)
+	})
+
+	t.Run("ResolveCRL returns empty without error when no CRL is configured", func(t *testing.T) {
+		t.Setenv("DIVMORA_CRL", "")
+		t.Setenv("DIVMORA_CRL_FILE", "")
+		crl, err := license.ResolveCRL()
+		require.NoError(t, err)
+		assert.Empty(t, crl)
+	})
+
+	t.Run("ResolveCRL returns error when explicit non-existent file is specified", func(t *testing.T) {
+		_, err := license.ResolveCRL("/nonexistent/path/to/revocations.divcrl")
+		require.Error(t, err)
+	})
 }
