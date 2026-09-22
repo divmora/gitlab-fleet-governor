@@ -37,8 +37,8 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.50.0/go.mod h1:/8JRcdTt//hG0Q4BTmGbu
 github.com/aws/smithy-go v1.28.1 h1:R/nXH00c8qcfCzQVELtRw+eLQWtzv+VAIEFJ1/xxXlQ=
 github.com/aws/smithy-go v1.28.1/go.mod h1:YE2RhdIuDbA5E5bTdciG9KrW3+TiEONeUWCqxX9i1Fc=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/divmora/license-go v1.3.0 h1:G/nLG2eI5Ipks3zrenyRIEmUTyJnbLxfZw4CQFn0VLM=
-github.com/divmora/license-go v1.3.0/go.mod h1:wHISCzQ18JTl6eMy77sIVM7+0UZJ/gSrXov0+SqIOio=
+github.com/divmora/license-go v1.3.1 h1:1WY6VVMjSIEFbNWauNxelyF8usWy4owskXcta7VrlGI=
+github.com/divmora/license-go v1.3.1/go.mod h1:wHISCzQ18JTl6eMy77sIVM7+0UZJ/gSrXov0+SqIOio=
 github.com/fatih/color v1.16.0 h1:zmkK9Ngbjj+K0yRhTVONQh1p/HknKYSlNT+vZCzyokM=
 github.com/fatih/color v1.16.0/go.mod h1:fL2Sau1YI5c0pdGEVCbKQbLXB6edEj1ZgiY4NijnWvE=
 github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
