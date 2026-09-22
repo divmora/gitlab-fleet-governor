@@ -340,7 +340,7 @@ DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/
 Install the official multi-product CLI via Go:
 
 ```bash
-go install github.com/divmora/license-go/cmd/license-cli@v1.3.0
+go install github.com/divmora/license-go/cmd/license-cli@v1.3.1
 ```
 
 #### Operator Workflows

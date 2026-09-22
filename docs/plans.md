@@ -157,7 +157,7 @@ gitlab-fleet-governor license check
 Inspect claims, entitlement scopes, and live quotas across multi-product environments:
 
 ```bash
-go install github.com/divmora/license-go/cmd/license-cli@v1.3.0
+go install github.com/divmora/license-go/cmd/license-cli@v1.3.1
 
 # Inspect signed claims and plan entitlements
 license-cli inspect -license /path/to/license.key

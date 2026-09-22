@@ -383,7 +383,7 @@ For commercial inquiries and enterprise licensing, please contact **[licensing@d
 For inspecting commercial licenses, generating air-gapped node requests, or validating quota cards across multi-product environments, operators and customers can install the official multi-product CLI:
 
 ```bash
-go install github.com/divmora/license-go/cmd/license-cli@v1.3.0
+go install github.com/divmora/license-go/cmd/license-cli@v1.3.1
 ```
 
 #### Common Operator Commands
