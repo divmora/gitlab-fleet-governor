@@ -407,6 +407,9 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.ApprovalRules != nil {
 		requiredFeatures = append(requiredFeatures, "governance.approval_rules")
 	}
+	if cfg.Policies.TargetBranchRules != nil {
+		requiredFeatures = append(requiredFeatures, "governance.target_branch_rules")
+	}
 	if cfg.Policies.Runners != nil {
 		requiredFeatures = append(requiredFeatures, "governance.runners")
 	}

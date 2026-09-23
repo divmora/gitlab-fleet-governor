@@ -29,10 +29,11 @@ flowchart LR
 
     subgraph Pro["Pro Subscription"]
         P1["MR Approval Review Gates"]
-        P2["Runner Fleet Governance"]
-        P3["Webhook Automation"]
-        P4["Pipeline History Retention"]
-        P5["Extended Team Fleets (> 25)"]
+        P2["MR Target Branch Rules"]
+        P3["Runner Fleet Governance"]
+        P4["Webhook Automation"]
+        P5["Pipeline History Retention"]
+        P6["Extended Team Fleets (> 25)"]
     end
 
     subgraph Enterprise["Enterprise Subscription"]
@@ -70,6 +71,7 @@ The following table details feature availability and runtime verification mechan
 | **CI/CD Variables** | `governance.variables` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **Standard CLI Reports (table/json/csv/md)** | `report.*` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **Merge Request Approval Rules** | `governance.approval_rules` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
+| **Merge Request Target Branch Rules** | `governance.target_branch_rules` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **CI/CD Runner Fleet Governance** | `governance.runners` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Webhook Integrations & Security** | `governance.webhooks` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Pipeline Retention & Pruning** | `governance.pipeline_retention` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
@@ -96,6 +98,7 @@ The following table details feature availability and runtime verification mechan
 
 ### 4.2 Pro Plan Capabilities
 - **Merge Request Approval Rules (`governance.approval_rules`)**: Multi-rule reviewer matrices, eligible approver groups, code owners review gates, unapproved commit revocation, and unmanaged approval rule cleanup.
+- **Merge Request Target Branch Rules (`governance.target_branch_rules`)**: Declarative Merge Request Branch Workflow governance, mapping source branch naming patterns (wildcards) to designated target branches with drift detection and unmanaged rule pruning.
 - **Runner Fleet Governance (`governance.runners`)**: Shared and group runner controls, maintenance pause/lock status, and runner tag assertions across large fleet hierarchies.
 - **Webhook Integrations (`governance.webhooks`)**: Automated provisioning of fleet-wide security and audit webhooks, HMAC secret token rotation, and SSL verification enforcement.
 - **Pipeline Retention & Pruning (`governance.pipeline_retention`)**: Automated GitLab CI pipeline cleanup (`retention_days` converted to `ci_delete_pipelines_in_seconds`), eliminating storage bloat.

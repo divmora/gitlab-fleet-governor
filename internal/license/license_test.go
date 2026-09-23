@@ -787,6 +787,7 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 
 	proFeatures := []string{
 		"governance.approval_rules",
+		"governance.target_branch_rules",
 		"governance.runners",
 		"governance.webhooks",
 		"governance.pipeline_retention",
@@ -898,6 +899,7 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 		PublicKey:          pub,
 		RequiredFeatures: []string{
 			"governance.approval_rules",
+			"governance.target_branch_rules",
 			"governance.runners",
 			"governance.webhooks",
 			"governance.pipeline_retention",
@@ -954,6 +956,7 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 		PublicKey:          pub,
 		RequiredFeatures: []string{
 			"governance.approval_rules",
+			"governance.target_branch_rules",
 			"governance.runners",
 			"governance.webhooks",
 			"governance.pipeline_retention",
