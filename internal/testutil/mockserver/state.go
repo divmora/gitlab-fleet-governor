@@ -512,6 +512,7 @@ func (s *State) resolveProjectIDLocked(idOrPath any) (int, bool) {
 	case int64:
 		return int(v), true
 	case string:
+		v = strings.TrimPrefix(v, "gid://gitlab/Project/")
 		if id, err := strconv.Atoi(v); err == nil {
 			return id, true
 		}

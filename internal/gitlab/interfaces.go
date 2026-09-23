@@ -161,6 +161,6 @@ type TargetBranchRule struct {
 // TargetBranchRulesService abstracts GraphQL operations for project target branch rules.
 type TargetBranchRulesService interface {
 	GetTargetBranchRules(ctx context.Context, projectFullPath string) ([]TargetBranchRule, error)
-	CreateTargetBranchRule(ctx context.Context, projectFullPath, name, targetBranch string) (*TargetBranchRule, error)
+	CreateTargetBranchRule(ctx context.Context, projectID any, name, targetBranch string) (*TargetBranchRule, error)
 	DestroyTargetBranchRule(ctx context.Context, ruleID string) error
 }

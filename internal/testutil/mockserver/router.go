@@ -1274,6 +1274,7 @@ func (rt *Router) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 		var varReq struct {
 			Variables struct {
 				Input struct {
+					ProjectID    string `json:"projectId"`
 					ProjectPath  string `json:"projectPath"`
 					Name         string `json:"name"`
 					TargetBranch string `json:"targetBranch"`
@@ -1282,17 +1283,25 @@ func (rt *Router) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.Unmarshal(bodyBytes, &varReq)
 
-		projectPath := varReq.Variables.Input.ProjectPath
+		projectTarget := varReq.Variables.Input.ProjectID
+		if projectTarget == "" {
+			projectTarget = varReq.Variables.Input.ProjectPath
+		}
+		if projectTarget == "" {
+			projectTarget = extractStringBetween(req.Query, `projectId: "`, `"`)
+		}
+		if projectTarget == "" {
+			projectTarget = extractStringBetween(req.Query, `projectPath: "`, `"`)
+		}
 		name := varReq.Variables.Input.Name
 		targetBranch := varReq.Variables.Input.TargetBranch
 
-		if projectPath == "" {
-			projectPath = extractStringBetween(req.Query, `projectPath: "`, `"`)
+		if name == "" {
 			name = extractStringBetween(req.Query, `name: "`, `"`)
 			targetBranch = extractStringBetween(req.Query, `targetBranch: "`, `"`)
 		}
 
-		rule, ok := rt.state.AddTargetBranchRule(projectPath, name, targetBranch)
+		rule, ok := rt.state.AddTargetBranchRule(projectTarget, name, targetBranch)
 		if !ok {
 			res := map[string]any{
 				"data": map[string]any{

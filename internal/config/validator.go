@@ -353,18 +353,37 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 }
 
 func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors) {
+	seenNames := make(map[string]bool)
 	for i, rule := range t.Rules {
 		rulePrefix := fmt.Sprintf("%s.rules[%d]", prefix, i)
-		if strings.TrimSpace(rule.Name) == "" {
+		name := strings.TrimSpace(rule.Name)
+		targetBranch := strings.TrimSpace(rule.TargetBranch)
+
+		if name == "" {
 			*errs = append(*errs, ValidationError{
 				Field:   rulePrefix + ".name",
 				Message: "target branch rule name (source pattern) cannot be empty",
 			})
+		} else {
+			if seenNames[name] {
+				*errs = append(*errs, ValidationError{
+					Field:   rulePrefix + ".name",
+					Message: fmt.Sprintf("duplicate target branch rule for source pattern '%s'", name),
+					Value:   name,
+				})
+			}
+			seenNames[name] = true
 		}
-		if strings.TrimSpace(rule.TargetBranch) == "" {
+
+		if targetBranch == "" {
 			*errs = append(*errs, ValidationError{
 				Field:   rulePrefix + ".target_branch",
 				Message: "target branch rule target_branch cannot be empty",
+			})
+		} else if name != "" && name == targetBranch {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix,
+				Message: fmt.Sprintf("target branch rule source pattern '%s' cannot be identical to target branch '%s'", name, targetBranch),
 			})
 		}
 	}

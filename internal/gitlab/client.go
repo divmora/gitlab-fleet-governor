@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -768,7 +769,27 @@ func (s *defaultTargetBranchRulesService) GetTargetBranchRules(ctx context.Conte
 	return res.Data.Project.TargetBranchRules.Nodes, nil
 }
 
-func (s *defaultTargetBranchRulesService) CreateTargetBranchRule(ctx context.Context, projectFullPath, name, targetBranch string) (*TargetBranchRule, error) {
+func formatProjectGID(id any) string {
+	switch v := id.(type) {
+	case int:
+		return fmt.Sprintf("gid://gitlab/Project/%d", v)
+	case int64:
+		return fmt.Sprintf("gid://gitlab/Project/%d", v)
+	case string:
+		if strings.HasPrefix(v, "gid://gitlab/Project/") {
+			return v
+		}
+		if _, err := strconv.Atoi(v); err == nil {
+			return fmt.Sprintf("gid://gitlab/Project/%s", v)
+		}
+		return v
+	default:
+		return fmt.Sprintf("gid://gitlab/Project/%v", v)
+	}
+}
+
+func (s *defaultTargetBranchRulesService) CreateTargetBranchRule(ctx context.Context, projectID any, name, targetBranch string) (*TargetBranchRule, error) {
+	gid := formatProjectGID(projectID)
 	mutation := map[string]any{
 		"query": `mutation createTargetBranchRule($input: ProjectTargetBranchRuleCreateInput!) {
   projectTargetBranchRuleCreate(input: $input) {
@@ -782,7 +803,7 @@ func (s *defaultTargetBranchRulesService) CreateTargetBranchRule(ctx context.Con
 }`,
 		"variables": map[string]any{
 			"input": map[string]any{
-				"projectPath":  projectFullPath,
+				"projectId":    gid,
 				"name":         name,
 				"targetBranch": targetBranch,
 			},

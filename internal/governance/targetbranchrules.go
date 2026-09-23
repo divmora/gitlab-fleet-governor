@@ -97,7 +97,7 @@ func (r *TargetBranchRulesReconciler) Apply(ctx context.Context, client gitlab.G
 	for _, dr := range cfg.Policies.TargetBranchRules.Rules {
 		liveRule, exists := liveMap[dr.Name]
 		if !exists {
-			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.PathWithNamespace, dr.Name, dr.TargetBranch)
+			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.ID, dr.Name, dr.TargetBranch)
 			if createErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create target branch rule %s -> %s: %w", dr.Name, dr.TargetBranch, createErr), start), createErr
 			}
@@ -106,7 +106,7 @@ func (r *TargetBranchRulesReconciler) Apply(ctx context.Context, client gitlab.G
 			if destroyErr := client.TargetBranchRules().DestroyTargetBranchRule(ctx, liveRule.ID); destroyErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update (destroy) target branch rule %s: %w", dr.Name, destroyErr), start), destroyErr
 			}
-			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.PathWithNamespace, dr.Name, dr.TargetBranch)
+			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.ID, dr.Name, dr.TargetBranch)
 			if createErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update (re-create) target branch rule %s -> %s: %w", dr.Name, dr.TargetBranch, createErr), start), createErr
 			}

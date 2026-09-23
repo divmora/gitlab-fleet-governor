@@ -606,6 +606,42 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			},
 			expectedErr: "policies.target_branch_rules.rules[0].target_branch",
 		},
+		{
+			name: "Target branch rule duplicate source pattern",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "feature/*",
+								TargetBranch: "develop",
+							},
+							{
+								Name:         "feature/*",
+								TargetBranch: "main",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "duplicate target branch rule for source pattern 'feature/*'",
+		},
+		{
+			name: "Target branch rule source identical to target",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "main",
+								TargetBranch: "main",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "source pattern 'main' cannot be identical to target branch 'main'",
+		},
 	}
 
 	for _, tt := range tests {
