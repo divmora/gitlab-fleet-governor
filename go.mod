@@ -3,7 +3,7 @@ module github.com/divmora/gitlab-fleet-governor
 go 1.26.4
 
 require (
-	github.com/aws/aws-lambda-go v1.55.0
+	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1
 	github.com/divmora/license-go v1.3.1
