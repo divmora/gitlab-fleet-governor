@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.11.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.10.0...v0.11.0) (2026-09-24)
+
+
+### Features
+
+* **onboarding:** add `export` command for reverse-sync of live fleet state to policy.yaml ([#60](https://github.com/divmora/gitlab-fleet-governor/issues/60)) ([bb91d06](https://github.com/divmora/gitlab-fleet-governor/commit/bb91d063aae99716dcfa6f815425e96c1fbf763b))
+
 ## [0.10.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.9.0...v0.10.0) (2026-09-24)
 
 
