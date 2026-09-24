@@ -128,6 +128,7 @@ For automated periodic runs on AWS Lambda:
 | Dry Run Diff | `gitlab-fleet-governor run -c policy.yaml --dry-run --report-format json` | `0` = Success, `1` = Error |
 | Enforce Policy | `gitlab-fleet-governor run -c policy.yaml --dry-run=false --report-format json` | `0` = Success, `1` = Partial/Total Error |
 | Compliance Audit | `gitlab-fleet-governor audit -c policy.yaml --format json -o audit.json` | `0` = Success, `1` = Error |
+| Fleet State Export | `gitlab-fleet-governor export --group-path "platform" --strategy consensus -o policy.yaml` | `0` = Success, `1` = Error |
 | Version Check | `gitlab-fleet-governor version --json` | `0` = Success |
 
 ### Structured Log Parsing
@@ -145,10 +146,11 @@ When running in automated environments, set `--log-format json` to stream newlin
 cmd/gitlab-fleet-governor/  # Dual-mode CLI and AWS Lambda entrypoint
 internal/
   audit/                    # Compliance & security audit engine, Excelize multi-sheet report generator, headless SMTP dispatcher
-  cli/                      # Cobra subcommands (run, audit, validate, lambda, version)
+  cli/                      # Cobra subcommands (run, audit, export, validate, lambda, version)
   config/                   # YAML/JSON policy parsing, envsubst substitution, schema validation
   discovery/                # Group BFS hierarchy traversal with cycle detection & project filtering
   engine/                   # Parallel worker pool reconciler & diff calculation engine
+  export/                   # Fleet state reverse-sync engine, divergence normalization, archetype templates
   gitlab/                   # Resilient GitLab REST API client (rate limiting, jittered backoff)
   governance/               # 11 modular reconciler engines (push_rules, protected_branches, etc.)
   lambda/                   # AWS Lambda event drivers (EventBridge, S3 Put, Direct JSON)

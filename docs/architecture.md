@@ -13,15 +13,17 @@ gitlab-fleet-governor/
 ├── pkg/
 │   └── version/                       # Build version & runtime metadata
 ├── internal/
+│   ├── audit/                         # Compliance & security audit suite, Excelize, SMTP
 │   ├── cli/                           # Cobra CLI subcommands & flags
 │   ├── config/                        # Schema, unmarshaling, envsubst, loader, validator
-│   ├── gitlab/                        # Resilient API client wrapper & rate limiting
 │   ├── discovery/                     # BFS group traversal & project filter pipeline
-│   ├── governance/                    # 11 governance reconcilers & diff engine
 │   ├── engine/                        # Bounded worker pool & execution orchestrator
-│   ├── report/                        # ASCII table, JSON, CSV, Markdown reporters
-│   ├── logging/                       # Structured slog handlers (colored text & JSON)
+│   ├── export/                        # Fleet state reverse-sync engine & policy normalizer
+│   ├── gitlab/                        # Resilient API client wrapper & rate limiting
+│   ├── governance/                    # 11 governance reconcilers & diff engine
 │   ├── lambda/                        # AWS Lambda event adapters & handlers
+│   ├── logging/                       # Structured slog handlers (colored text & JSON)
+│   ├── report/                        # ASCII table, JSON, CSV, Markdown reporters
 │   └── testutil/                      # Mock GitLab server & test harnesses
 ```
 

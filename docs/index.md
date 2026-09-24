@@ -33,6 +33,7 @@
 - **Safety by Default**: Simulates changes via `--dry-run` (default: `true`), producing granular attribute-level diffs ($S_D \ominus S_L$) before applying mutations.
 - **Fleet-Wide Compliance & Security Auditing**: Non-mutating `audit` command inspecting user access expiration hygiene, protected branch security posture, and protected environment deployment gates.
 - **Multi-Sheet Excel (.xlsx) & Headless SMTP Dispatch**: Generates executive workbooks with contiguous merged rows and semantic badges, plus automated TLS/STARTTLS email delivery.
+- **Fleet State Reverse-Sync (`export`)**: Inspects live group and project configurations and emits normalized declarative `policy.yaml` baselines with multiple divergence reconciliation strategies (`archetype`, `consensus`, `strict`).
 - **Rich Multi-Format Reporting**: Outputs colored ASCII terminal tables, structured JSON, CSV, and Markdown audit summaries.
 
 ---
