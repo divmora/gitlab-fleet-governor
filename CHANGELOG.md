@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.10.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.9.0...v0.10.0) (2026-09-24)
+
+
+### Features
+
+* **governance:** support merge request branch workflow (target branch rules) ([#48](https://github.com/divmora/gitlab-fleet-governor/issues/48)) ([28a8805](https://github.com/divmora/gitlab-fleet-governor/commit/28a8805f8a3c42f53cc609d3e45ee4cf383f1965))
+
 ## [0.9.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.8.0...v0.9.0) (2026-09-22)
 
 
