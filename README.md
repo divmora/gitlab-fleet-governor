@@ -45,17 +45,18 @@ Managing security baselines, branch protections, push rules, and compliance stan
 
 - 📜 **Declarative Policy-as-Code**: Author policies in interchangeable YAML or JSON with `${ENV_VAR:-default}` substitution.
 - 🌳 **Fleet-Scale Discovery**: Recursive Breadth-First Search (BFS) group hierarchy traversal with cycle detection and project filter pipelines.
-- 🛡️ **10 Complete Governance Reconcilers**:
+- 🛡️ **11 Complete Governance Reconcilers**:
   1. **Push Rules**: Author emails, branch regexes, commit message format, file size limits, secret prevention, signed commits, and DCO sign-offs.
   2. **Protected Branches**: Push/merge/unprotect access tiers, force push bans, code owner approvals.
   3. **MR Approval Rules**: Global approval settings, named multi-approver matrices, username/group resolution.
   4. **Project Settings**: Squash policies, merge methods, discussion resolution gates, artifact retention.
-  5. **Pipeline Retention**: Automated GitLab pipeline history deletion (`retention_days` converted to `ci_delete_pipelines_in_seconds`).
-  6. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
-  7. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
-  8. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
-  9. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
-  10. **Member & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
+  5. **Target Branch Rules**: MR branch workflow routing, wildcard pattern matching (*, feat/*), and unmanaged rule pruning.
+  6. **Pipeline Retention**: Automated GitLab pipeline history deletion (`retention_days` converted to `ci_delete_pipelines_in_seconds`).
+  7. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
+  8. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
+  9. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
+  10. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
+  11. **Member & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
 - ⚡ **High Resilience & Concurrency**: Bounded worker pool, token-bucket rate limiting, reactive 429 backoff with full jitter, keyset streaming pagination.
 - 🔍 **Fleet-Wide Compliance & Security Auditing**: Dedicated non-mutating `audit` command inspecting user access expiration hygiene, protected branch security posture, and protected environment deployment approval gates.
 - 📑 **Multi-Sheet Excel (.xlsx) & Headless SMTP Dispatch**: Generates executive workbooks with auto-filtered sheets, contiguous row merging, and semantic color badges, with optional direct TLS / STARTTLS email delivery.
@@ -354,30 +355,20 @@ This project is licensed under the **Business Source License 1.1 (BSL 1.1)**.
  
 For commercial inquiries and enterprise licensing, please contact **[licensing@divmora.com](mailto:licensing@divmora.com)** or visit **[divmora.com](https://divmora.com)**. See [LICENSE](LICENSE) and [DIVMORA Licensing Policy](https://github.com/divmora/.github/blob/main/LICENSING.md) for full terms.
 
-### 📊 Plan & Subscription Tier Comparison
+### 📊 Subscription Tiers & Licensing Overview
 
-| Capability / Module | Feature Key | Free Community Tier (BSL 1.1) | Pro Plan | Enterprise Plan |
-|---|---|:---:|:---:|:---:|
-| **Push Rules Reconciler** | `governance.push_rules` | ✅ Free | ✅ Included | ✅ Included |
-| **Protected Branches** | `governance.protected_branches` | ✅ Free | ✅ Included | ✅ Included |
-| **Project Settings** | `governance.project_settings` | ✅ Free | ✅ Included | ✅ Included |
-| **Members & Expiration** | `governance.members` | ✅ Free | ✅ Included | ✅ Included |
-| **CI/CD Variables** | `governance.variables` | ✅ Free | ✅ Included | ✅ Included |
-| **Standard CLI Reports (table/json/csv/md)** | `report.*` | ✅ Free | ✅ Included | ✅ Included |
-| **Merge Request Approval Rules** | `governance.approval_rules` | ❌ | ✅ Included | ✅ Included |
-| **CI/CD Runner Fleet Governance** | `governance.runners` | ❌ | ✅ Included | ✅ Included |
-| **Webhook Integrations & Security** | `governance.webhooks` | ❌ | ✅ Included | ✅ Included |
-| **Pipeline Retention & Pruning** | `governance.pipeline_retention` | ❌ | ✅ Included | ✅ Included |
-| **Compliance & Security Audit Suite** | `audit.*` | ❌ | ❌ | ✅ Included |
-| **Executive Multi-Sheet Excel Reports** | `audit.export.xlsx` | ❌ | ❌ | ✅ Included |
-| **Automated Headless SMTP Dispatch** | `audit.smtp` | ❌ | ❌ | ✅ Included |
-| **GitLab Ultimate Compliance Frameworks** | `governance.compliance_frameworks` | ❌ | ❌ | ✅ Included |
-| **AWS Lambda Serverless Runtime** | `runtime.lambda` | ❌ | ❌ | ✅ Included |
-| **Fleet Scale Limit** | `max_projects` | $\le$ 25 Projects | Custom / Quota | Unlimited |
-| **Dry-Run Simulation Mode** | `--dry-run` | ✅ Always Free | ✅ Free | ✅ Free |
+| Tier | Fleet Capacity | Key Capabilities | Commercial Requirement |
+|---|---|---|---|
+| **Free Community** | Up to 25 Projects | Push rules, protected branches, project settings, CI/CD variables, member audit | **Zero cost (BSL 1.1)** |
+| **Pro** | Extended Fleet Quotas | Everything in Community + **MR approval rules**, **MR target branch rules**, runners, webhooks, pipeline retention | Active commercial license |
+| **Enterprise** | Unlimited Scale | Everything in Pro + **Compliance & Security Audit Suite** (.xlsx + SMTP dispatch), compliance frameworks, AWS Lambda runtime | Active commercial license |
 
-> [!NOTE]
-> **Community Zero-Check Bypass**: When policies exercise only Community Tier capabilities, GitLab Fleet Governor bypasses all license checks and token validations completely. See **[docs/plans.md](docs/plans.md)** for detailed feature descriptions, philosophy, and licensing guides.
+> [!TIP]
+> **Simulation Before Mutation**: Dry-run simulation mode (`--dry-run` or `settings.dry_run: true`) is **always 100% free and unrestricted** across all tiers and fleet sizes without requiring a license key.
+>
+> **Community Zero-Check Bypass**: When policies exercise only Community Tier capabilities, GitLab Fleet Governor bypasses all license verification completely.
+>
+> 👉 **For the comprehensive feature entitlement matrix, tier philosophy, and enforcement details, see [Subscription Plans & Feature Matrix](docs/plans.md).**
 
 ### Commercial License Management with `license-cli`
 
