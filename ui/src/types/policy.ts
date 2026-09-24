@@ -145,10 +145,21 @@ export interface MembersConfig {
   allowed_members?: MemberItem[];
 }
 
+export interface TargetBranchRuleItem {
+  source_branch_pattern: string;
+  target_branch_name: string;
+}
+
+export interface TargetBranchRulesConfig {
+  prune_unmanaged?: boolean;
+  rules?: TargetBranchRuleItem[];
+}
+
 export interface PolicyModules {
   push_rules?: PushRulesConfig;
   protected_branches?: ProtectedBranchConfig[];
   approval_rules?: ApprovalRulesConfig;
+  target_branch_rules?: TargetBranchRulesConfig;
   project_settings?: ProjectSettingsConfig;
   pipeline_retention?: PipelineRetentionConfig;
   variables?: VariableItem[];

@@ -40,6 +40,19 @@ export const RECONCILER_DEFAULTS: Record<string, any> = {
     merge_method: 'rebase_merge',
     only_allow_merge_if_pipeline_succeeds: true,
   },
+  target_branch_rules: {
+    prune_unmanaged: false,
+    rules: [
+      {
+        source_branch_pattern: 'feat/*',
+        target_branch_name: 'staging',
+      },
+      {
+        source_branch_pattern: 'hotfix/*',
+        target_branch_name: 'main',
+      },
+    ],
+  },
   compliance: {
     framework_id: 'soc2-type-2',
   },

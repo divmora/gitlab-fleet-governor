@@ -28,7 +28,7 @@ func NewOperationsRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	}
 }
 
-// NewDefaultRegistry instantiates an OperationsRegistry pre-loaded with all 10 governance reconcilers.
+// NewDefaultRegistry instantiates an OperationsRegistry pre-loaded with all 11 governance reconcilers.
 func NewDefaultRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	reg := NewOperationsRegistry(client)
 	reg.Register(NewPushRulesReconciler())

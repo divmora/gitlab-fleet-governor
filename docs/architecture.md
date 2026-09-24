@@ -17,7 +17,7 @@ gitlab-fleet-governor/
 │   ├── config/                        # Schema, unmarshaling, envsubst, loader, validator
 │   ├── gitlab/                        # Resilient API client wrapper & rate limiting
 │   ├── discovery/                     # BFS group traversal & project filter pipeline
-│   ├── governance/                    # 10 governance reconcilers & diff engine
+│   ├── governance/                    # 11 governance reconcilers & diff engine
 │   ├── engine/                        # Bounded worker pool & execution orchestrator
 │   ├── report/                        # ASCII table, JSON, CSV, Markdown reporters
 │   ├── logging/                       # Structured slog handlers (colored text & JSON)

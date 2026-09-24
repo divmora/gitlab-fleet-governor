@@ -1,6 +1,6 @@
 # Operations Suite
 
-GitLab Fleet Governor implements an ordered suite of 10 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
+GitLab Fleet Governor implements an ordered suite of 11 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
 
 ---
 
@@ -14,6 +14,7 @@ Operations execute sequentially per targeted project/group in the following dete
 | 20 | `protected_branches` | Project | `GET/POST/PATCH/DELETE /projects/:id/protected_branches/:name` |
 | 30 | `approval_rules` | Project | `GET/PUT /projects/:id/approvals`, `GET/POST/PUT/DELETE /projects/:id/approval_rules` |
 | 40 | `project_settings` | Project | `GET/PUT /projects/:id` |
+| 45 | `target_branch_rules` | Project | `POST /api/graphql` (`projectTargetBranchRuleCreate`, `projectTargetBranchRuleDestroy`) |
 | 50 | `pipeline_retention` | Project | `GET/PUT /projects/:id` (`ci_delete_pipelines_in_seconds`) |
 | 60 | `variables` | Project & Group | `GET/POST/PUT/DELETE /projects/:id/variables`, `/groups/:id/variables` |
 | 70 | `runners` | Project | `GET/PUT /projects/:id`, `GET/PUT /runners/:id` |
@@ -42,25 +43,31 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Workflow Standardization**: Enforces squash options (`always`, `never`, `default_on`, `default_off`), merge strategies (`merge`, `rebase_merge`, `ff`), discussion resolution requirements, and artifact expiration overrides.
 - **Container Expiration Policies**: Configures automated container registry cleanup cadence, retention counts, and regex preservation rules.
 
-### 5. Pipeline Retention Reconciler (`pipeline_retention`)
+### 5. Target Branch Rules Reconciler (`target_branch_rules`)
+- **GraphQL ID Specification**: GitLab's Target Branch Rules API is exclusively exposed via GraphQL. Mutations target `ProjectID!` (`gid://gitlab/Project/:id`) using `projectTargetBranchRuleCreate` and `projectTargetBranchRuleDestroy`.
+- **Merge Request Workflow Routing**: Maps wildcard branch prefixes (e.g., `feat/*`, `hotfix/*`, `*`) to designated target branches (e.g., `staging`, `main`), ensuring consistent promotion paths across repositories.
+- **Conflict Prevention & Invariant Checks**: Enforces that `source_branch_pattern` is unique per project and rejects self-targeting definitions (`source_branch_pattern == target_branch_name`).
+- **Pruning**: When `prune_unmanaged: true` is configured, automatically removes out-of-policy branch rules while preserving desired routing configurations.
+
+### 6. Pipeline Retention Reconciler (`pipeline_retention`)
 - **Unit Conversion**: Translates human-friendly `retention_days` into GitLab's native `ci_delete_pipelines_in_seconds` (`days * 86400`).
 - **Idempotency**: Avoids updating project settings if the retention seconds already match the target duration.
 
-### 6. CI/CD Variables Reconciler (`variables`)
+### 7. CI/CD Variables Reconciler (`variables`)
 - **Composite Key Identification**: Uses the composite key `(key, environment_scope)` to accurately track scoped variables.
 - **Secret Protection**: Compares values, masked flags, protected flags, and raw expansion flags. Automatically prunes untracked managed variables when drift deletion is enabled.
 
-### 7. Runners Reconciler (`runners`)
+### 8. Runners Reconciler (`runners`)
 - **Fleet Governance**: Governs shared runners enabled/disabled, group runner inheritance, maintenance pause states, locked status, and runner tag lists.
 
-### 8. Compliance Framework Reconciler (`compliance`)
+### 9. Compliance Framework Reconciler (`compliance`)
 - **Framework Labeling**: Resolves compliance framework names (e.g. `SOC2`, `PCI-DSS`) to framework IDs and associates them with targeted repositories.
 
-### 9. Webhooks Reconciler (`webhooks`)
+### 10. Webhooks Reconciler (`webhooks`)
 - **URL Matching**: Identifies existing webhooks by URL endpoint.
 - **Event Trigger Matrix**: Updates trigger flags (`push_events`, `merge_requests_events`, `pipeline_events`), SSL verification, and secret HMAC tokens.
 
-### 10. Members Audit Reconciler (`members`)
+### 11. Members Audit Reconciler (`members`)
 - **Over-Privileged Detection**: Identifies and reports users whose role exceeds `max_access_level` (e.g. unexpected Maintainer/Owner grants).
 - **Expiration Date Enforcement**: Verifies that every direct project member has an `expires_at` date configured within `max_expiration_days`.
 - **Inherited Maintainer Deduplication**: Identifies redundant direct project permissions where group inheritance already provides sufficient access.
@@ -69,7 +76,7 @@ Operations execute sequentially per targeted project/group in the following dete
 
 ## Fleet Compliance & Security Audit Suite
 
-In addition to the 10 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
+In addition to the 11 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
 
 ```bash
 gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx
