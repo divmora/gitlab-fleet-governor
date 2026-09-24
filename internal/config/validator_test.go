@@ -140,6 +140,38 @@ func TestValidate_ValidConfigs(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Valid Repository Files Configuration", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "CODEOWNERS",
+						Content:      "* @security",
+						TargetBranch: "main",
+						Enforcement:  "merge_request",
+						MRTitle:      "sync CODEOWNERS",
+						MRLabels:     []string{"governance"},
+					},
+					{
+						Path:         "SECURITY.md",
+						ContentFile:  "templates/SECURITY.md.tmpl",
+						TargetBranch: "main",
+						Enforcement:  "direct_commit",
+					},
+					{
+						Path:           ".gitlab-ci.yml",
+						EnsureContains: []string{"include:", "project: 'platform/ci-templates'"},
+						TargetBranch:   "main",
+						Enforcement:    "audit_only",
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.NoError(t, err)
+	})
+
 	t.Run("Valid Target Branch Rules Configuration", func(t *testing.T) {
 		cfg := &config.PolicyConfig{
 			Version: "v1",
@@ -641,6 +673,66 @@ func TestValidate_SemanticErrors(t *testing.T) {
 				},
 			},
 			expectedErr: "source pattern 'main' cannot be identical to target branch 'main'",
+		},
+		{
+			name: "Repository file missing path",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "",
+							TargetBranch: "main",
+							Content:      "data",
+						},
+					},
+				},
+			},
+			expectedErr: "repository_files[0].path",
+		},
+		{
+			name: "Repository file missing target_branch",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "CODEOWNERS",
+							TargetBranch: "",
+							Content:      "data",
+						},
+					},
+				},
+			},
+			expectedErr: "repository_files[0].target_branch",
+		},
+		{
+			name: "Repository file missing content source",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "CODEOWNERS",
+							TargetBranch: "main",
+						},
+					},
+				},
+			},
+			expectedErr: "requires at least one of 'content', 'content_file', or 'ensure_contains'",
+		},
+		{
+			name: "Repository file invalid enforcement",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "CODEOWNERS",
+							TargetBranch: "main",
+							Content:      "data",
+							Enforcement:  "invalid_mode",
+						},
+					},
+				},
+			},
+			expectedErr: "invalid enforcement mode 'invalid_mode'",
 		},
 	}
 

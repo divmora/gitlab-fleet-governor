@@ -42,6 +42,7 @@ func NewDefaultRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	reg.Register(NewWebhooksReconciler())
 	reg.Register(NewMembersReconciler())
 	reg.Register(NewTargetBranchRulesReconciler())
+	reg.Register(NewRepositoryFilesReconciler())
 	return reg
 }
 

@@ -70,6 +70,16 @@ type State struct {
 	targetBranchRules map[int]map[string]MockTargetBranchRule
 	nextTargetRuleID  int
 
+	// Repository Files: projectID -> branch -> filePath -> content
+	repositoryFiles map[int]map[string]map[string][]byte
+
+	// Branches: projectID -> branchName -> Branch
+	branches map[int]map[string]*gitlab.Branch
+
+	// Merge Requests: projectID -> iid -> MergeRequest
+	mergeRequests map[int]map[int]*gitlab.MergeRequest
+	nextMRIID     map[int]int
+
 	// Users: userID -> User
 	users          map[int]*gitlab.User
 	userByUsername map[string]int
@@ -144,6 +154,11 @@ func (s *State) Reset() {
 
 	s.targetBranchRules = make(map[int]map[string]MockTargetBranchRule)
 	s.nextTargetRuleID = 1
+
+	s.repositoryFiles = make(map[int]map[string]map[string][]byte)
+	s.branches = make(map[int]map[string]*gitlab.Branch)
+	s.mergeRequests = make(map[int]map[int]*gitlab.MergeRequest)
+	s.nextMRIID = make(map[int]int)
 
 	s.users = make(map[int]*gitlab.User)
 	s.userByUsername = make(map[string]int)
@@ -1291,6 +1306,182 @@ func (s *State) GetUser(id int) (*gitlab.User, bool) {
 		return nil, false
 	}
 	return cloneUser(u), true
+}
+
+// ----------------------------------------------------------------------------
+// Repository Files, Branches & Merge Requests Operations
+// ----------------------------------------------------------------------------
+
+func (s *State) GetRawFile(idOrPath any, path, ref string) ([]byte, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.repositoryFiles[id] == nil || s.repositoryFiles[id][ref] == nil {
+		return nil, false
+	}
+	content, found := s.repositoryFiles[id][ref][path]
+	if !found {
+		return nil, false
+	}
+	res := make([]byte, len(content))
+	copy(res, content)
+	return res, true
+}
+
+func (s *State) SetFile(idOrPath any, path, ref string, content []byte) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return false
+	}
+	if s.repositoryFiles[id] == nil {
+		s.repositoryFiles[id] = make(map[string]map[string][]byte)
+	}
+	if s.repositoryFiles[id][ref] == nil {
+		s.repositoryFiles[id][ref] = make(map[string][]byte)
+	}
+	cp := make([]byte, len(content))
+	copy(cp, content)
+	s.repositoryFiles[id][ref][path] = cp
+	return true
+}
+
+func (s *State) GetBranch(idOrPath any, branch string) (*gitlab.Branch, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.branches[id] == nil {
+		return nil, false
+	}
+	b, found := s.branches[id][branch]
+	if !found {
+		return nil, false
+	}
+	cp := *b
+	return &cp, true
+}
+
+func (s *State) CreateBranch(idOrPath any, branch, ref string) (*gitlab.Branch, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.branches[id] == nil {
+		s.branches[id] = make(map[string]*gitlab.Branch)
+	}
+	b := &gitlab.Branch{
+		Name: branch,
+	}
+	s.branches[id][branch] = b
+
+	// Copy files from ref branch if exists
+	if s.repositoryFiles[id] != nil && s.repositoryFiles[id][ref] != nil {
+		if s.repositoryFiles[id][branch] == nil {
+			s.repositoryFiles[id][branch] = make(map[string][]byte)
+		}
+		for k, v := range s.repositoryFiles[id][ref] {
+			cp := make([]byte, len(v))
+			copy(cp, v)
+			s.repositoryFiles[id][branch][k] = cp
+		}
+	}
+
+	cp := *b
+	return &cp, true
+}
+
+func (s *State) ListMergeRequests(idOrPath any, sourceBranch, targetBranch, state string) []*gitlab.MergeRequest {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.mergeRequests[id] == nil {
+		return []*gitlab.MergeRequest{}
+	}
+
+	var res []*gitlab.MergeRequest
+	for _, mr := range s.mergeRequests[id] {
+		if sourceBranch != "" && mr.SourceBranch != sourceBranch {
+			continue
+		}
+		if targetBranch != "" && mr.TargetBranch != targetBranch {
+			continue
+		}
+		if state != "" && mr.State != state {
+			continue
+		}
+		cp := *mr
+		res = append(res, &cp)
+	}
+	return res
+}
+
+func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, title string, labels []string) (*gitlab.MergeRequest, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.mergeRequests[id] == nil {
+		s.mergeRequests[id] = make(map[int]*gitlab.MergeRequest)
+		s.nextMRIID[id] = 1
+	}
+
+	iid := s.nextMRIID[id]
+	s.nextMRIID[id]++
+
+	mr := &gitlab.MergeRequest{
+		ID:           iid,
+		IID:          iid,
+		ProjectID:    id,
+		Title:        title,
+		SourceBranch: sourceBranch,
+		TargetBranch: targetBranch,
+		State:        "opened",
+		Labels:       labels,
+	}
+	s.mergeRequests[id][iid] = mr
+	cp := *mr
+	return &cp, true
+}
+
+func (s *State) AcceptMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.mergeRequests[id] == nil {
+		return nil, false
+	}
+	mr, found := s.mergeRequests[id][mrIID]
+	if !found {
+		return nil, false
+	}
+	mr.State = "merged"
+
+	// Copy files from source branch to target branch
+	if s.repositoryFiles[id] != nil && s.repositoryFiles[id][mr.SourceBranch] != nil {
+		if s.repositoryFiles[id][mr.TargetBranch] == nil {
+			s.repositoryFiles[id][mr.TargetBranch] = make(map[string][]byte)
+		}
+		for k, v := range s.repositoryFiles[id][mr.SourceBranch] {
+			cp := make([]byte, len(v))
+			copy(cp, v)
+			s.repositoryFiles[id][mr.TargetBranch][k] = cp
+		}
+	}
+
+	cp := *mr
+	return &cp, true
 }
 
 func (s *State) GetUserByUsername(username string) (*gitlab.User, bool) {

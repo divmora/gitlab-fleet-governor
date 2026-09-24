@@ -28,10 +28,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
   - Declaratively enforce tag protection tiers (`v*`, `release-*`, `production-*`) across fleet repositories.
   - Configure creation and update access levels (`allowed_to_create`) to prevent unauthorized tag overwrites or deletion of release artifacts.
 
-- [ ] **Standard Repository File & `CODEOWNERS` Sync Reconciler**
-  - Declaratively enforce and synchronize standardized files across repositories (e.g., `CODEOWNERS` with required security team reviewers, `SECURITY.md`, `.editorconfig`, or baseline `.gitlab-ci.yml` includes).
-  - Detect file content drift and automatically stage compliant updates via direct commits or automated Merge Requests.
-
 - [ ] **Container & Package Registry Cleanup Policy Reconciler**
   - Enforce automated tag expiration and retention rules on project container registries (`cadence`, `keep_n`, `older_than`, `name_regex_delete`, `name_regex_keep`).
   - Purge orphaned or untagged container images and manage package registry retention to eliminate storage waste and control cloud hosting costs.

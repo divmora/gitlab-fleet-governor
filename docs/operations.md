@@ -1,6 +1,6 @@
 # Operations Suite
 
-GitLab Fleet Governor implements an ordered suite of 11 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
+GitLab Fleet Governor implements an ordered suite of 12 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
 
 ---
 
@@ -16,6 +16,7 @@ Operations execute sequentially per targeted project/group in the following dete
 | 40 | `project_settings` | Project | `GET/PUT /projects/:id` |
 | 45 | `target_branch_rules` | Project | `POST /api/graphql` (`projectTargetBranchRuleCreate`, `projectTargetBranchRuleDestroy`) |
 | 50 | `pipeline_retention` | Project | `GET/PUT /projects/:id` (`ci_delete_pipelines_in_seconds`) |
+| 55 | `repository_files` | Project | `GET/POST/PUT /projects/:id/repository/files/:file_path`, `POST /projects/:id/merge_requests` |
 | 60 | `variables` | Project & Group | `GET/POST/PUT/DELETE /projects/:id/variables`, `/groups/:id/variables` |
 | 70 | `runners` | Project | `GET/PUT /projects/:id`, `GET/PUT /runners/:id` |
 | 80 | `compliance` | Project | `GET/PUT /projects/:id` (`compliance_framework_setting`) |
@@ -53,7 +54,16 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Unit Conversion**: Translates human-friendly `retention_days` into GitLab's native `ci_delete_pipelines_in_seconds` (`days * 86400`).
 - **Idempotency**: Avoids updating project settings if the retention seconds already match the target duration.
 
-### 7. CI/CD Variables Reconciler (`variables`)
+### 7. Repository Files Reconciler (`repository_files`)
+- **Declarative Synchronization**: Synchronizes files across fleet repositories (e.g. `CODEOWNERS`, `SECURITY.md`, `.editorconfig`, baseline `.gitlab-ci.yml` includes).
+- **Enforcement Modes**:
+  - `direct_commit`: Direct commit to target branch with an auto-managed header.
+  - `merge_request`: Creates a feature branch (`governance/sync-<file>`), commits changes, and opens a Merge Request.
+  - `audit_only`: Detects drift without performing mutations.
+- **Duplicate MR Detection**: Checks if an open Merge Request already exists for the file and branch before creating a new MR.
+- **Flexible Sources**: Reads file content directly from inline YAML/JSON strings, local file paths, or remote `s3://` URIs, and supports `ensure_contains` substring checks.
+
+### 8. CI/CD Variables Reconciler (`variables`)
 - **Composite Key Identification**: Uses the composite key `(key, environment_scope)` to accurately track scoped variables.
 - **Secret Protection**: Compares values, masked flags, protected flags, and raw expansion flags. Automatically prunes untracked managed variables when drift deletion is enabled.
 

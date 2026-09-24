@@ -301,6 +301,37 @@ policies:
       - name: "release/*"
         target_branch: "production"
 ```
+
+### 11. `repository_files`
+
+Declaratively enforce and synchronize standardized files across fleet repositories (e.g. `CODEOWNERS`, `SECURITY.md`, `.editorconfig`, baseline `.gitlab-ci.yml` includes):
+
+```yaml
+policies:
+  repository_files:
+    - path: "CODEOWNERS"
+      content: |
+        # Enterprise CODEOWNERS policy
+        # Auto-managed by gitlab-fleet-governor — do not edit manually
+        *                              @platform/security-reviewers
+        /src/                          @platform/backend-leads
+      target_branch: "main"
+      enforcement: "merge_request" # direct_commit | merge_request | audit_only
+      mr_title: "chore: sync CODEOWNERS to enterprise policy"
+      mr_labels: ["automated", "governance", "CODEOWNERS"]
+      auto_merge: false
+
+    - path: "SECURITY.md"
+      content_file: "templates/SECURITY.md.tmpl" # Local path or s3:// URI
+      target_branch: "main"
+      enforcement: "merge_request"
+
+    - path: ".gitlab-ci.yml"
+      ensure_contains:
+        - "include:"
+        - "project: 'platform/ci-templates'"
+      target_branch: "main"
+      enforcement: "direct_commit"
 ```
 
 ---

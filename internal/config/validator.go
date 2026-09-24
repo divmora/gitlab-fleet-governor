@@ -350,6 +350,54 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 	if p.TargetBranchRules != nil {
 		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs)
 	}
+
+	if len(p.RepositoryFiles) > 0 {
+		validateRepositoryFiles(p.RepositoryFiles, prefix+".repository_files", errs)
+	}
+}
+
+func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *ValidationErrors) {
+	for i, f := range files {
+		fPrefix := fmt.Sprintf("%s[%d]", prefix, i)
+		path := strings.TrimSpace(f.Path)
+		if path == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix + ".path",
+				Message: "repository file path cannot be empty",
+			})
+		}
+
+		targetBranch := strings.TrimSpace(f.TargetBranch)
+		if targetBranch == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix + ".target_branch",
+				Message: "repository file target_branch cannot be empty",
+			})
+		}
+
+		hasContent := f.Content != ""
+		hasContentFile := strings.TrimSpace(f.ContentFile) != ""
+		hasEnsureContains := len(f.EnsureContains) > 0
+
+		if !hasContent && !hasContentFile && !hasEnsureContains {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' requires at least one of 'content', 'content_file', or 'ensure_contains'", f.Path),
+			})
+		}
+
+		if f.Enforcement != "" {
+			switch strings.ToLower(f.Enforcement) {
+			case "direct_commit", "merge_request", "audit_only":
+			default:
+				*errs = append(*errs, ValidationError{
+					Field:   fPrefix + ".enforcement",
+					Message: fmt.Sprintf("invalid enforcement mode '%s' (must be direct_commit, merge_request, or audit_only)", f.Enforcement),
+					Value:   f.Enforcement,
+				})
+			}
+		}
+	}
 }
 
 func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors) {
