@@ -55,10 +55,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 
 ## 2. Performance, Discovery & Fleet Onboarding
 
-- [ ] **Fleet State Reverse-Sync (`export` / `import`)**
-  - Add a `gitlab-fleet-governor export` CLI command to inspect current live configuration across a target group or project hierarchy and emit a normalized declarative `policy.yaml` baseline.
-  - Enables zero-touch onboarding for existing enterprise fleets by capturing actual fleet state as code (similar to `terraform import`).
-
 - [ ] **GraphQL-Based Bulk Fleet Discovery**
   - Implement an alternative discovery provider utilizing GitLab's GraphQL API (`group.projects(includeSubgroups: true)`).
   - Batch query group hierarchies and project configurations in a single network round-trip, significantly accelerating discovery in fleets with >10,000 repositories.

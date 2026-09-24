@@ -397,3 +397,280 @@ func TestExportToFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(fileBytes), "version: v1")
 }
+
+func TestExportFleetPolicy_StrategyStrict_Error(t *testing.T) {
+	ctx := context.Background()
+	server := mockserver.NewMockGitLabServer()
+	defer server.Close()
+
+	grp := &gitlab.Group{
+		ID:       10,
+		Name:     "enterprise-fleet",
+		Path:     "enterprise-fleet",
+		FullPath: "enterprise-fleet",
+	}
+	server.State().AddGroup(grp)
+
+	proj1 := &gitlab.Project{
+		ID:                101,
+		Name:              "svc-a",
+		Path:              "svc-a",
+		PathWithNamespace: "enterprise-fleet/svc-a",
+		DefaultBranch:     "main",
+	}
+	proj2 := &gitlab.Project{
+		ID:                102,
+		Name:              "svc-b",
+		Path:              "svc-b",
+		PathWithNamespace: "enterprise-fleet/svc-b",
+		DefaultBranch:     "main",
+	}
+	server.State().AddProject(proj1)
+	server.State().AddProject(proj2)
+	server.State().AddGroupProject(grp.ID, proj1.ID)
+	server.State().AddGroupProject(grp.ID, proj2.ID)
+
+	server.State().SetProjectPushRule(proj1.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@enterprise\\.com$",
+	})
+	server.State().SetProjectPushRule(proj2.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@subsidiary\\.com$",
+	})
+
+	client, err := glclient.NewClientFromConfig(&config.GitLabSettingsConfig{
+		BaseURL: server.BaseURL(),
+		Token:   "mock-token",
+	})
+	require.NoError(t, err)
+
+	rec := true
+	cfg := &config.PolicyConfig{
+		Targets: config.TargetSelectors{
+			GroupSelector: &config.GroupSelector{
+				GroupPathsInclude: []string{"enterprise-fleet"},
+				Recursive:         &rec,
+			},
+		},
+	}
+
+	opts := export.ExportOptions{
+		Client:   client,
+		Config:   cfg,
+		Strategy: export.StrategyStrict,
+	}
+
+	_, err = export.ExportFleetPolicy(ctx, opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "strict export failed: 2 projects have divergent push_rules")
+}
+
+func TestExportFleetPolicy_StrategyConsensus_Omission(t *testing.T) {
+	ctx := context.Background()
+	server := mockserver.NewMockGitLabServer()
+	defer server.Close()
+
+	grp := &gitlab.Group{
+		ID:       10,
+		Name:     "enterprise-fleet",
+		Path:     "enterprise-fleet",
+		FullPath: "enterprise-fleet",
+	}
+	server.State().AddGroup(grp)
+
+	proj1 := &gitlab.Project{
+		ID:                101,
+		Name:              "svc-a",
+		Path:              "svc-a",
+		PathWithNamespace: "enterprise-fleet/svc-a",
+		DefaultBranch:     "main",
+	}
+	proj2 := &gitlab.Project{
+		ID:                102,
+		Name:              "svc-b",
+		Path:              "svc-b",
+		PathWithNamespace: "enterprise-fleet/svc-b",
+		DefaultBranch:     "main",
+	}
+	server.State().AddProject(proj1)
+	server.State().AddProject(proj2)
+	server.State().AddGroupProject(grp.ID, proj1.ID)
+	server.State().AddGroupProject(grp.ID, proj2.ID)
+
+	// Divergent Push Rules (differ between proj1 and proj2)
+	server.State().SetProjectPushRule(proj1.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@enterprise\\.com$",
+	})
+	server.State().SetProjectPushRule(proj2.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@subsidiary\\.com$",
+	})
+
+	// Identical MR Approvals
+	server.State().SetProjectApprovals(proj1.ID, &gitlab.ProjectApprovals{
+		ApprovalsBeforeMerge: 2,
+	})
+	server.State().SetProjectApprovals(proj2.ID, &gitlab.ProjectApprovals{
+		ApprovalsBeforeMerge: 2,
+	})
+
+	client, err := glclient.NewClientFromConfig(&config.GitLabSettingsConfig{
+		BaseURL: server.BaseURL(),
+		Token:   "mock-token",
+	})
+	require.NoError(t, err)
+
+	rec := true
+	cfg := &config.PolicyConfig{
+		Targets: config.TargetSelectors{
+			GroupSelector: &config.GroupSelector{
+				GroupPathsInclude: []string{"enterprise-fleet"},
+				Recursive:         &rec,
+			},
+		},
+	}
+
+	var errBuf strings.Builder
+	opts := export.ExportOptions{
+		Client:   client,
+		Config:   cfg,
+		Strategy: export.StrategyConsensus,
+		ErrOut:   &errBuf,
+	}
+
+	yamlBytes, err := export.ExportFleetPolicy(ctx, opts)
+	require.NoError(t, err)
+
+	// Under consensus strategy, divergent push_rules must be omitted from policy
+	parsedCfg, err := config.LoadFromBytes(ctx, yamlBytes)
+	require.NoError(t, err)
+	assert.Nil(t, parsedCfg.Policies.PushRules, "divergent push rules should be omitted under consensus strategy")
+	require.NotNil(t, parsedCfg.Policies.ApprovalRules, "consensus approval rules should be preserved")
+	require.NotNil(t, parsedCfg.Policies.ApprovalRules.ApprovalsBeforeMerge)
+	assert.Equal(t, 2, *parsedCfg.Policies.ApprovalRules.ApprovalsBeforeMerge)
+	assert.Contains(t, errBuf.String(), "omitted under consensus strategy")
+}
+
+func TestExportFleetPolicy_FromProject_Archetype(t *testing.T) {
+	ctx := context.Background()
+	server := mockserver.NewMockGitLabServer()
+	defer server.Close()
+
+	grp := &gitlab.Group{
+		ID:       10,
+		Name:     "enterprise-fleet",
+		Path:     "enterprise-fleet",
+		FullPath: "enterprise-fleet",
+	}
+	server.State().AddGroup(grp)
+
+	proj1 := &gitlab.Project{
+		ID:                101,
+		Name:              "svc-a",
+		Path:              "svc-a",
+		PathWithNamespace: "enterprise-fleet/svc-a",
+		DefaultBranch:     "main",
+	}
+	proj2 := &gitlab.Project{
+		ID:                102,
+		Name:              "svc-b",
+		Path:              "svc-b",
+		PathWithNamespace: "enterprise-fleet/svc-b",
+		DefaultBranch:     "main",
+	}
+	server.State().AddProject(proj1)
+	server.State().AddProject(proj2)
+	server.State().AddGroupProject(grp.ID, proj1.ID)
+	server.State().AddGroupProject(grp.ID, proj2.ID)
+
+	server.State().SetProjectPushRule(proj1.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@enterprise-a\\.com$",
+	})
+	server.State().SetProjectPushRule(proj2.ID, &gitlab.ProjectPushRules{
+		AuthorEmailRegex: "@golden-template\\.com$",
+	})
+
+	client, err := glclient.NewClientFromConfig(&config.GitLabSettingsConfig{
+		BaseURL: server.BaseURL(),
+		Token:   "mock-token",
+	})
+	require.NoError(t, err)
+
+	rec := true
+	cfg := &config.PolicyConfig{
+		Targets: config.TargetSelectors{
+			GroupSelector: &config.GroupSelector{
+				GroupPathsInclude: []string{"enterprise-fleet"},
+				Recursive:         &rec,
+			},
+		},
+	}
+
+	// 1. Valid archetype project ID
+	opts := export.ExportOptions{
+		Client:      client,
+		Config:      cfg,
+		Strategy:    export.StrategyArchetype,
+		FromProject: "102",
+	}
+
+	yamlBytes, err := export.ExportFleetPolicy(ctx, opts)
+	require.NoError(t, err)
+
+	parsedCfg, err := config.LoadFromBytes(ctx, yamlBytes)
+	require.NoError(t, err)
+	require.NotNil(t, parsedCfg.Policies.PushRules)
+	assert.Equal(t, "@golden-template\\.com$", parsedCfg.Policies.PushRules.AuthorEmailRegex)
+
+	// 2. Archetype project by path
+	optsByPath := export.ExportOptions{
+		Client:      client,
+		Config:      cfg,
+		Strategy:    export.StrategyArchetype,
+		FromProject: "enterprise-fleet/svc-b",
+	}
+	yamlBytesByPath, err := export.ExportFleetPolicy(ctx, optsByPath)
+	require.NoError(t, err)
+	parsedCfgByPath, err := config.LoadFromBytes(ctx, yamlBytesByPath)
+	require.NoError(t, err)
+	require.NotNil(t, parsedCfgByPath.Policies.PushRules)
+	assert.Equal(t, "@golden-template\\.com$", parsedCfgByPath.Policies.PushRules.AuthorEmailRegex)
+
+	// 3. Invalid archetype returns error
+	optsInvalid := export.ExportOptions{
+		Client:      client,
+		Config:      cfg,
+		Strategy:    export.StrategyArchetype,
+		FromProject: "non-existent-project",
+	}
+	_, err = export.ExportFleetPolicy(ctx, optsInvalid)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "from-project 'non-existent-project' not found")
+}
+
+func TestExportFleetPolicy_DirectProjectLookup(t *testing.T) {
+	ctx := context.Background()
+	server, proj := setupMockServerWithFullProject(t)
+	defer server.Close()
+
+	client, err := glclient.NewClientFromConfig(&config.GitLabSettingsConfig{
+		BaseURL: server.BaseURL(),
+		Token:   "mock-token",
+	})
+	require.NoError(t, err)
+
+	opts := export.ExportOptions{
+		Client:                    client,
+		ProjectID:                 proj.ID,
+		IncludeSecretsPlaceholder: true,
+	}
+
+	yamlBytes, err := export.ExportFleetPolicy(ctx, opts)
+	require.NoError(t, err)
+
+	parsedCfg, err := config.LoadFromBytes(ctx, yamlBytes)
+	require.NoError(t, err)
+	require.NotNil(t, parsedCfg.Targets.ProjectSelector)
+	require.NotNil(t, parsedCfg.Targets.ProjectSelector.IDRange)
+	assert.Equal(t, proj.ID, parsedCfg.Targets.ProjectSelector.IDRange.Min)
+	assert.Equal(t, proj.ID, parsedCfg.Targets.ProjectSelector.IDRange.Max)
+	require.NotNil(t, parsedCfg.Policies.PushRules)
+}

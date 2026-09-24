@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
+	"sync"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 	"gopkg.in/yaml.v3"
@@ -18,12 +20,22 @@ import (
 	glclient "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
+// Export divergence reconciliation strategies.
+const (
+	StrategyArchetype = "archetype"
+	StrategyConsensus = "consensus"
+	StrategyStrict    = "strict"
+)
+
 // ExportOptions specifies execution parameters for state export.
 type ExportOptions struct {
 	Client                    glclient.GitLabClient
 	Config                    *config.PolicyConfig
+	ProjectID                 int
 	IncludeSecretsPlaceholder bool
 	SkipReconcilers           map[string]bool
+	FromProject               string
+	Strategy                  string
 	ErrOut                    io.Writer
 }
 
@@ -43,30 +55,115 @@ func ExportFleetPolicy(ctx context.Context, opts ExportOptions) ([]byte, error) 
 		opts.Config = &config.PolicyConfig{}
 		opts.Config.SetDefaults()
 	}
+	if opts.ProjectID > 0 && opts.Config.Targets.ProjectSelector == nil {
+		opts.Config.Targets.ProjectSelector = &config.ProjectSelector{
+			IDRange: &config.IDRange{
+				Min: opts.ProjectID,
+				Max: opts.ProjectID,
+			},
+		}
+		opts.Config.Targets.GroupSelector = nil
+	}
 	if opts.SkipReconcilers == nil {
 		opts.SkipReconcilers = make(map[string]bool)
 	}
+	if opts.Strategy == "" {
+		opts.Strategy = StrategyArchetype
+	}
 
-	// 1. Discover target fleet
 	concurrency := opts.Config.Settings.Concurrency
 	if concurrency <= 0 {
 		concurrency = 10
 	}
 
-	fleet, err := discovery.DiscoverFleet(ctx, opts.Client, opts.Config.Targets, discovery.WithConcurrency(concurrency))
-	if err != nil {
-		return nil, fmt.Errorf("fleet discovery failed: %w", err)
+	// 1. Discover target fleet (with single-project direct lookup optimization)
+	var fleet *discovery.TargetFleet
+	isSingleProject := opts.Config.Targets.ProjectSelector != nil &&
+		opts.Config.Targets.ProjectSelector.IDRange != nil &&
+		opts.Config.Targets.ProjectSelector.IDRange.Min > 0 &&
+		opts.Config.Targets.ProjectSelector.IDRange.Min == opts.Config.Targets.ProjectSelector.IDRange.Max &&
+		opts.Config.Targets.GroupSelector == nil
+
+	if isSingleProject {
+		projectID := opts.Config.Targets.ProjectSelector.IDRange.Min
+		proj, resp, err := opts.Client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) || proj == nil {
+			return nil, fmt.Errorf("target project %d not found", projectID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch target project %d: %w", projectID, err)
+		}
+		fleet = discovery.NewTargetFleet()
+		fleet.Projects[proj.ID] = &discovery.TargetProject{
+			ID:                proj.ID,
+			Name:              proj.Name,
+			Path:              proj.Path,
+			PathWithNamespace: proj.PathWithNamespace,
+			DefaultBranch:     proj.DefaultBranch,
+			Visibility:        string(proj.Visibility),
+			Archived:          proj.Archived,
+			Raw:               proj,
+		}
+		fleet.MatchedProjectsCount = 1
+	} else {
+		discovered, err := discovery.DiscoverFleet(ctx, opts.Client, opts.Config.Targets, discovery.WithConcurrency(concurrency))
+		if err != nil {
+			return nil, fmt.Errorf("fleet discovery failed: %w", err)
+		}
+		fleet = discovered
 	}
 
-	// 2. Inspect each discovered project
-	var projectExports []ProjectPolicyExport
+	if len(fleet.Projects) == 0 {
+		slog.Warn("No projects discovered in target group/fleet for export")
+	}
+
+	// 2. Concurrently inspect each discovered project using bounded worker pool
+	projects := make([]*discovery.TargetProject, 0, len(fleet.Projects))
 	for _, p := range fleet.Projects {
-		pExport := inspectProject(ctx, opts.Client, p, opts)
-		projectExports = append(projectExports, pExport)
+		projects = append(projects, p)
+	}
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].ID < projects[j].ID
+	})
+
+	projectExports := make([]ProjectPolicyExport, len(projects))
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	var inspectErr error
+	var errMu sync.Mutex
+
+	for i, p := range projects {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(idx int, targetProj *discovery.TargetProject) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			if ctx.Err() != nil {
+				errMu.Lock()
+				if inspectErr == nil {
+					inspectErr = ctx.Err()
+				}
+				errMu.Unlock()
+				return
+			}
+			projectExports[idx] = inspectProject(ctx, opts.Client, targetProj, opts)
+		}(i, p)
+	}
+	wg.Wait()
+
+	if inspectErr != nil {
+		return nil, inspectErr
 	}
 
 	// 3. Normalize policies across projects and detect divergence
-	normalizedPolicies, warnings := normalizePolicies(projectExports)
+	normalizedPolicies, warnings, err := normalizePolicies(projectExports, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	// Log divergence warnings to stderr
 	for _, w := range warnings {
@@ -105,9 +202,23 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 		ProjectID:   proj.ID,
 		ProjectPath: proj.PathWithNamespace,
 	}
+	if ctx.Err() != nil {
+		return export
+	}
+
+	// Reuse existing project metadata or fetch once for project settings and runners
+	var rawProj *gitlab.Project
+	if proj.Raw != nil {
+		rawProj = proj.Raw
+	} else {
+		p, _, err := client.Projects().GetProject(proj.ID, nil, gitlab.WithContext(ctx))
+		if err == nil {
+			rawProj = p
+		}
+	}
 
 	// 1. Push Rules
-	if !opts.SkipReconcilers["push_rules"] {
+	if !opts.SkipReconcilers["push_rules"] && ctx.Err() == nil {
 		if pr, err := inspectPushRules(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "push_rules", err)
 		} else {
@@ -116,7 +227,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 2. Protected Branches
-	if !opts.SkipReconcilers["protected_branches"] {
+	if !opts.SkipReconcilers["protected_branches"] && ctx.Err() == nil {
 		if pb, err := inspectProtectedBranches(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "protected_branches", err)
 		} else {
@@ -125,7 +236,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 3. Approval Rules
-	if !opts.SkipReconcilers["approval_rules"] {
+	if !opts.SkipReconcilers["approval_rules"] && ctx.Err() == nil {
 		if ar, err := inspectApprovalRules(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "approval_rules", err)
 		} else {
@@ -134,8 +245,8 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 4. Project Settings
-	if !opts.SkipReconcilers["project_settings"] {
-		if ps, err := inspectProjectSettings(ctx, client, proj.ID); err != nil {
+	if !opts.SkipReconcilers["project_settings"] && ctx.Err() == nil {
+		if ps, err := inspectProjectSettings(ctx, client, proj.ID, rawProj); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "project_settings", err)
 		} else {
 			export.Policies.ProjectSettings = ps
@@ -143,7 +254,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 5. Pipeline Retention
-	if !opts.SkipReconcilers["pipeline_retention"] {
+	if !opts.SkipReconcilers["pipeline_retention"] && ctx.Err() == nil {
 		if pr, err := inspectPipelineRetention(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "pipeline_retention", err)
 		} else {
@@ -152,7 +263,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 6. Variables
-	if !opts.SkipReconcilers["variables"] {
+	if !opts.SkipReconcilers["variables"] && ctx.Err() == nil {
 		if vars, err := inspectVariables(ctx, client, proj.ID, opts.IncludeSecretsPlaceholder); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "variables", err)
 		} else {
@@ -161,8 +272,8 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 7. Runners
-	if !opts.SkipReconcilers["runners"] {
-		if r, err := inspectRunners(ctx, client, proj.ID); err != nil {
+	if !opts.SkipReconcilers["runners"] && ctx.Err() == nil {
+		if r, err := inspectRunners(ctx, client, proj.ID, rawProj); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "runners", err)
 		} else {
 			export.Policies.Runners = r
@@ -170,7 +281,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 8. Compliance
-	if !opts.SkipReconcilers["compliance"] {
+	if !opts.SkipReconcilers["compliance"] && ctx.Err() == nil {
 		if comp, err := inspectCompliance(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "compliance", err)
 		} else {
@@ -179,7 +290,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 9. Webhooks
-	if !opts.SkipReconcilers["webhooks"] {
+	if !opts.SkipReconcilers["webhooks"] && ctx.Err() == nil {
 		if wh, err := inspectWebhooks(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "webhooks", err)
 		} else {
@@ -188,7 +299,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 10. Members
-	if !opts.SkipReconcilers["members"] {
+	if !opts.SkipReconcilers["members"] && ctx.Err() == nil {
 		if mem, err := inspectMembers(ctx, client, proj.ID); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "members", err)
 		} else {
@@ -197,7 +308,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 	}
 
 	// 11. Target Branch Rules
-	if !opts.SkipReconcilers["target_branch_rules"] {
+	if !opts.SkipReconcilers["target_branch_rules"] && ctx.Err() == nil {
 		if tbr, err := inspectTargetBranchRules(ctx, client, proj.PathWithNamespace); err != nil {
 			logWarning(opts, proj.PathWithNamespace, "target_branch_rules", err)
 		} else {
@@ -418,6 +529,12 @@ func inspectApprovalRules(ctx context.Context, client glclient.GitLabClient, pro
 			}
 		}
 
+		hasApprovers := len(ruleCfg.UserUsernames) > 0 || len(ruleCfg.UserIDs) > 0 || len(ruleCfg.GroupPaths) > 0 || len(ruleCfg.GroupIDs) > 0
+		if ruleCfg.RuleType != "any_approver" && !hasApprovers {
+			// Skip system-generated report/code_owner rules that have no explicit approvers to avoid validate failure
+			continue
+		}
+
 		cfg.Rules = append(cfg.Rules, ruleCfg)
 	}
 
@@ -438,13 +555,16 @@ func isApprovalRulesEmpty(cfg *config.ApprovalRulesConfig) bool {
 		len(cfg.Rules) == 0
 }
 
-func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.ProjectSettingsConfig, error) {
-	proj, resp, err := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
-	if isNotFound(err, resp) || proj == nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
+func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, projectID int, proj *gitlab.Project) (*config.ProjectSettingsConfig, error) {
+	if proj == nil {
+		p, resp, err := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) || p == nil {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		proj = p
 	}
 
 	cfg := &config.ProjectSettingsConfig{
@@ -518,16 +638,29 @@ func inspectPipelineRetention(ctx context.Context, client glclient.GitLabClient,
 }
 
 func inspectVariables(ctx context.Context, client glclient.GitLabClient, projectID int, includePlaceholder bool) ([]config.VariableConfig, error) {
-	vars, resp, err := client.Variables().ListProjectVariables(projectID, nil, gitlab.WithContext(ctx))
-	if isNotFound(err, resp) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
+	var allVars []*gitlab.ProjectVariable
+	page := 1
+	for {
+		opts := &gitlab.ListProjectVariablesOptions{
+			Page:    page,
+			PerPage: 100,
+		}
+		vars, resp, err := client.Variables().ListProjectVariables(projectID, opts, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		allVars = append(allVars, vars...)
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		page = resp.NextPage
 	}
 
 	var res []config.VariableConfig
-	for _, v := range vars {
+	for _, v := range allVars {
 		val := v.Value
 		if includePlaceholder && (v.Masked || isSecretVariable(v.Key)) {
 			val = fmt.Sprintf("${%s:-PLACEHOLDER}", v.Key)
@@ -566,26 +699,50 @@ func isSecretVariable(key string) bool {
 		strings.Contains(upper, "CREDENTIAL")
 }
 
-func inspectRunners(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.RunnersConfig, error) {
-	proj, _, _ := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
-
-	runners, resp, err := client.Runners().ListProjectRunners(projectID, nil, gitlab.WithContext(ctx))
-	if isNotFound(err, resp) {
-		runners = nil
-	} else if err != nil {
-		return nil, err
+func inspectRunners(ctx context.Context, client glclient.GitLabClient, projectID int, proj *gitlab.Project) (*config.RunnersConfig, error) {
+	if proj == nil {
+		p, _, _ := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
+		proj = p
 	}
 
-	if proj == nil && len(runners) == 0 {
+	var allRunners []*gitlab.Runner
+	page := 1
+	for {
+		opts := &gitlab.ListProjectRunnersOptions{
+			ListOptions: gitlab.ListOptions{
+				Page:    page,
+				PerPage: 100,
+			},
+		}
+		runners, resp, err := client.Runners().ListProjectRunners(projectID, opts, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		allRunners = append(allRunners, runners...)
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		page = resp.NextPage
+	}
+
+	if proj == nil && len(allRunners) == 0 {
 		return nil, nil
 	}
 
 	cfg := &config.RunnersConfig{}
-	if proj != nil && proj.SharedRunnersEnabled {
-		cfg.SharedRunnersEnabled = ptrBool(proj.SharedRunnersEnabled)
+	if proj != nil {
+		if proj.SharedRunnersEnabled {
+			cfg.SharedRunnersEnabled = ptrBool(proj.SharedRunnersEnabled)
+		}
+		if proj.GroupRunnersEnabled {
+			cfg.GroupRunnersEnabled = ptrBool(proj.GroupRunnersEnabled)
+		}
 	}
 
-	for _, r := range runners {
+	for _, r := range allRunners {
 		details, _, _ := client.Runners().GetRunnerDetails(r.ID, gitlab.WithContext(ctx))
 
 		rCfg := config.RunnerConfig{
@@ -648,16 +805,29 @@ func inspectCompliance(ctx context.Context, client glclient.GitLabClient, projec
 }
 
 func inspectWebhooks(ctx context.Context, client glclient.GitLabClient, projectID int) ([]config.WebhookConfig, error) {
-	hooks, resp, err := client.Webhooks().ListProjectHooks(projectID, nil, gitlab.WithContext(ctx))
-	if isNotFound(err, resp) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
+	var allHooks []*gitlab.ProjectHook
+	page := 1
+	for {
+		opts := &gitlab.ListProjectHooksOptions{
+			Page:    page,
+			PerPage: 100,
+		}
+		hooks, resp, err := client.Webhooks().ListProjectHooks(projectID, opts, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		allHooks = append(allHooks, hooks...)
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		page = resp.NextPage
 	}
 
 	var res []config.WebhookConfig
-	for _, h := range hooks {
+	for _, h := range allHooks {
 		wh := config.WebhookConfig{
 			URL:                    h.URL,
 			PushEventsBranchFilter: h.PushEventsBranchFilter,
@@ -694,20 +864,35 @@ func inspectWebhooks(ctx context.Context, client glclient.GitLabClient, projectI
 }
 
 func inspectMembers(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.MembersConfig, error) {
-	members, resp, err := client.Members().ListProjectMembers(projectID, nil, gitlab.WithContext(ctx))
-	if isNotFound(err, resp) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
+	var allMembers []*gitlab.ProjectMember
+	page := 1
+	for {
+		opts := &gitlab.ListProjectMembersOptions{
+			ListOptions: gitlab.ListOptions{
+				Page:    page,
+				PerPage: 100,
+			},
+		}
+		members, resp, err := client.Members().ListProjectMembers(projectID, opts, gitlab.WithContext(ctx))
+		if isNotFound(err, resp) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		allMembers = append(allMembers, members...)
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		page = resp.NextPage
 	}
 
-	if len(members) == 0 {
+	if len(allMembers) == 0 {
 		return nil, nil
 	}
 
 	cfg := &config.MembersConfig{}
-	for _, m := range members {
+	for _, m := range allMembers {
 		rule := config.MemberRuleConfig{
 			Username:    m.Username,
 			AccessLevel: int(m.AccessLevel),
@@ -742,12 +927,67 @@ func inspectTargetBranchRules(ctx context.Context, client glclient.GitLabClient,
 // Policy Normalization & Divergence Warning Helper
 // ----------------------------------------------------------------------------
 
-func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesConfig, []string) {
+func normalizePolicies(projectExports []ProjectPolicyExport, opts ExportOptions) (config.PoliciesConfig, []string, error) {
 	var warnings []string
 	norm := config.PoliciesConfig{}
 
 	if len(projectExports) == 0 {
-		return norm, warnings
+		return norm, warnings, nil
+	}
+
+	strategy := opts.Strategy
+	if strategy == "" {
+		strategy = "archetype"
+	}
+
+	archetypeIdx := 0
+	if opts.FromProject != "" {
+		found := false
+		for i, pe := range projectExports {
+			if fmt.Sprintf("%d", pe.ProjectID) == opts.FromProject ||
+				pe.ProjectPath == opts.FromProject ||
+				strings.HasSuffix(pe.ProjectPath, "/"+opts.FromProject) {
+				archetypeIdx = i
+				found = true
+				break
+			}
+		}
+		if !found {
+			return norm, nil, fmt.Errorf("from-project '%s' not found in discovered fleet", opts.FromProject)
+		}
+	}
+
+	archetypeExport := projectExports[archetypeIdx]
+	totalProjects := len(projectExports)
+
+	divergenceDesc := func(reconciler string) string {
+		if opts.FromProject != "" {
+			return fmt.Sprintf("%d projects diverge from archetype project '%s' on %s — only archetype project's values shown", totalProjects, archetypeExport.ProjectPath, reconciler)
+		}
+		return fmt.Sprintf("%d projects have divergent %s — only first project's values shown", totalProjects, reconciler)
+	}
+
+	resolveDivergence := func(reconciler string, isUniform bool, assignUniform func(), assignArchetype func()) error {
+		if isUniform {
+			assignUniform()
+			return nil
+		}
+		if totalProjects <= 1 {
+			assignArchetype()
+			return nil
+		}
+		switch strategy {
+		case "strict":
+			return fmt.Errorf("strict export failed: %d projects have divergent %s", totalProjects, reconciler)
+		case "consensus":
+			warnings = append(warnings, fmt.Sprintf("%d projects have divergent %s — omitted under consensus strategy", totalProjects, reconciler))
+		case "archetype":
+			fallthrough
+		default:
+			assignArchetype()
+			warnings = append(warnings, divergenceDesc(reconciler))
+		}
+		return nil
 	}
 
 	// 1. Push Rules
@@ -757,11 +997,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			pushRulesList = append(pushRulesList, pe.Policies.PushRules)
 		}
 	}
-	if len(pushRulesList) > 0 {
-		norm.PushRules = pushRulesList[0]
-		if len(projectExports) > 1 && !allPushRulesEqual(pushRulesList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent push_rules — only first project's values shown", len(projectExports)))
-		}
+	pushRulesUniform := allPushRulesEqual(pushRulesList, totalProjects)
+	if err := resolveDivergence("push_rules", pushRulesUniform,
+		func() {
+			if len(pushRulesList) > 0 {
+				norm.PushRules = pushRulesList[0]
+			}
+		},
+		func() {
+			norm.PushRules = archetypeExport.Policies.PushRules
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 2. Protected Branches
@@ -771,11 +1017,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			pbList = append(pbList, pe.Policies.ProtectedBranches)
 		}
 	}
-	if len(pbList) > 0 {
-		norm.ProtectedBranches = pbList[0]
-		if len(projectExports) > 1 && !allProtectedBranchesEqual(pbList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent protected_branches — only first project's values shown", len(projectExports)))
-		}
+	pbUniform := allProtectedBranchesEqual(pbList, totalProjects)
+	if err := resolveDivergence("protected_branches", pbUniform,
+		func() {
+			if len(pbList) > 0 {
+				norm.ProtectedBranches = pbList[0]
+			}
+		},
+		func() {
+			norm.ProtectedBranches = archetypeExport.Policies.ProtectedBranches
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 3. Approval Rules
@@ -785,11 +1037,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			arList = append(arList, pe.Policies.ApprovalRules)
 		}
 	}
-	if len(arList) > 0 {
-		norm.ApprovalRules = arList[0]
-		if len(projectExports) > 1 && !allApprovalRulesEqual(arList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent approval_rules — only first project's values shown", len(projectExports)))
-		}
+	arUniform := allApprovalRulesEqual(arList, totalProjects)
+	if err := resolveDivergence("approval_rules", arUniform,
+		func() {
+			if len(arList) > 0 {
+				norm.ApprovalRules = arList[0]
+			}
+		},
+		func() {
+			norm.ApprovalRules = archetypeExport.Policies.ApprovalRules
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 4. Project Settings
@@ -799,11 +1057,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			psList = append(psList, pe.Policies.ProjectSettings)
 		}
 	}
-	if len(psList) > 0 {
-		norm.ProjectSettings = psList[0]
-		if len(projectExports) > 1 && !allProjectSettingsEqual(psList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent project_settings — only first project's values shown", len(projectExports)))
-		}
+	psUniform := allProjectSettingsEqual(psList, totalProjects)
+	if err := resolveDivergence("project_settings", psUniform,
+		func() {
+			if len(psList) > 0 {
+				norm.ProjectSettings = psList[0]
+			}
+		},
+		func() {
+			norm.ProjectSettings = archetypeExport.Policies.ProjectSettings
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 5. Pipeline Retention
@@ -813,11 +1077,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			prList = append(prList, pe.Policies.PipelineRetention)
 		}
 	}
-	if len(prList) > 0 {
-		norm.PipelineRetention = prList[0]
-		if len(projectExports) > 1 && !allPipelineRetentionEqual(prList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent pipeline_retention — only first project's values shown", len(projectExports)))
-		}
+	retentionUniform := allPipelineRetentionEqual(prList, totalProjects)
+	if err := resolveDivergence("pipeline_retention", retentionUniform,
+		func() {
+			if len(prList) > 0 {
+				norm.PipelineRetention = prList[0]
+			}
+		},
+		func() {
+			norm.PipelineRetention = archetypeExport.Policies.PipelineRetention
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 6. Variables
@@ -827,11 +1097,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			varList = append(varList, pe.Policies.Variables)
 		}
 	}
-	if len(varList) > 0 {
-		norm.Variables = varList[0]
-		if len(projectExports) > 1 && !allVariablesEqual(varList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent variables — only first project's values shown", len(projectExports)))
-		}
+	varUniform := allVariablesEqual(varList, totalProjects)
+	if err := resolveDivergence("variables", varUniform,
+		func() {
+			if len(varList) > 0 {
+				norm.Variables = varList[0]
+			}
+		},
+		func() {
+			norm.Variables = archetypeExport.Policies.Variables
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 7. Runners
@@ -841,11 +1117,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			runnerList = append(runnerList, pe.Policies.Runners)
 		}
 	}
-	if len(runnerList) > 0 {
-		norm.Runners = runnerList[0]
-		if len(projectExports) > 1 && !allRunnersEqual(runnerList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent runners — only first project's values shown", len(projectExports)))
-		}
+	runnerUniform := allRunnersEqual(runnerList, totalProjects)
+	if err := resolveDivergence("runners", runnerUniform,
+		func() {
+			if len(runnerList) > 0 {
+				norm.Runners = runnerList[0]
+			}
+		},
+		func() {
+			norm.Runners = archetypeExport.Policies.Runners
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 8. Compliance
@@ -855,11 +1137,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			compList = append(compList, pe.Policies.Compliance)
 		}
 	}
-	if len(compList) > 0 {
-		norm.Compliance = compList[0]
-		if len(projectExports) > 1 && !allComplianceEqual(compList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent compliance — only first project's values shown", len(projectExports)))
-		}
+	compUniform := allComplianceEqual(compList, totalProjects)
+	if err := resolveDivergence("compliance", compUniform,
+		func() {
+			if len(compList) > 0 {
+				norm.Compliance = compList[0]
+			}
+		},
+		func() {
+			norm.Compliance = archetypeExport.Policies.Compliance
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 9. Webhooks
@@ -869,11 +1157,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			whList = append(whList, pe.Policies.Webhooks)
 		}
 	}
-	if len(whList) > 0 {
-		norm.Webhooks = whList[0]
-		if len(projectExports) > 1 && !allWebhooksEqual(whList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent webhooks — only first project's values shown", len(projectExports)))
-		}
+	whUniform := allWebhooksEqual(whList, totalProjects)
+	if err := resolveDivergence("webhooks", whUniform,
+		func() {
+			if len(whList) > 0 {
+				norm.Webhooks = whList[0]
+			}
+		},
+		func() {
+			norm.Webhooks = archetypeExport.Policies.Webhooks
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 10. Members
@@ -883,11 +1177,17 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			memList = append(memList, pe.Policies.Members)
 		}
 	}
-	if len(memList) > 0 {
-		norm.Members = memList[0]
-		if len(projectExports) > 1 && !allMembersEqual(memList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent members — only first project's values shown", len(projectExports)))
-		}
+	memUniform := allMembersEqual(memList, totalProjects)
+	if err := resolveDivergence("members", memUniform,
+		func() {
+			if len(memList) > 0 {
+				norm.Members = memList[0]
+			}
+		},
+		func() {
+			norm.Members = archetypeExport.Policies.Members
+		}); err != nil {
+		return norm, nil, err
 	}
 
 	// 11. Target Branch Rules
@@ -897,14 +1197,20 @@ func normalizePolicies(projectExports []ProjectPolicyExport) (config.PoliciesCon
 			tbrList = append(tbrList, pe.Policies.TargetBranchRules)
 		}
 	}
-	if len(tbrList) > 0 {
-		norm.TargetBranchRules = tbrList[0]
-		if len(projectExports) > 1 && !allTargetBranchRulesEqual(tbrList, len(projectExports)) {
-			warnings = append(warnings, fmt.Sprintf("%d projects have divergent target_branch_rules — only first project's values shown", len(projectExports)))
-		}
+	tbrUniform := allTargetBranchRulesEqual(tbrList, totalProjects)
+	if err := resolveDivergence("target_branch_rules", tbrUniform,
+		func() {
+			if len(tbrList) > 0 {
+				norm.TargetBranchRules = tbrList[0]
+			}
+		},
+		func() {
+			norm.TargetBranchRules = archetypeExport.Policies.TargetBranchRules
+		}); err != nil {
+		return norm, nil, err
 	}
 
-	return norm, warnings
+	return norm, warnings, nil
 }
 
 // Equality comparison helpers for normalization
@@ -1108,13 +1414,31 @@ func serializeWithComments(cfg *config.PolicyConfig, warnings []string) ([]byte,
 				keyNode := rootMapping.Content[i]
 				valNode := rootMapping.Content[i+1]
 				if keyNode.Value == "policies" && valNode.Kind == yaml.MappingNode {
+					matchedWarnings := make(map[string]bool)
 					for j := 0; j < len(valNode.Content)-1; j += 2 {
 						polKeyNode := valNode.Content[j]
 						for _, w := range warnings {
 							if strings.Contains(w, polKeyNode.Value) {
 								polKeyNode.HeadComment = "WARNING: " + w
+								matchedWarnings[w] = true
 							}
 						}
+					}
+					var unmatchedWarnings []string
+					for _, w := range warnings {
+						if !matchedWarnings[w] {
+							unmatchedWarnings = append(unmatchedWarnings, w)
+						}
+					}
+					if len(unmatchedWarnings) > 0 {
+						comment := keyNode.HeadComment
+						if comment != "" {
+							comment += "\n"
+						}
+						for _, uw := range unmatchedWarnings {
+							comment += "WARNING: " + uw + "\n"
+						}
+						keyNode.HeadComment = strings.TrimRight(comment, "\n")
 					}
 				}
 			}

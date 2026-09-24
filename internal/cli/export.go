@@ -21,6 +21,8 @@ type exportFlags struct {
 	Output                    string
 	IncludeSecretsPlaceholder bool
 	SkipReconcilers           string
+	FromProject               string
+	Strategy                  string
 }
 
 func newExportCmd() *cobra.Command {
@@ -37,6 +39,12 @@ and emits a normalized declarative policy.yaml baseline that can be used for fle
   # Export a single project
   gitlab-fleet-governor export --project-id 42 --output project-42-policy.yaml
 
+  # Export using a golden template archetype project
+  gitlab-fleet-governor export --group-path "enterprise-fleet" --from-project 42 --output baseline-policy.yaml
+
+  # Export only consensus settings (identical across all projects)
+  gitlab-fleet-governor export --group-path "enterprise-fleet" --strategy consensus --output baseline-policy.yaml
+
   # Export to stdout (pipe to file)
   gitlab-fleet-governor export --group-path "platform/services" --recursive --output -`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +59,8 @@ and emits a normalized declarative policy.yaml baseline that can be used for fle
 	cmd.Flags().StringVar(&flags.Output, "output", "", "Output file path, - for stdout")
 	cmd.Flags().BoolVar(&flags.IncludeSecretsPlaceholder, "include-secrets-placeholder", true, "Replace masked variable values with ${VAR:-PLACEHOLDER}")
 	cmd.Flags().StringVar(&flags.SkipReconcilers, "skip-reconcilers", "", "Comma-separated list of reconcilers to skip (e.g., variables,webhooks)")
+	cmd.Flags().StringVar(&flags.FromProject, "from-project", "", "Project ID or full path to use as golden template for group policy")
+	cmd.Flags().StringVar(&flags.Strategy, "strategy", "archetype", "Divergence resolution strategy: archetype (use golden template or first project), consensus (only identical properties across all projects), or strict (fail on divergence)")
 
 	return cmd
 }
@@ -60,21 +70,31 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		return fmt.Errorf("either --group-path or --project-id must be specified")
 	}
 
+	strategy := strings.ToLower(strings.TrimSpace(flags.Strategy))
+	if strategy == "" {
+		strategy = "archetype"
+	}
+	if strategy != "consensus" && strategy != "archetype" && strategy != "strict" {
+		return fmt.Errorf("invalid strategy '%s' (must be archetype, consensus, or strict)", flags.Strategy)
+	}
+
 	var cfg *config.PolicyConfig
 	if globalFlags.ConfigPath != "" {
-		loadedCfg, sourceDesc, err := config.Load(ctx, globalFlags.ConfigPath, config.LoadOptions{
+		loadedCfg, _, err := config.Load(ctx, globalFlags.ConfigPath, config.LoadOptions{
 			LoaderOptions: []config.LoaderOption{config.WithStdin(cmd.InOrStdin())},
 		})
 		if err != nil {
-			slog.Warn("Failed to load provided config file, using default settings", "source", sourceDesc, "error", err)
-			cfg = &config.PolicyConfig{}
-			cfg.SetDefaults()
-		} else {
-			cfg = loadedCfg
+			return fmt.Errorf("failed to load configuration '%s': %w", globalFlags.ConfigPath, err)
 		}
+		cfg = loadedCfg
 	} else {
 		cfg = &config.PolicyConfig{}
 		cfg.SetDefaults()
+	}
+
+	// Wire global concurrency flag
+	if cmd.Flags().Changed("concurrency") || cmd.InheritedFlags().Changed("concurrency") {
+		cfg.Settings.Concurrency = globalFlags.Concurrency
 	}
 
 	// Override targets from CLI flags
@@ -116,6 +136,8 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		Config:                    cfg,
 		IncludeSecretsPlaceholder: flags.IncludeSecretsPlaceholder,
 		SkipReconcilers:           skipSet,
+		FromProject:               strings.TrimSpace(flags.FromProject),
+		Strategy:                  strategy,
 		ErrOut:                    cmd.ErrOrStderr(),
 	}
 

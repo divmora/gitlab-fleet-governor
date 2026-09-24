@@ -77,8 +77,59 @@ func TestE2E_Tier1_CLI_Export(t *testing.T) {
 
 	exportFile := filepath.Join(h.TempDir, "baseline-policy.yaml")
 
-	t.Run("Export Live Group State to File", func(t *testing.T) {
-		stdout, stderr, err := h.ExecuteCLI(ctx, "export", "--group-path", "platform", "--output", exportFile)
+	projectExportFile := filepath.Join(h.TempDir, "project-baseline.yaml")
+
+	t.Run("Export Single Project State to File", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "export", "--project-id", "101", "--output", projectExportFile)
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stderr+stdout, "exported baseline policy")
+		require.FileExists(t, projectExportFile)
+
+		content, err := os.ReadFile(projectExportFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "version: v1")
+		assert.Contains(t, string(content), "id_range:")
+	})
+
+	t.Run("Validate Exported Project Policy File Round-Trip", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "validate", "-c", projectExportFile)
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stdout, "valid")
+	})
+
+	t.Run("Run Dry-Run on Exported Project Policy File Yields Zero Drift", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "run", "-c", projectExportFile, "--dry-run", "--report-format=json")
+		require.NoError(t, err, "stderr: %s", stderr)
+
+		var rd report.ReportData
+		err = json.Unmarshal([]byte(stdout), &rd)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rd.TotalFailed)
+		assert.Equal(t, 0, rd.TotalChanged, "export baseline policy must produce zero drift upon immediate dry run")
+	})
+
+	t.Run("Export Live Group State with Strict Strategy Fails on Divergence", func(t *testing.T) {
+		strictFile := filepath.Join(h.TempDir, "strict-policy.yaml")
+		_, _, err := h.ExecuteCLI(ctx, "export", "--group-path", "platform", "--strategy", "strict", "--output", strictFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "strict export failed")
+	})
+
+	consensusFile := filepath.Join(h.TempDir, "consensus-policy.yaml")
+	t.Run("Export Live Group State with Consensus Strategy", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "export", "--group-path", "platform", "--strategy", "consensus", "--output", consensusFile)
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stderr+stdout, "exported baseline policy")
+		require.FileExists(t, consensusFile)
+
+		// Diverged settings (like push rules) should be omitted
+		content, err := os.ReadFile(consensusFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(content), "push_rules:")
+	})
+
+	t.Run("Export Live Group State with Archetype Strategy and From-Project", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "export", "--group-path", "platform", "--from-project", "101", "--output", exportFile)
 		require.NoError(t, err, "stderr: %s", stderr)
 		assert.Contains(t, stderr+stdout, "exported baseline policy")
 		require.FileExists(t, exportFile)
@@ -88,6 +139,7 @@ func TestE2E_Tier1_CLI_Export(t *testing.T) {
 		assert.Contains(t, string(content), "version: v1")
 		assert.Contains(t, string(content), "group_paths_include:")
 		assert.Contains(t, string(content), "platform")
+		assert.Contains(t, string(content), "push_rules:")
 	})
 
 	t.Run("Validate Exported Policy File Round-Trip", func(t *testing.T) {
