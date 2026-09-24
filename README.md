@@ -127,6 +127,19 @@ gitlab-fleet-governor run -c policies/enterprise.yaml --dry-run=false
 gitlab-fleet-governor run -c policies/enterprise.yaml --report-format markdown --output-file report.md
 ```
 
+#### `export`
+Reverse-syncs the live configuration of a target group or project hierarchy into a normalized `policy.yaml` baseline:
+```bash
+# Export live configuration of a group hierarchy
+gitlab-fleet-governor export --group-path "enterprise-fleet" --recursive --output baseline-policy.yaml
+
+# Export a single project
+gitlab-fleet-governor export --project-id 42 --output project-42-policy.yaml
+
+# Export to stdout (pipe to file)
+gitlab-fleet-governor export --group-path "platform/services" --recursive --output -
+```
+
 #### `audit`
 Executes read-only fleet compliance and security audits with multi-sheet Excel reports and optional email distribution:
 ```bash

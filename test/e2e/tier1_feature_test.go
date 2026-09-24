@@ -65,6 +65,44 @@ func TestE2E_Tier1_CLI_Version(t *testing.T) {
 	})
 }
 
+func TestE2E_Tier1_CLI_Export(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	h := NewE2EHarness(t)
+
+	// Set env vars so CLI export uses mock GitLab server
+	t.Setenv("GITLAB_BASE_URL", h.Server.BaseURL())
+	t.Setenv("GITLAB_TOKEN", "mock-token")
+
+	exportFile := filepath.Join(h.TempDir, "baseline-policy.yaml")
+
+	t.Run("Export Live Group State to File", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "export", "--group-path", "platform", "--output", exportFile)
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stderr+stdout, "exported baseline policy")
+		require.FileExists(t, exportFile)
+
+		content, err := os.ReadFile(exportFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "version: v1")
+		assert.Contains(t, string(content), "group_paths_include:")
+		assert.Contains(t, string(content), "platform")
+	})
+
+	t.Run("Validate Exported Policy File Round-Trip", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "validate", "-c", exportFile)
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stdout, "valid")
+	})
+
+	t.Run("Run Dry-Run on Exported Policy File", func(t *testing.T) {
+		stdout, stderr, err := h.ExecuteCLI(ctx, "run", "-c", exportFile, "--dry-run")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stdout, "GitLab Fleet Governor Execution Report")
+	})
+}
+
 func TestE2E_Tier1_CLI_Validate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
