@@ -26,6 +26,8 @@ gitlab-fleet-governor [command] [flags]
 
 # Commands
 gitlab-fleet-governor run -c <path> [flags]        # Execute fleet governance
+gitlab-fleet-governor export [flags]               # Reverse-sync live fleet state to policy.yaml
+gitlab-fleet-governor audit -c <path> [flags]      # Execute fleet compliance and security audits
 gitlab-fleet-governor validate -c <path> [flags]   # Validate policy syntax & schema offline
 gitlab-fleet-governor lambda --event <path>        # Emulate local AWS Lambda execution
 gitlab-fleet-governor version                      # Show build & semver information

@@ -56,6 +56,29 @@ Alternatively, `gitlab-fleet-governor` recognizes `PRIVATE_TOKEN`, `CI_JOB_TOKEN
 
 ---
 
+## Exporting Live State to Policy (Reverse-Sync)
+
+If you already have existing GitLab groups or projects, you can instantly export their current live state into a normalized `policy.yaml` configuration baseline instead of authoring one manually:
+
+```bash
+# Export state of an entire group hierarchy (using archetype strategy)
+gitlab-fleet-governor export --group-path "my-organization/core-team" --output governance.yaml
+
+# Export using an authoritative "golden template" archetype project
+gitlab-fleet-governor export --group-path "my-organization/core-team" --from-project "my-organization/core-team/app-template" --output governance.yaml
+
+# Export consensus-only baseline (omits divergent settings to guarantee zero drift upon immediate dry-run)
+gitlab-fleet-governor export --group-path "my-organization/core-team" --strategy consensus --output governance.yaml
+
+# Fail immediately if any configuration divergence exists across projects
+gitlab-fleet-governor export --group-path "my-organization/core-team" --strategy strict --output governance.yaml
+
+# Export state of a single project (optimized direct fetch)
+gitlab-fleet-governor export --project-id 42 --output project-42-policy.yaml
+```
+
+---
+
 ## Creating Your First Policy
 
 Create a file named `governance.yaml`:

@@ -127,6 +127,41 @@ gitlab-fleet-governor run -c policies/enterprise.yaml --dry-run=false
 gitlab-fleet-governor run -c policies/enterprise.yaml --report-format markdown --output-file report.md
 ```
 
+#### `export`
+Reverse-syncs the live configuration of a target group or project hierarchy into a normalized `policy.yaml` baseline:
+```bash
+# Export live configuration of a group hierarchy (using default archetype strategy)
+gitlab-fleet-governor export --group-path "enterprise-fleet" --recursive --output baseline-policy.yaml
+
+# Export using an authoritative "golden template" archetype project
+gitlab-fleet-governor export --group-path "enterprise-fleet" --from-project "enterprise-fleet/golden-service" --output baseline.yaml
+
+# Export consensus-only baseline (omits divergent settings so immediate dry-runs report zero drift)
+gitlab-fleet-governor export --group-path "enterprise-fleet" --strategy consensus --output consensus-policy.yaml
+
+# Strict export: fail immediately if fleet projects have configuration drift
+gitlab-fleet-governor export --group-path "enterprise-fleet" --strategy strict --output baseline.yaml
+
+# Export a single project directly (optimized direct fetch)
+gitlab-fleet-governor export --project-id 42 --output project-42-policy.yaml
+
+# Export to stdout (pipe to file)
+gitlab-fleet-governor export --group-path "platform/services" --recursive --output -
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--group-path` | `""` | Target GitLab group path for hierarchy inspection |
+| `--project-id` | `0` | Target single GitLab project ID for direct inspection |
+| `--strategy` | `archetype` | Divergence strategy: `archetype` (golden template), `consensus` (zero-drift intersection), or `strict` (fail on drift) |
+| `--from-project` | `""` | Authoritative archetype project ID or path for `archetype` strategy |
+| `--recursive` | `true` | Recursively traverse subgroup hierarchies |
+| `--skip-reconciler` | `""` | Comma-separated reconcilers to exclude (e.g. `variables,webhooks`) |
+| `--include-secrets-placeholder` | `true` | Replace masked/sensitive CI/CD variable values with `${VAR:-PLACEHOLDER}` |
+| `--concurrency` | `10` | Bounded worker pool concurrency for parallel inspection |
+| `-o, --output` | `""` | Destination file path (or `-` for stdout) |
+
+
 #### `audit`
 Executes read-only fleet compliance and security audits with multi-sheet Excel reports and optional email distribution:
 ```bash

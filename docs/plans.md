@@ -69,6 +69,7 @@ The following table details feature availability and runtime verification mechan
 | **Project Settings** | `governance.project_settings` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **Members & Expiration** | `governance.members` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **CI/CD Variables** | `governance.variables` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
+| **Fleet State Reverse-Sync (`export`)** | `export.*` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **Standard CLI Reports (table/json/csv/md)** | `report.*` | ✅ Included | ✅ Included | ✅ Included | **Bypassed (Zero Calls)** |
 | **Merge Request Approval Rules** | `governance.approval_rules` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Merge Request Target Branch Rules** | `governance.target_branch_rules` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
@@ -94,6 +95,7 @@ The following table details feature availability and runtime verification mechan
 - **Project Settings (`governance.project_settings`)**: Enforces merge request methods (merge commit, fast-forward, rebase), squash policies, unresolved discussion gates, and auto-cancel redundant pipelines.
 - **Member Governance (`governance.members`)**: Enforces access level ceilings, mandatory access expiration dates, and unmanaged direct member detection.
 - **CI/CD Variables (`governance.variables`)**: Manages environment-scoped CI/CD variables, masked tokens, protected variables, raw expansion flags, and unmanaged drift pruning.
+- **Fleet State Reverse-Sync (`export.*`)**: Inspects live fleet state across groups or individual projects, emitting normalized declarative `policy.yaml` configuration baselines with archetype, consensus, and strict divergence handling.
 - **CLI Reporting (`report.*`)**: Rich colored terminal tables, machine-readable JSON, CSV, and GitHub Flavored Markdown summary reports.
 
 ### 4.2 Pro Plan Capabilities
