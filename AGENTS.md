@@ -150,7 +150,7 @@ internal/
   discovery/                # Group BFS hierarchy traversal with cycle detection & project filtering
   engine/                   # Parallel worker pool reconciler & diff calculation engine
   gitlab/                   # Resilient GitLab REST API client (rate limiting, jittered backoff)
-  governance/               # 10 modular reconciler engines (push_rules, protected_branches, etc.)
+  governance/               # 11 modular reconciler engines (push_rules, protected_branches, etc.)
   lambda/                   # AWS Lambda event drivers (EventBridge, S3 Put, Direct JSON)
   logging/                  # Structured log/slog handler (text/json formatting)
   report/                   # Multi-format report renderer (table, json, csv, markdown)

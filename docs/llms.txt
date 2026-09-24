@@ -10,7 +10,7 @@ GitLab Fleet Governor is a high-performance Go-based policy engine engineered to
 - [Getting Started](https://divmora.github.io/gitlab-fleet-governor/getting-started/): Installation via Homebrew, Docker, binaries, and basic CLI usage.
 - [Policy Studio (Interactive Playground)](https://divmora.github.io/gitlab-fleet-governor/playground/): Visual policy builder, validator, and template generator.
 - [Configuration Reference](https://divmora.github.io/gitlab-fleet-governor/configuration/): Complete YAML and JSON schema specification with environment variable expansion.
-- [Operations Suite](https://divmora.github.io/gitlab-fleet-governor/operations/): Deep dive into all 10 governance reconcilers and the Fleet Compliance & Security Audit Suite (User Access, Protected Branches, Protected Environments, Multi-Sheet Excel, Headless SMTP).
+- [Operations Suite](https://divmora.github.io/gitlab-fleet-governor/operations/): Deep dive into all 11 governance reconcilers and the Fleet Compliance & Security Audit Suite (User Access, Protected Branches, Protected Environments, Multi-Sheet Excel, Headless SMTP).
 - [AWS Lambda & Serverless](https://divmora.github.io/gitlab-fleet-governor/lambda/): EventBridge scheduled triggers, S3 event dispatch, and serverless execution.
 - [CI/CD Pipelines](https://divmora.github.io/gitlab-fleet-governor/ci-cd/): GitLab CI and GitHub Actions automation recipes.
 - [Architecture](https://divmora.github.io/gitlab-fleet-governor/architecture/): Multi-agent role topology, graph traversal, concurrency semaphores, and rate-limiting protocols.
@@ -92,6 +92,14 @@ policies:
     only_allow_merge_if_pipeline_succeeds: true
     only_allow_merge_if_all_discussions_are_resolved: true
     keep_latest_artifact: true
+
+  target_branch_rules:
+    prune_unmanaged: true
+    rules:
+      - source_branch_pattern: "feat/*"
+        target_branch_name: "staging"
+      - source_branch_pattern: "hotfix/*"
+        target_branch_name: "main"
 
   pipeline_retention:
     retention_days: 30 # Maps to native GitLab ci_delete_pipelines_in_seconds: 2592000

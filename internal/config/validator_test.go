@@ -140,6 +140,29 @@ func TestValidate_ValidConfigs(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Valid Target Branch Rules Configuration", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				TargetBranchRules: &config.TargetBranchRulesConfig{
+					Prune: boolPtr(true),
+					Rules: []config.TargetBranchRuleConfig{
+						{
+							Name:         "feature/*",
+							TargetBranch: "develop",
+						},
+						{
+							Name:         "hotfix/*",
+							TargetBranch: "main",
+						},
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.NoError(t, err)
+	})
+
 	t.Run("Valid Minimal Configuration", func(t *testing.T) {
 		cfg := &config.PolicyConfig{
 			Version: "v1",
@@ -550,6 +573,74 @@ func TestValidate_SemanticErrors(t *testing.T) {
 				},
 			},
 			expectedErr: "invalid expires_at format '31-12-2026'",
+		},
+		{
+			name: "Target branch rule missing name",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "",
+								TargetBranch: "develop",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "policies.target_branch_rules.rules[0].name",
+		},
+		{
+			name: "Target branch rule missing target_branch",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "feature/*",
+								TargetBranch: "",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "policies.target_branch_rules.rules[0].target_branch",
+		},
+		{
+			name: "Target branch rule duplicate source pattern",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "feature/*",
+								TargetBranch: "develop",
+							},
+							{
+								Name:         "feature/*",
+								TargetBranch: "main",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "duplicate target branch rule for source pattern 'feature/*'",
+		},
+		{
+			name: "Target branch rule source identical to target",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					TargetBranchRules: &config.TargetBranchRulesConfig{
+						Rules: []config.TargetBranchRuleConfig{
+							{
+								Name:         "main",
+								TargetBranch: "main",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "source pattern 'main' cannot be identical to target branch 'main'",
 		},
 	}
 

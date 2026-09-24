@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +38,7 @@ type Client struct {
 	users                 UsersService
 	protectedEnvironments ProtectedEnvironmentsService
 	pipelines             PipelinesService
+	targetBranchRules     TargetBranchRulesService
 
 	serverTimeMu   sync.RWMutex
 	lastServerTime time.Time
@@ -165,6 +168,11 @@ func WithPipelinesService(s PipelinesService) ClientOption {
 	return func(c *Client) { c.pipelines = s }
 }
 
+// WithTargetBranchRulesService overrides the default TargetBranchRulesService.
+func WithTargetBranchRulesService(s TargetBranchRulesService) ClientOption {
+	return func(c *Client) { c.targetBranchRules = s }
+}
+
 // NewClient constructs a new GitLabClient wrapper from resolved authentication.
 func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if auth == nil {
@@ -258,6 +266,14 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.pipelines == nil {
 		c.pipelines = &defaultPipelinesService{client: rawClient}
 	}
+	if c.targetBranchRules == nil {
+		c.targetBranchRules = &defaultTargetBranchRulesService{
+			httpClient: c.httpClient,
+			baseURL:    auth.BaseURL,
+			token:      auth.Token,
+			tokenType:  auth.TokenType,
+		}
+	}
 
 	return c, nil
 }
@@ -316,6 +332,7 @@ func (c *Client) Members() MembersService                             { return c
 func (c *Client) Users() UsersService                                 { return c.users }
 func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c.protectedEnvironments }
 func (c *Client) Pipelines() PipelinesService                         { return c.pipelines }
+func (c *Client) TargetBranchRules() TargetBranchRulesService         { return c.targetBranchRules }
 func (c *Client) BaseURL() string                                     { return c.baseURL }
 func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
 
@@ -666,4 +683,271 @@ type defaultPipelinesService struct{ client *gitlab.Client }
 
 func (s *defaultPipelinesService) ListProjectPipelines(pid any, opt *gitlab.ListProjectPipelinesOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.PipelineInfo, *gitlab.Response, error) {
 	return s.client.Pipelines.ListProjectPipelines(pid, opt, options...)
+}
+
+type defaultTargetBranchRulesService struct {
+	httpClient *http.Client
+	baseURL    string
+	token      string
+	tokenType  TokenType
+}
+
+func (s *defaultTargetBranchRulesService) GetTargetBranchRules(ctx context.Context, projectFullPath string) ([]TargetBranchRule, error) {
+	query := map[string]any{
+		"query": `query getTargetBranchRules($fullPath: ID!) {
+  project(fullPath: $fullPath) {
+    id
+    targetBranchRules {
+      nodes {
+        id
+        name
+        targetBranch
+        createdAt
+      }
+    }
+  }
+}`,
+		"variables": map[string]any{
+			"fullPath": projectFullPath,
+		},
+	}
+
+	bodyBytes, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal target branch rules query: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.graphqlURL(), bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	s.setAuthHeader(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := s.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("graphql target branch rules query returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var res struct {
+		Data struct {
+			Project *struct {
+				ID                string `json:"id"`
+				TargetBranchRules struct {
+					Nodes []TargetBranchRule `json:"nodes"`
+				} `json:"targetBranchRules"`
+			} `json:"project"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("failed to decode target branch rules query response: %w", err)
+	}
+
+	if len(res.Errors) > 0 {
+		return nil, fmt.Errorf("graphql target branch rules query error: %s", res.Errors[0].Message)
+	}
+
+	if res.Data.Project == nil {
+		return nil, fmt.Errorf("project not found: %s", projectFullPath)
+	}
+
+	return res.Data.Project.TargetBranchRules.Nodes, nil
+}
+
+func formatProjectGID(id any) string {
+	switch v := id.(type) {
+	case int:
+		return fmt.Sprintf("gid://gitlab/Project/%d", v)
+	case int64:
+		return fmt.Sprintf("gid://gitlab/Project/%d", v)
+	case string:
+		if strings.HasPrefix(v, "gid://gitlab/Project/") {
+			return v
+		}
+		if _, err := strconv.Atoi(v); err == nil {
+			return fmt.Sprintf("gid://gitlab/Project/%s", v)
+		}
+		return v
+	default:
+		return fmt.Sprintf("gid://gitlab/Project/%v", v)
+	}
+}
+
+func (s *defaultTargetBranchRulesService) CreateTargetBranchRule(ctx context.Context, projectID any, name, targetBranch string) (*TargetBranchRule, error) {
+	gid := formatProjectGID(projectID)
+	mutation := map[string]any{
+		"query": `mutation createTargetBranchRule($input: ProjectTargetBranchRuleCreateInput!) {
+  projectTargetBranchRuleCreate(input: $input) {
+    errors
+    targetBranchRule {
+      id
+      name
+      targetBranch
+    }
+  }
+}`,
+		"variables": map[string]any{
+			"input": map[string]any{
+				"projectId":    gid,
+				"name":         name,
+				"targetBranch": targetBranch,
+			},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(mutation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal create target branch rule mutation: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.graphqlURL(), bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	s.setAuthHeader(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := s.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("graphql create target branch rule mutation returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var res struct {
+		Data struct {
+			ProjectTargetBranchRuleCreate struct {
+				Errors           []string          `json:"errors"`
+				TargetBranchRule *TargetBranchRule `json:"targetBranchRule"`
+			} `json:"projectTargetBranchRuleCreate"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("failed to decode create target branch rule response: %w", err)
+	}
+
+	if len(res.Errors) > 0 {
+		return nil, fmt.Errorf("graphql create target branch rule error: %s", res.Errors[0].Message)
+	}
+
+	if len(res.Data.ProjectTargetBranchRuleCreate.Errors) > 0 {
+		return nil, fmt.Errorf("create target branch rule error: %s", res.Data.ProjectTargetBranchRuleCreate.Errors[0])
+	}
+
+	return res.Data.ProjectTargetBranchRuleCreate.TargetBranchRule, nil
+}
+
+func (s *defaultTargetBranchRulesService) DestroyTargetBranchRule(ctx context.Context, ruleID string) error {
+	mutation := map[string]any{
+		"query": `mutation destroyTargetBranchRule($input: ProjectTargetBranchRuleDestroyInput!) {
+  projectTargetBranchRuleDestroy(input: $input) {
+    errors
+  }
+}`,
+		"variables": map[string]any{
+			"input": map[string]any{
+				"id": ruleID,
+			},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(mutation)
+	if err != nil {
+		return fmt.Errorf("failed to marshal destroy target branch rule mutation: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.graphqlURL(), bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return err
+	}
+	s.setAuthHeader(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := s.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("graphql destroy target branch rule mutation returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var res struct {
+		Data struct {
+			ProjectTargetBranchRuleDestroy struct {
+				Errors []string `json:"errors"`
+			} `json:"projectTargetBranchRuleDestroy"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("failed to decode destroy target branch rule response: %w", err)
+	}
+
+	if len(res.Errors) > 0 {
+		return fmt.Errorf("graphql destroy target branch rule error: %s", res.Errors[0].Message)
+	}
+
+	if len(res.Data.ProjectTargetBranchRuleDestroy.Errors) > 0 {
+		return fmt.Errorf("destroy target branch rule error: %s", res.Data.ProjectTargetBranchRuleDestroy.Errors[0])
+	}
+
+	return nil
+}
+
+func (s *defaultTargetBranchRulesService) graphqlURL() string {
+	u := strings.TrimSuffix(s.baseURL, "/")
+	u = strings.TrimSuffix(u, "/api/v4")
+	return u + "/api/graphql"
+}
+
+func (s *defaultTargetBranchRulesService) setAuthHeader(req *http.Request) {
+	switch s.tokenType {
+	case TokenTypeOAuth:
+		req.Header.Set("Authorization", "Bearer "+s.token)
+	case TokenTypeJob:
+		req.Header.Set("JOB-TOKEN", s.token)
+	case TokenTypePrivate:
+		fallthrough
+	default:
+		req.Header.Set("PRIVATE-TOKEN", s.token)
+	}
 }

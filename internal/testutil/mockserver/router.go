@@ -52,7 +52,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Route GraphQL requests
-	if rawPath == "/graphql" || rawPath == "/api/v4/graphql" {
+	if rawPath == "/graphql" || rawPath == "/api/graphql" || rawPath == "/api/v4/graphql" {
 		rt.handleGraphQL(w, r)
 		return
 	}
@@ -1261,6 +1261,131 @@ func (rt *Router) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 				"project": map[string]any{
 					"complianceFrameworks": map[string]any{
 						"nodes": frameworks,
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	// Target Branch Rule Create Mutation
+	if strings.Contains(req.Query, "projectTargetBranchRuleCreate") {
+		var varReq struct {
+			Variables struct {
+				Input struct {
+					ProjectID    string `json:"projectId"`
+					ProjectPath  string `json:"projectPath"`
+					Name         string `json:"name"`
+					TargetBranch string `json:"targetBranch"`
+				} `json:"input"`
+			} `json:"variables"`
+		}
+		_ = json.Unmarshal(bodyBytes, &varReq)
+
+		projectTarget := varReq.Variables.Input.ProjectID
+		if projectTarget == "" {
+			projectTarget = varReq.Variables.Input.ProjectPath
+		}
+		if projectTarget == "" {
+			projectTarget = extractStringBetween(req.Query, `projectId: "`, `"`)
+		}
+		if projectTarget == "" {
+			projectTarget = extractStringBetween(req.Query, `projectPath: "`, `"`)
+		}
+		name := varReq.Variables.Input.Name
+		targetBranch := varReq.Variables.Input.TargetBranch
+
+		if name == "" {
+			name = extractStringBetween(req.Query, `name: "`, `"`)
+			targetBranch = extractStringBetween(req.Query, `targetBranch: "`, `"`)
+		}
+
+		rule, ok := rt.state.AddTargetBranchRule(projectTarget, name, targetBranch)
+		if !ok {
+			res := map[string]any{
+				"data": map[string]any{
+					"projectTargetBranchRuleCreate": map[string]any{
+						"errors":           []string{"project not found"},
+						"targetBranchRule": nil,
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+
+		res := map[string]any{
+			"data": map[string]any{
+				"projectTargetBranchRuleCreate": map[string]any{
+					"errors":           []string{},
+					"targetBranchRule": rule,
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	// Target Branch Rule Destroy Mutation
+	if strings.Contains(req.Query, "projectTargetBranchRuleDestroy") {
+		var varReq struct {
+			Variables struct {
+				Input struct {
+					ID string `json:"id"`
+				} `json:"input"`
+			} `json:"variables"`
+		}
+		_ = json.Unmarshal(bodyBytes, &varReq)
+
+		ruleID := varReq.Variables.Input.ID
+		if ruleID == "" {
+			ruleID = extractStringBetween(req.Query, `id: "`, `"`)
+		}
+
+		rt.state.DestroyTargetBranchRule(ruleID)
+		res := map[string]any{
+			"data": map[string]any{
+				"projectTargetBranchRuleDestroy": map[string]any{
+					"errors": []string{},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	// Target Branch Rules Query
+	if strings.Contains(req.Query, "targetBranchRules") {
+		var varReq struct {
+			Variables struct {
+				FullPath string `json:"fullPath"`
+			} `json:"variables"`
+		}
+		_ = json.Unmarshal(bodyBytes, &varReq)
+
+		fullPath := varReq.Variables.FullPath
+		if fullPath == "" {
+			fullPath = extractStringBetween(req.Query, `fullPath: "`, `"`)
+		}
+
+		rules, ok := rt.state.GetTargetBranchRules(fullPath)
+		if !ok {
+			res := map[string]any{
+				"data": map[string]any{
+					"project": nil,
+				},
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+
+		res := map[string]any{
+			"data": map[string]any{
+				"project": map[string]any{
+					"id": fmt.Sprintf("gid://gitlab/Project/%s", fullPath),
+					"targetBranchRules": map[string]any{
+						"nodes": rules,
 					},
 				},
 			},

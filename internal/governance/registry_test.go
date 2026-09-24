@@ -25,9 +25,9 @@ func TestOperationsRegistry(t *testing.T) {
 
 	reg := governance.NewDefaultRegistry(client)
 
-	t.Run("DefaultRegistry_Contains10OperationsInStrictOrder", func(t *testing.T) {
+	t.Run("DefaultRegistry_Contains11OperationsInStrictOrder", func(t *testing.T) {
 		ordered := reg.OrderedOperations()
-		require.Len(t, ordered, 10)
+		require.Len(t, ordered, 11)
 
 		expectedOrder := []struct {
 			name  string
@@ -37,6 +37,7 @@ func TestOperationsRegistry(t *testing.T) {
 			{"protected_branches", 20},
 			{"approval_rules", 30},
 			{"project_settings", 40},
+			{"target_branch_rules", 45},
 			{"pipeline_retention", 50},
 			{"variables", 60},
 			{"runners", 70},
@@ -82,12 +83,12 @@ func TestOperationsRegistry(t *testing.T) {
 		// 1. PlanProject
 		planResults, err := reg.PlanProject(ctx, proj, cfg)
 		require.NoError(t, err)
-		assert.Len(t, planResults, 10)
+		assert.Len(t, planResults, 11)
 
 		// 2. ApplyProject
 		applyResults, err := reg.ApplyProject(ctx, proj, cfg)
 		require.NoError(t, err)
-		assert.Len(t, applyResults, 10)
+		assert.Len(t, applyResults, 11)
 
 		for _, r := range applyResults {
 			assert.True(t, r.Success, "Operation %s failed", r.OperationName)
@@ -114,11 +115,11 @@ func TestOperationsRegistry(t *testing.T) {
 
 		planResults, err := reg.PlanGroup(ctx, group, cfg)
 		require.NoError(t, err)
-		assert.Len(t, planResults, 10)
+		assert.Len(t, planResults, 11)
 
 		applyResults, err := reg.ApplyGroup(ctx, group, cfg)
 		require.NoError(t, err)
-		assert.Len(t, applyResults, 10)
+		assert.Len(t, applyResults, 11)
 
 		for _, r := range applyResults {
 			assert.True(t, r.Success, "Operation %s failed", r.OperationName)
@@ -135,11 +136,11 @@ func TestOperationsRegistry(t *testing.T) {
 
 		planP, err := reg.PlanTargetProject(ctx, targetProj, cfg)
 		require.NoError(t, err)
-		assert.Len(t, planP, 10)
+		assert.Len(t, planP, 11)
 
 		applyP, err := reg.ApplyTargetProject(ctx, targetProj, cfg)
 		require.NoError(t, err)
-		assert.Len(t, applyP, 10)
+		assert.Len(t, applyP, 11)
 
 		targetGroup := &discovery.TargetGroup{
 			ID:       10,
@@ -149,11 +150,11 @@ func TestOperationsRegistry(t *testing.T) {
 
 		planG, err := reg.PlanTargetGroup(ctx, targetGroup, cfg)
 		require.NoError(t, err)
-		assert.Len(t, planG, 10)
+		assert.Len(t, planG, 11)
 
 		applyG, err := reg.ApplyTargetGroup(ctx, targetGroup, cfg)
 		require.NoError(t, err)
-		assert.Len(t, applyG, 10)
+		assert.Len(t, applyG, 11)
 	})
 
 	t.Run("ContextCancellation", func(t *testing.T) {

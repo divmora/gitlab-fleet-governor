@@ -177,6 +177,31 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
       });
     }
 
+    // Target Branch Rules
+    if (p.target_branch_rules) {
+      if (p.target_branch_rules.rules && Array.isArray(p.target_branch_rules.rules)) {
+        const seenPatterns = new Set<string>();
+        p.target_branch_rules.rules.forEach((tbr: any, idx: number) => {
+          if (!tbr.source_branch_pattern || !tbr.source_branch_pattern.trim()) {
+            errors.push({ path: `policies.target_branch_rules.rules[${idx}].source_branch_pattern`, message: 'source_branch_pattern is required.', severity: 'error' });
+          }
+          if (!tbr.target_branch_name || !tbr.target_branch_name.trim()) {
+            errors.push({ path: `policies.target_branch_rules.rules[${idx}].target_branch_name`, message: 'target_branch_name is required.', severity: 'error' });
+          }
+          if (tbr.source_branch_pattern && tbr.target_branch_name && tbr.source_branch_pattern.trim() === tbr.target_branch_name.trim()) {
+            errors.push({ path: `policies.target_branch_rules.rules[${idx}]`, message: `Self-targeting rule: source_branch_pattern and target_branch_name cannot both be '${tbr.source_branch_pattern}'.`, severity: 'error' });
+          }
+          if (tbr.source_branch_pattern) {
+            const pat = tbr.source_branch_pattern.trim();
+            if (seenPatterns.has(pat)) {
+              errors.push({ path: `policies.target_branch_rules.rules[${idx}].source_branch_pattern`, message: `Duplicate source_branch_pattern '${pat}' in target_branch_rules.`, severity: 'error' });
+            }
+            seenPatterns.add(pat);
+          }
+        });
+      }
+    }
+
     // Pipeline Retention
     if (p.pipeline_retention) {
       const days = p.pipeline_retention.retention_days;

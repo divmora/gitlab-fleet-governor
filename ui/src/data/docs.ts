@@ -54,6 +54,33 @@ policies:
 When applied, GitLab automatically purges historical pipelines and ephemeral storage older than 30 days.`,
   },
   {
+    id: 'target-branch-rules',
+    title: 'Merge Request Target Branch Rules',
+    category: 'Operations',
+    content: `# Merge Request Target Branch Rules
+
+Govern Merge Request branch routing rules across fleet repositories. Automatically directs Merge Requests from branches matching wildcard patterns to designated target branches.
+
+## Configuration
+\`\`\`yaml
+policies:
+  target_branch_rules:
+    prune_unmanaged: true
+    rules:
+      - source_branch_pattern: "feat/*"
+        target_branch_name: "staging"
+      - source_branch_pattern: "hotfix/*"
+        target_branch_name: "main"
+      - source_branch_pattern: "*"
+        target_branch_name: "staging"
+\`\`\`
+
+## Safety & Validation
+- **GraphQL ID Specification**: Uses GitLab's GraphQL API (\`projectTargetBranchRuleCreate\`, \`projectTargetBranchRuleDestroy\`).
+- **Conflict Prevention**: Rejects duplicate \`source_branch_pattern\` entries and self-targeting configurations (\`source == target\`).
+- **Pruning**: When \`prune_unmanaged: true\`, purges legacy or out-of-spec routing rules.`,
+  },
+  {
     id: 'lambda',
     title: 'AWS Lambda & Serverless',
     category: 'Deployment',

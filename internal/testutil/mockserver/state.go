@@ -66,6 +66,10 @@ type State struct {
 	projectMembers map[int]map[int]*gitlab.ProjectMember // projectID -> userID -> member
 	groupMembers   map[int]map[int]*gitlab.GroupMember   // groupID -> userID -> member
 
+	// Target Branch Rules: projectID -> ruleID -> rule
+	targetBranchRules map[int]map[string]MockTargetBranchRule
+	nextTargetRuleID  int
+
 	// Users: userID -> User
 	users          map[int]*gitlab.User
 	userByUsername map[string]int
@@ -79,6 +83,14 @@ type MockComplianceFramework struct {
 	Description string `json:"description,omitempty"`
 	Color       string `json:"color,omitempty"`
 	Default     bool   `json:"default,omitempty"`
+}
+
+// MockTargetBranchRule mirrors GraphQL target branch rule model.
+type MockTargetBranchRule struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	TargetBranch string    `json:"targetBranch"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 // NewState creates a new, empty in-memory state store.
@@ -129,6 +141,9 @@ func (s *State) Reset() {
 
 	s.projectMembers = make(map[int]map[int]*gitlab.ProjectMember)
 	s.groupMembers = make(map[int]map[int]*gitlab.GroupMember)
+
+	s.targetBranchRules = make(map[int]map[string]MockTargetBranchRule)
+	s.nextTargetRuleID = 1
 
 	s.users = make(map[int]*gitlab.User)
 	s.userByUsername = make(map[string]int)
@@ -382,6 +397,64 @@ func (s *State) ListProjects() []*gitlab.Project {
 	return res
 }
 
+// ----------------------------------------------------------------------------
+// Target Branch Rules Operations
+// ----------------------------------------------------------------------------
+
+func (s *State) GetTargetBranchRules(idOrPath any) ([]MockTargetBranchRule, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	rulesMap := s.targetBranchRules[id]
+	res := make([]MockTargetBranchRule, 0, len(rulesMap))
+	for _, r := range rulesMap {
+		res = append(res, r)
+	}
+	return res, true
+}
+
+func (s *State) AddTargetBranchRule(idOrPath any, name, targetBranch string) (*MockTargetBranchRule, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.targetBranchRules[id] == nil {
+		s.targetBranchRules[id] = make(map[string]MockTargetBranchRule)
+	}
+
+	ruleID := fmt.Sprintf("gid://gitlab/Projects::TargetBranchRule/%d", s.nextTargetRuleID)
+	s.nextTargetRuleID++
+
+	rule := MockTargetBranchRule{
+		ID:           ruleID,
+		Name:         name,
+		TargetBranch: targetBranch,
+		CreatedAt:    time.Now(),
+	}
+	s.targetBranchRules[id][ruleID] = rule
+	return &rule, true
+}
+
+func (s *State) DestroyTargetBranchRule(ruleID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for projectID, rulesMap := range s.targetBranchRules {
+		if _, found := rulesMap[ruleID]; found {
+			delete(s.targetBranchRules[projectID], ruleID)
+			return true
+		}
+	}
+	return false
+}
+
 func (s *State) SetPipelineRetention(projectID int, seconds int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -439,6 +512,7 @@ func (s *State) resolveProjectIDLocked(idOrPath any) (int, bool) {
 	case int64:
 		return int(v), true
 	case string:
+		v = strings.TrimPrefix(v, "gid://gitlab/Project/")
 		if id, err := strconv.Atoi(v); err == nil {
 			return id, true
 		}

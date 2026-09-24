@@ -201,6 +201,15 @@
           errors.push("push_rules.max_file_size must be between 0 and 1000 MB");
         }
       }
+      if (obj.policies.target_branch_rules && Array.isArray(obj.policies.target_branch_rules.rules)) {
+        obj.policies.target_branch_rules.rules.forEach((r, idx) => {
+          if (!r.source_branch_pattern) errors.push(`target_branch_rules.rules[${idx}]: source_branch_pattern is required`);
+          if (!r.target_branch_name) errors.push(`target_branch_rules.rules[${idx}]: target_branch_name is required`);
+          if (r.source_branch_pattern && r.target_branch_name && r.source_branch_pattern.trim() === r.target_branch_name.trim()) {
+            errors.push(`target_branch_rules.rules[${idx}]: self-targeting rule '${r.source_branch_pattern}' not allowed`);
+          }
+        });
+      }
     }
     return errors;
   }

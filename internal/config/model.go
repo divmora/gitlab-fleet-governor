@@ -272,6 +272,27 @@ type PoliciesConfig struct {
 
 	// Members configures direct member permissions and expiration enforcement.
 	Members *MembersConfig `yaml:"members,omitempty" json:"members,omitempty"`
+
+	// TargetBranchRules configures MR default target branch rules based on source branch naming patterns.
+	TargetBranchRules *TargetBranchRulesConfig `yaml:"target_branch_rules,omitempty" json:"target_branch_rules,omitempty"`
+}
+
+// TargetBranchRulesConfig encapsulates target branch workflow configuration.
+type TargetBranchRulesConfig struct {
+	// Prune optionally removes unmanaged target branch rules when set to true.
+	Prune *bool `yaml:"prune,omitempty" json:"prune,omitempty"`
+
+	// Rules defines the target branch rule mapping entries.
+	Rules []TargetBranchRuleConfig `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
+// TargetBranchRuleConfig defines a target branch rule mapping.
+type TargetBranchRuleConfig struct {
+	// Name specifies the source branch name or wildcard pattern (e.g., "feature/*"). Required.
+	Name string `yaml:"name" json:"name"`
+
+	// TargetBranch specifies the target branch name (e.g., "develop"). Required.
+	TargetBranch string `yaml:"target_branch" json:"target_branch"`
 }
 
 // ============================================================================

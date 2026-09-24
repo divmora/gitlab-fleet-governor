@@ -284,6 +284,23 @@ policies:
       - username: "security_auditor"
         access_level: 20 # Reporter
         expires_at: "2026-12-31"
+
+### 10. `target_branch_rules`
+
+Declaratively govern GitLab Merge Request Branch Workflow default targets based on source branch naming patterns:
+
+```yaml
+policies:
+  target_branch_rules:
+    prune: true # Deletes unmanaged target branch rules
+    rules:
+      - name: "feature/*"
+        target_branch: "develop"
+      - name: "hotfix/*"
+        target_branch: "main"
+      - name: "release/*"
+        target_branch: "production"
+```
 ```
 
 ---

@@ -346,6 +346,47 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 	if p.Members != nil {
 		validateMembers(p.Members, prefix+".members", errs)
 	}
+
+	if p.TargetBranchRules != nil {
+		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs)
+	}
+}
+
+func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors) {
+	seenNames := make(map[string]bool)
+	for i, rule := range t.Rules {
+		rulePrefix := fmt.Sprintf("%s.rules[%d]", prefix, i)
+		name := strings.TrimSpace(rule.Name)
+		targetBranch := strings.TrimSpace(rule.TargetBranch)
+
+		if name == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".name",
+				Message: "target branch rule name (source pattern) cannot be empty",
+			})
+		} else {
+			if seenNames[name] {
+				*errs = append(*errs, ValidationError{
+					Field:   rulePrefix + ".name",
+					Message: fmt.Sprintf("duplicate target branch rule for source pattern '%s'", name),
+					Value:   name,
+				})
+			}
+			seenNames[name] = true
+		}
+
+		if targetBranch == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".target_branch",
+				Message: "target branch rule target_branch cannot be empty",
+			})
+		} else if name != "" && name == targetBranch {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix,
+				Message: fmt.Sprintf("target branch rule source pattern '%s' cannot be identical to target branch '%s'", name, targetBranch),
+			})
+		}
+	}
 }
 
 func validatePushRules(r *PushRulesConfig, prefix string, errs *ValidationErrors) {

@@ -107,6 +107,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
         return Array.isArray(data) ? `${data.length} branch(es)` : 'active';
       case 'approval_rules':
         return data.rules ? `${data.rules.length} rule(s)` : 'active';
+      case 'target_branch_rules':
+        return data.rules ? `${data.rules.length} rule(s)` : 'active';
       case 'project_settings':
         return data.merge_method ? `${data.merge_method}` : 'enforced';
       case 'pipeline_retention':
@@ -139,6 +141,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       data: config?.policies?.approval_rules,
     },
     {
+      key: 'target_branch_rules',
+      label: 'Target Branch Rules',
+      icon: '🌿',
+      data: config?.policies?.target_branch_rules,
+    },
+    {
       key: 'project_settings',
       label: 'Project Settings',
       icon: '⚙️',
@@ -159,8 +167,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
   ];
 
   const reconcilerStartX = 420;
-  const startY = 30;
-  const gapY = 95;
+  const startY = 20;
+  const gapY = 82;
 
   reconcilers.forEach((rec, idx) => {
     const nodeId = `node-rec-${rec.key}`;

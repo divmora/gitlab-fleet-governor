@@ -83,6 +83,7 @@ var DefaultTierFeatures = liblicense.TierFeatures{
 		"governance.members",
 		"governance.variables",
 		"governance.approval_rules",
+		"governance.target_branch_rules",
 		"governance.runners",
 		"governance.webhooks",
 		"governance.pipeline_retention",
@@ -119,6 +120,7 @@ func RequiredTierForFeature(feature string) string {
 	}
 	switch strings.TrimSpace(strings.ToLower(feature)) {
 	case "governance.approval_rules",
+		"governance.target_branch_rules",
 		"governance.runners",
 		"governance.webhooks",
 		"governance.pipeline_retention":

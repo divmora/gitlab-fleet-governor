@@ -218,12 +218,13 @@ See [Configuration Reference](https://divmora.github.io/gitlab-fleet-governor/co
  2. protected_branches   Branch protection tiers, merge/push access levels, code owners
  3. approval_rules       Merge request approval settings & named reviewer matrices
  4. project_settings     Merge strategies, squash settings, discussion resolution gates
- 5. pipeline_retention   Automated pipeline history cleanup (retention_days -> ci_delete_pipelines_in_seconds)
- 6. variables            Scoped CI/CD variables, masked secrets, protected flags, drift pruning
- 7. runners              Shared & group runner controls, maintenance pause/lock status, tags
- 8. compliance           Compliance framework labeling (SOC2, PCI-DSS, ISO27001)
- 9. webhooks             Fleet-wide security and audit webhook integrations
-10. members              Access level ceilings, mandatory expiration dates, over-privileged detection
+ 5. target_branch_rules  MR branch workflow target branch mapping based on branch pattern
+ 6. pipeline_retention   Automated pipeline history cleanup (retention_days -> ci_delete_pipelines_in_seconds)
+ 7. variables            Scoped CI/CD variables, masked secrets, protected flags, drift pruning
+ 8. runners              Shared & group runner controls, maintenance pause/lock status, tags
+ 9. compliance           Compliance framework labeling (SOC2, PCI-DSS, ISO27001)
+10. webhooks             Fleet-wide security and audit webhook integrations
+11. members              Access level ceilings, mandatory expiration dates, over-privileged detection
 ```
 
 ---

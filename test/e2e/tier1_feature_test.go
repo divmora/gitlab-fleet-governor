@@ -640,6 +640,15 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
     allowed_members:
       - username: "alice"
         access_level: 40
+
+  # 11. Target Branch Rules
+  target_branch_rules:
+    prune: true
+    rules:
+      - name: "feature/*"
+        target_branch: "develop"
+      - name: "hotfix/*"
+        target_branch: "main"
 `)
 
 	policyPath := h.WriteConfigFile("all_10_reconcilers.yaml", policyYAML)
@@ -650,7 +659,7 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
 	require.NoError(t, err)
 
 	reg := governance.NewDefaultRegistry(client)
-	require.Equal(t, 10, len(reg.OrderedOperations()), "all 10 reconcilers must be registered")
+	require.Equal(t, 11, len(reg.OrderedOperations()), "all 11 reconcilers must be registered")
 
 	// 1. Dry Run Execution
 	t.Run("Dry-Run Simulation: Validates Plan Diffs for All 10 Reconcilers", func(t *testing.T) {
@@ -684,6 +693,7 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
 			"protected_branches",
 			"approval_rules",
 			"project_settings",
+			"target_branch_rules",
 			"pipeline_retention",
 			"variables",
 			"runners",
@@ -752,6 +762,17 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
 			}
 		}
 		assert.True(t, hookFound, "Webhook should be created on project 101")
+
+		// Reconciler 11: Target Branch Rules
+		targetRules, err := client.TargetBranchRules().GetTargetBranchRules(ctx, "platform/fleet-governor")
+		require.NoError(t, err)
+		require.Len(t, targetRules, 2)
+		targetRuleMap := make(map[string]string)
+		for _, tr := range targetRules {
+			targetRuleMap[tr.Name] = tr.TargetBranch
+		}
+		assert.Equal(t, "develop", targetRuleMap["feature/*"])
+		assert.Equal(t, "main", targetRuleMap["hotfix/*"])
 	})
 
 	// 3. Idempotency Verification

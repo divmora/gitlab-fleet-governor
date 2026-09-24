@@ -42,6 +42,18 @@ export const ReconcilerCheatSheet: React.FC = () => {
   only_allow_merge_if_pipeline_succeeds: true`,
     },
     {
+      name: 'target_branch_rules',
+      scope: 'Project',
+      desc: 'Merge request target branch workflow routing, wildcard source matching (*, feat/*), and unmanaged rule cleanup.',
+      yamlSnippet: `target_branch_rules:
+  prune_unmanaged: true
+  rules:
+    - source_branch_pattern: "feat/*"
+      target_branch_name: "staging"
+    - source_branch_pattern: "hotfix/*"
+      target_branch_name: "main"`,
+    },
+    {
       name: 'pipeline_retention',
       scope: 'Project',
       desc: 'Native GitLab automated pipeline deletion (retention_days -> ci_delete_pipelines_in_seconds).',
@@ -99,10 +111,10 @@ export const ReconcilerCheatSheet: React.FC = () => {
           <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
             <Shield className="w-5 h-5" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">10 Core Governance Reconcilers</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">11 Core Governance Reconcilers</h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-          Detailed specification of all 10 reconcilers implemented by the GitLab Fleet Governor engine.
+          Detailed specification of all 11 reconcilers implemented by the GitLab Fleet Governor engine.
         </p>
       </div>
 

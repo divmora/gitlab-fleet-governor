@@ -130,11 +130,20 @@ policies:
     keep_latest_artifact: true
     printing_merge_request_link_enabled: true
 
-  # 5. Pipeline Retention (Project Level)
+  # 5. Merge Request Target Branch Rules (Project Level)
+  target_branch_rules:
+    prune_unmanaged: true
+    rules:
+      - source_branch_pattern: "feat/*"
+        target_branch_name: "staging"
+      - source_branch_pattern: "hotfix/*"
+        target_branch_name: "main"
+
+  # 6. Pipeline Retention (Project Level)
   pipeline_retention:
     retention_days: 30 # Converted automatically to native ci_delete_pipelines_in_seconds
 
-  # 6. CI/CD Variables (Project & Group Level)
+  # 7. CI/CD Variables (Project & Group Level)
   variables:
     - key: "GLOBAL_API_ENDPOINT"
       value: "https://api.fleetcorp.io/v1"
@@ -144,7 +153,7 @@ policies:
       raw: true
       environment_scope: "*"
 
-  # 7. Project & Group Runners
+  # 8. Project & Group Runners
   runners:
     - id: 1
       paused: false
@@ -154,12 +163,12 @@ policies:
         - "linux-amd64"
       access_level: "not_protected" # "not_protected" | "ref_protected"
 
-  # 8. Compliance Framework (Project Level)
+  # 9. Compliance Framework (Project Level)
   compliance:
     framework_name: "SOC2"
     prune: false
 
-  # 9. Webhooks (Project Level)
+  # 10. Webhooks (Project Level)
   webhooks:
     - url: "https://events.fleetcorp.io/audit"
       push_events: true
@@ -167,7 +176,7 @@ policies:
       enable_ssl_verification: true
       secret_token: "${AUDIT_WEBHOOK_SECRET}"
 
-  # 10. Members Governance (Audit Mode)
+  # 11. Members Governance (Audit Mode)
   members:
     max_access_level: 40
     enforce_expires_at: true
