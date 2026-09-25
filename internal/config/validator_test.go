@@ -165,6 +165,11 @@ func TestValidate_ValidConfigs(t *testing.T) {
 						TargetBranch:   "main",
 						Enforcement:    "audit_only",
 					},
+					{
+						Path:        ".editorconfig",
+						Content:     "root = true\n",
+						Enforcement: "direct_commit",
+					},
 				},
 			},
 		}
@@ -688,21 +693,6 @@ func TestValidate_SemanticErrors(t *testing.T) {
 				},
 			},
 			expectedErr: "repository_files[0].path",
-		},
-		{
-			name: "Repository file missing target_branch",
-			cfg: &config.PolicyConfig{
-				Policies: config.PoliciesConfig{
-					RepositoryFiles: []config.RepositoryFileConfig{
-						{
-							Path:         "CODEOWNERS",
-							TargetBranch: "",
-							Content:      "data",
-						},
-					},
-				},
-			},
-			expectedErr: "repository_files[0].target_branch",
 		},
 		{
 			name: "Repository file missing content source",

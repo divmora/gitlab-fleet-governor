@@ -315,7 +315,7 @@ policies:
         # Auto-managed by gitlab-fleet-governor — do not edit manually
         *                              @platform/security-reviewers
         /src/                          @platform/backend-leads
-      target_branch: "main"
+      target_branch: "main" # Optional. Dynamically falls back to project default branch (e.g. main/master)
       enforcement: "merge_request" # direct_commit | merge_request | audit_only
       mr_title: "chore: sync CODEOWNERS to enterprise policy"
       mr_labels: ["automated", "governance", "CODEOWNERS"]
@@ -330,9 +330,14 @@ policies:
       ensure_contains:
         - "include:"
         - "project: 'platform/ci-templates'"
-      target_branch: "main"
+      # target_branch omitted: dynamically defaults to project.default_branch
       enforcement: "direct_commit"
 ```
+
+> [!NOTE]
+> - `target_branch` is optional. When omitted, it dynamically resolves to the target project's `default_branch` (falling back to `"main"` if unset).
+> - Line endings (`\r\n` vs `\n`) and leading/trailing whitespace are automatically normalized during drift evaluation to prevent false-positive changes across platforms.
+> - When using `direct_commit` on branches with push restrictions (`allowed_to_push: 0`), GitLab Fleet Governor catches the HTTP 403 Forbidden and advises switching to `merge_request` enforcement.
 
 ---
 

@@ -367,14 +367,6 @@ func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *
 			})
 		}
 
-		targetBranch := strings.TrimSpace(f.TargetBranch)
-		if targetBranch == "" {
-			*errs = append(*errs, ValidationError{
-				Field:   fPrefix + ".target_branch",
-				Message: "repository file target_branch cannot be empty",
-			})
-		}
-
 		hasContent := f.Content != ""
 		hasContentFile := strings.TrimSpace(f.ContentFile) != ""
 		hasEnsureContains := len(f.EnsureContains) > 0

@@ -294,7 +294,7 @@ type RepositoryFileConfig struct {
 	// EnsureContains lists mandatory substrings/lines that must be present in the file content.
 	EnsureContains []string `yaml:"ensure_contains,omitempty" json:"ensure_contains,omitempty"`
 
-	// TargetBranch specifies the target Git branch to reconcile (e.g. "main"). Required.
+	// TargetBranch specifies the target Git branch to reconcile (e.g. "main"). Optional; defaults to the project's default branch.
 	TargetBranch string `yaml:"target_branch,omitempty" json:"target_branch,omitempty"`
 
 	// Enforcement specifies enforcement mode: "direct_commit", "merge_request", "audit_only" (default: "direct_commit").

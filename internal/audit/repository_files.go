@@ -52,6 +52,7 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 	fileConfigs := cfg.Policies.RepositoryFiles
 
 	for _, fileCfg := range fileConfigs {
+		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -60,17 +61,17 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 			}
 		}
 
-		raw, resp, err := client.RepositoryFiles().GetRawFile(project.ID, fileCfg.Path, &gitlab.GetRawFileOptions{Ref: gitlab.Ptr(targetBranch)})
+		raw, resp, err := client.RepositoryFiles().GetRawFile(project.ID, cleanPath, &gitlab.GetRawFileOptions{Ref: gitlab.Ptr(targetBranch)})
 		fileExists := true
 		if err != nil {
 			if (resp != nil && resp.StatusCode == 404) || strings.Contains(err.Error(), "404") {
 				fileExists = false
 			} else {
-				return nil, fmt.Errorf("failed to fetch raw file %s: %w", fileCfg.Path, err)
+				return nil, fmt.Errorf("failed to fetch raw file %s: %w", cleanPath, err)
 			}
 		}
 
-		content := string(raw)
+		content := normalizeAuditContent(string(raw))
 
 		if !fileExists {
 			baseSev := SeverityHigh
@@ -81,13 +82,13 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 				ProjectPath:   project.PathWithNamespace,
 				ProjectWebURL: webURL,
 				ProjectStatus: stateStr,
-				FilePath:      fileCfg.Path,
+				FilePath:      cleanPath,
 				TargetBranch:  targetBranch,
 				FileExists:    false,
 				Severity:      sev,
 				ViolationType: "MISSING_FILE",
-				Details:       fmt.Sprintf("Mandatory repository file '%s' is missing on branch '%s'.", fileCfg.Path, targetBranch),
-				Remediation:   fmt.Sprintf("Run 'gitlab-fleet-governor run' to automatically synchronize %s to enterprise policy.", fileCfg.Path),
+				Details:       fmt.Sprintf("Mandatory repository file '%s' is missing on branch '%s'.", cleanPath, targetBranch),
+				Remediation:   fmt.Sprintf("Run 'gitlab-fleet-governor run' to automatically synchronize %s to enterprise policy.", cleanPath),
 			})
 			continue
 		}
@@ -96,7 +97,8 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 		if len(fileCfg.EnsureContains) > 0 {
 			missing := make([]string, 0)
 			for _, check := range fileCfg.EnsureContains {
-				if !strings.Contains(content, check) {
+				normCheck := strings.ReplaceAll(check, "\r\n", "\n")
+				if !strings.Contains(content, normCheck) {
 					missing = append(missing, check)
 				}
 			}
@@ -109,13 +111,13 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 					ProjectPath:   project.PathWithNamespace,
 					ProjectWebURL: webURL,
 					ProjectStatus: stateStr,
-					FilePath:      fileCfg.Path,
+					FilePath:      cleanPath,
 					TargetBranch:  targetBranch,
 					FileExists:    true,
 					Severity:      sev,
 					ViolationType: "MISSING_REQUIRED_STRINGS",
-					Details:       fmt.Sprintf("Repository file '%s' is missing %d required substring(s): %s", fileCfg.Path, len(missing), strings.Join(missing, ", ")),
-					Remediation:   fmt.Sprintf("Update %s to include required enterprise baseline configuration.", fileCfg.Path),
+					Details:       fmt.Sprintf("Repository file '%s' is missing %d required substring(s): %s", cleanPath, len(missing), strings.Join(missing, ", ")),
+					Remediation:   fmt.Sprintf("Update %s to include required enterprise baseline configuration.", cleanPath),
 				})
 				continue
 			}
@@ -142,10 +144,10 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 
 			enforcement := strings.ToLower(fileCfg.Enforcement)
 			if enforcement == "direct_commit" || enforcement == "" {
-				desiredRaw = attachHeader(fileCfg.Path, desiredRaw)
+				desiredRaw = attachHeader(cleanPath, desiredRaw)
 			}
 
-			if strings.TrimSpace(content) != strings.TrimSpace(desiredRaw) {
+			if content != normalizeAuditContent(desiredRaw) {
 				baseSev := SeverityMedium
 				sev := AdjustSeverityForProject(baseSev, isArchived, isInactive)
 				findings = append(findings, RepositoryFileFinding{
@@ -154,13 +156,13 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 					ProjectPath:   project.PathWithNamespace,
 					ProjectWebURL: webURL,
 					ProjectStatus: stateStr,
-					FilePath:      fileCfg.Path,
+					FilePath:      cleanPath,
 					TargetBranch:  targetBranch,
 					FileExists:    true,
 					Severity:      sev,
 					ViolationType: "CONTENT_DRIFT",
-					Details:       fmt.Sprintf("Repository file '%s' has drifted from declarative enterprise policy.", fileCfg.Path),
-					Remediation:   fmt.Sprintf("Run 'gitlab-fleet-governor run' to re-align %s with enterprise policy.", fileCfg.Path),
+					Details:       fmt.Sprintf("Repository file '%s' has drifted from declarative enterprise policy.", cleanPath),
+					Remediation:   fmt.Sprintf("Run 'gitlab-fleet-governor run' to re-align %s with enterprise policy.", cleanPath),
 				})
 			}
 		}
@@ -182,4 +184,14 @@ func attachHeader(filePath, content string) string {
 	}
 
 	return header + content
+}
+
+func normalizeAuditContent(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	s = strings.TrimRight(s, "\n")
+	if len(s) > 0 {
+		s += "\n"
+	}
+	return s
 }

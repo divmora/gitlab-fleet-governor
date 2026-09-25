@@ -30,7 +30,7 @@ func TestRepositoryFilesReconciler(t *testing.T) {
 
 	t.Run("NameAndOrder", func(t *testing.T) {
 		assert.Equal(t, "repository_files", reconciler.Name())
-		assert.Equal(t, 55, reconciler.Order())
+		assert.Equal(t, 15, reconciler.Order())
 	})
 
 	t.Run("NilPolicy_YieldsNoop", func(t *testing.T) {
@@ -283,5 +283,141 @@ func TestRepositoryFilesReconciler(t *testing.T) {
 		// File should NOT exist in state because mode is audit_only
 		_, found := srv.State().GetRawFile(101, "AUDIT_ONLY.txt", "main")
 		assert.False(t, found)
+	})
+
+	t.Run("TargetBranch_DynamicFallback_ToProjectDefaultBranch", func(t *testing.T) {
+		customProj := &gogitlab.Project{ID: 102, PathWithNamespace: "platform/custom-repo", DefaultBranch: "trunk"}
+		cfg := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:        "README.md",
+						Content:     "# Custom Project",
+						Enforcement: "direct_commit",
+						// TargetBranch omitted to verify dynamic fallback to customProj.DefaultBranch ("trunk")
+					},
+				},
+			},
+		}
+
+		apply, err := reconciler.Apply(ctx, client, customProj, cfg)
+		require.NoError(t, err)
+		assert.True(t, apply.Success)
+
+		// Verify file was committed to "trunk"
+		content, found := srv.State().GetRawFile(102, "README.md", "trunk")
+		assert.True(t, found)
+		assert.Contains(t, string(content), "# Custom Project")
+	})
+
+	t.Run("LineEnding_Normalization_CRLF_vs_LF", func(t *testing.T) {
+		// Seed file with CRLF line endings
+		crlfContent := "# Policy File\r\nline1\r\nline2\r\n"
+		srv.State().SetFile(101, "CRLF.txt", "main", []byte(crlfContent))
+
+		cfg := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "CRLF.txt",
+						Content:      "# Policy File\nline1\nline2\n",
+						TargetBranch: "main",
+						Enforcement:  "audit_only",
+					},
+				},
+			},
+		}
+
+		plan, err := reconciler.Plan(ctx, client, proj, cfg)
+		require.NoError(t, err)
+		assert.Equal(t, governance.ActionNoop, plan.Action, "CRLF and LF differences should normalize and yield zero drift")
+		assert.False(t, plan.HasChanges)
+	})
+
+	t.Run("MergeRequest_ExistingBranch_OutdatedContent_UpdatesExistingBranchWithoutDuplicateMR", func(t *testing.T) {
+		cfg1 := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "FEATURE.md",
+						Content:      "# Version 1",
+						TargetBranch: "main",
+						Enforcement:  "merge_request",
+						MRTitle:      "chore: sync FEATURE.md",
+					},
+				},
+			},
+		}
+
+		// Initial apply creates branch and MR
+		apply1, err := reconciler.Apply(ctx, client, proj, cfg1)
+		require.NoError(t, err)
+		assert.True(t, apply1.Success)
+
+		mrs1 := srv.State().ListMergeRequests(101, "governance/sync-feature-md", "main", "opened")
+		require.Len(t, mrs1, 1)
+
+		// Now update policy content
+		cfg2 := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "FEATURE.md",
+						Content:      "# Version 2",
+						TargetBranch: "main",
+						Enforcement:  "merge_request",
+						MRTitle:      "chore: sync FEATURE.md",
+					},
+				},
+			},
+		}
+
+		// Plan detects outdated branch content
+		plan2, err := reconciler.Plan(ctx, client, proj, cfg2)
+		require.NoError(t, err)
+		assert.Equal(t, governance.ActionUpdate, plan2.Action)
+
+		// Apply updates the existing feature branch without creating a duplicate MR
+		apply2, err := reconciler.Apply(ctx, client, proj, cfg2)
+		require.NoError(t, err)
+		assert.True(t, apply2.Success)
+
+		mrs2 := srv.State().ListMergeRequests(101, "governance/sync-feature-md", "main", "opened")
+		assert.Len(t, mrs2, 1, "Must not create duplicate MR")
+
+		// Verify feature branch content updated to Version 2
+		featContent, found := srv.State().GetRawFile(101, "FEATURE.md", "governance/sync-feature-md")
+		assert.True(t, found)
+		assert.Contains(t, string(featContent), "# Version 2")
+	})
+
+	t.Run("ProtectedBranch_DirectCommit_HTTP403_ActionableError", func(t *testing.T) {
+		// Protect branch "protected-release" on project 101 with allowed_to_push = 0
+		srv.State().ProtectBranch(101, &gogitlab.ProtectedBranch{
+			ID:   2,
+			Name: "protected-release",
+			PushAccessLevels: []*gogitlab.BranchAccessDescription{
+				{AccessLevel: gogitlab.NoPermissions, AccessLevelDescription: "No access"},
+			},
+		})
+
+		cfg := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "RESTRICTED.txt",
+						Content:      "Protected content",
+						TargetBranch: "protected-release",
+						Enforcement:  "direct_commit",
+					},
+				},
+			},
+		}
+
+		apply, err := reconciler.Apply(ctx, client, proj, cfg)
+		require.Error(t, err)
+		assert.False(t, apply.Success)
+		assert.Contains(t, err.Error(), "HTTP 403 Forbidden")
+		assert.Contains(t, err.Error(), "push permissions are restricted; please use 'enforcement: merge_request' for protected branches")
 	})
 }

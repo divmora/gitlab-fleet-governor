@@ -34,12 +34,12 @@ func TestOperationsRegistry(t *testing.T) {
 			order int
 		}{
 			{"push_rules", 10},
+			{"repository_files", 15},
 			{"protected_branches", 20},
 			{"approval_rules", 30},
 			{"project_settings", 40},
 			{"target_branch_rules", 45},
 			{"pipeline_retention", 50},
-			{"repository_files", 55},
 			{"variables", 60},
 			{"runners", 70},
 			{"compliance", 80},

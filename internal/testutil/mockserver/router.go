@@ -1260,6 +1260,19 @@ func (rt *Router) handleProjectRepositoryFiles(w http.ResponseWriter, r *http.Re
 		if branch == "" {
 			branch = ref
 		}
+		if pb, found := rt.state.GetProtectedBranch(idOrPath, branch); found {
+			disallowed := true
+			for _, pal := range pb.PushAccessLevels {
+				if pal.AccessLevel > 0 {
+					disallowed = false
+					break
+				}
+			}
+			if disallowed && len(pb.PushAccessLevels) > 0 {
+				http.Error(w, `{"message":"403 Forbidden - You are not allowed to push code to protected branches on this project."}`, http.StatusForbidden)
+				return
+			}
+		}
 		ok := rt.state.SetFile(idOrPath, filePath, branch, []byte(body.Content))
 		if !ok {
 			http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)

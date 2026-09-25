@@ -121,4 +121,47 @@ func TestRepositoryFilesAuditor(t *testing.T) {
 		assert.Equal(t, "MISSING_REQUIRED_STRINGS", f.ViolationType)
 		assert.Equal(t, audit.SeverityMedium, f.Severity)
 	})
+
+	t.Run("CRLF_LineEndings_NoFalsePositiveFindings", func(t *testing.T) {
+		// Remote file contains Windows CRLF
+		server.State().SetFile(101, "SECURITY.md", "main", []byte("<!-- Auto-managed by gitlab-fleet-governor — do not edit manually -->\r\n# Security Policy\r\nContact sec@corp.com\r\n"))
+
+		cfg := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:         "SECURITY.md",
+						Content:      "# Security Policy\nContact sec@corp.com\n",
+						TargetBranch: "main",
+						Enforcement:  "direct_commit",
+					},
+				},
+			},
+		}
+
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj, cfg)
+		require.NoError(t, err)
+		assert.Empty(t, findings, "CRLF and LF differences should normalize and yield zero false-positive findings")
+	})
+
+	t.Run("TargetBranch_Omitted_DefaultsToProjectDefaultBranch", func(t *testing.T) {
+		server.State().SetFile(101, "CODEOWNERS", "main", []byte("# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n* @platform/sec\n"))
+
+		cfg := &config.PolicyConfig{
+			Policies: config.PoliciesConfig{
+				RepositoryFiles: []config.RepositoryFileConfig{
+					{
+						Path:        "CODEOWNERS",
+						Content:     "* @platform/sec\n",
+						Enforcement: "direct_commit",
+						// TargetBranch omitted
+					},
+				},
+			},
+		}
+
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj, cfg)
+		require.NoError(t, err)
+		assert.Empty(t, findings, "Target branch fallback should match project default branch")
+	})
 }

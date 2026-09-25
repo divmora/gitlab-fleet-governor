@@ -34,9 +34,9 @@ func (r *RepositoryFilesReconciler) Name() string {
 	return "repository_files"
 }
 
-// Order returns the execution order sequence (55).
+// Order returns the execution order sequence (15).
 func (r *RepositoryFilesReconciler) Order() int {
-	return 55
+	return 15
 }
 
 // Plan evaluates project repository files against policy config without state mutation.
@@ -49,6 +49,7 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 	overallAction := ActionNoop
 
 	for _, fileCfg := range cfg.Policies.RepositoryFiles {
+		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -57,9 +58,9 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 			}
 		}
 
-		existingContent, fileExists, err := fetchFileContent(client, project.ID, fileCfg.Path, targetBranch)
+		existingContent, fileExists, err := fetchFileContent(client, project.ID, cleanPath, targetBranch)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch raw file %s on branch %s: %w", fileCfg.Path, targetBranch, err)
+			return nil, fmt.Errorf("failed to fetch raw file %s on branch %s: %w", cleanPath, targetBranch, err)
 		}
 
 		enforcement := strings.ToLower(fileCfg.Enforcement)
@@ -69,20 +70,49 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 
 		desiredContent, hasDrift, _, err := calculateFileDrift(ctx, fileCfg, existingContent, fileExists, enforcement)
 		if err != nil {
-			return nil, fmt.Errorf("failed to calculate drift for file %s: %w", fileCfg.Path, err)
+			return nil, fmt.Errorf("failed to calculate drift for file %s: %w", cleanPath, err)
 		}
 
 		if hasDrift {
+			if enforcement == "merge_request" {
+				featureBranch := fmt.Sprintf("governance/sync-%s", slugifyPath(cleanPath))
+				mrs, _, listErr := client.MergeRequests().ListProjectMergeRequests(project.ID, &gogitlab.ListProjectMergeRequestsOptions{
+					SourceBranch: gogitlab.Ptr(featureBranch),
+					TargetBranch: gogitlab.Ptr(targetBranch),
+					State:        gogitlab.Ptr("opened"),
+				})
+				if listErr == nil && len(mrs) > 0 {
+					featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+					if featExists && normalizeContent(featContent) == normalizeContent(desiredContent) {
+						// Open MR already has the compliant file content and is pending review (0 drift / skipped)
+						continue
+					}
+					// File on feature branch is outdated
+					builder := NewDiffBuilder()
+					if !featExists {
+						builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
+						diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s (MR !%d)", cleanPath, mrs[0].IID), ActionCreate))
+					} else {
+						builder.AddField("content", summarizeSnippet(featContent), summarizeSnippet(desiredContent), ActionUpdate)
+						diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s (MR !%d)", cleanPath, mrs[0].IID), ActionUpdate))
+					}
+					if overallAction == ActionNoop {
+						overallAction = ActionUpdate
+					}
+					continue
+				}
+			}
+
 			builder := NewDiffBuilder()
 			if !fileExists {
 				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
-				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", fileCfg.Path), ActionCreate))
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
 				if overallAction == ActionNoop {
 					overallAction = ActionCreate
 				}
 			} else {
 				builder.AddField("content", summarizeSnippet(existingContent), summarizeSnippet(desiredContent), ActionUpdate)
-				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", fileCfg.Path), ActionUpdate))
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionUpdate))
 				if overallAction == ActionNoop {
 					overallAction = ActionUpdate
 				}
@@ -108,6 +138,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 	overallAction := ActionNoop
 
 	for _, fileCfg := range cfg.Policies.RepositoryFiles {
+		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -121,7 +152,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 			enforcement = "direct_commit"
 		}
 
-		existingContent, fileExists, err := fetchFileContent(client, project.ID, fileCfg.Path, targetBranch)
+		existingContent, fileExists, err := fetchFileContent(client, project.ID, cleanPath, targetBranch)
 		if err != nil {
 			return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionNoop, StatusFailed, nil, err, start), err
 		}
@@ -135,49 +166,113 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 			continue
 		}
 
-		builder := NewDiffBuilder()
-		if !fileExists {
-			builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
-			diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", fileCfg.Path), ActionCreate))
-		} else {
-			builder.AddField("content", summarizeSnippet(existingContent), summarizeSnippet(desiredContent), ActionUpdate)
-			diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", fileCfg.Path), ActionUpdate))
-		}
-		if overallAction == ActionNoop {
-			overallAction = action
-		}
-
 		if enforcement == "audit_only" {
+			builder := NewDiffBuilder()
+			if !fileExists {
+				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
+			} else {
+				builder.AddField("content", summarizeSnippet(existingContent), summarizeSnippet(desiredContent), ActionUpdate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionUpdate))
+			}
+			if overallAction == ActionNoop {
+				overallAction = action
+			}
 			continue
 		}
 
 		if enforcement == "direct_commit" {
-			commitMsg := fmt.Sprintf("chore: sync %s to policy", fileCfg.Path)
+			commitMsg := fmt.Sprintf("chore: sync %s to policy", cleanPath)
+			builder := NewDiffBuilder()
 			if !fileExists {
+				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
 				opt := &gogitlab.CreateFileOptions{
 					Branch:        gogitlab.Ptr(targetBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
 				}
-				_, _, createErr := client.RepositoryFiles().CreateFile(project.ID, fileCfg.Path, opt)
+				_, resp, createErr := client.RepositoryFiles().CreateFile(project.ID, cleanPath, opt)
 				if createErr != nil {
-					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file %s on %s: %w", fileCfg.Path, targetBranch, createErr), start), createErr
+					if isForbidden(resp, createErr) {
+						actionableErr := fmt.Errorf("direct commit to branch %s failed with HTTP 403 Forbidden: push permissions are restricted; please use 'enforcement: merge_request' for protected branches: %w", targetBranch, createErr)
+						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, actionableErr, start), actionableErr
+					}
+					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file %s on %s: %w", cleanPath, targetBranch, createErr), start), createErr
 				}
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
 			} else {
+				builder.AddField("content", summarizeSnippet(existingContent), summarizeSnippet(desiredContent), ActionUpdate)
 				opt := &gogitlab.UpdateFileOptions{
 					Branch:        gogitlab.Ptr(targetBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
 				}
-				_, _, updateErr := client.RepositoryFiles().UpdateFile(project.ID, fileCfg.Path, opt)
+				_, resp, updateErr := client.RepositoryFiles().UpdateFile(project.ID, cleanPath, opt)
 				if updateErr != nil {
-					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file %s on %s: %w", fileCfg.Path, targetBranch, updateErr), start), updateErr
+					if isForbidden(resp, updateErr) {
+						actionableErr := fmt.Errorf("direct commit to branch %s failed with HTTP 403 Forbidden: push permissions are restricted; please use 'enforcement: merge_request' for protected branches: %w", targetBranch, updateErr)
+						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, actionableErr, start), actionableErr
+					}
+					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file %s on %s: %w", cleanPath, targetBranch, updateErr), start), updateErr
 				}
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionUpdate))
+			}
+			if overallAction == ActionNoop {
+				overallAction = action
 			}
 		} else if enforcement == "merge_request" {
-			featureBranch := fmt.Sprintf("governance/sync-%s", slugifyPath(fileCfg.Path))
+			featureBranch := fmt.Sprintf("governance/sync-%s", slugifyPath(cleanPath))
 
-			// 1. Ensure feature branch exists
+			// Check for existing open Merge Request
+			mrs, _, listErr := client.MergeRequests().ListProjectMergeRequests(project.ID, &gogitlab.ListProjectMergeRequestsOptions{
+				SourceBranch: gogitlab.Ptr(featureBranch),
+				TargetBranch: gogitlab.Ptr(targetBranch),
+				State:        gogitlab.Ptr("opened"),
+			})
+			if listErr != nil {
+				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to list merge requests for branch %s: %w", featureBranch, listErr), start), listErr
+			}
+
+			if len(mrs) > 0 {
+				featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+				if featExists && normalizeContent(featContent) == normalizeContent(desiredContent) {
+					// Open MR already has compliant file content and is pending review (0 drift / skipped)
+					continue
+				}
+
+				// Outdated on existing branch: update file on feature branch (PUT/POST) rather than opening duplicate MR
+				commitMsg := fmt.Sprintf("chore: sync %s to policy", cleanPath)
+				builder := NewDiffBuilder()
+				if !featExists {
+					builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
+					diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s (MR !%d)", cleanPath, mrs[0].IID), ActionCreate))
+					_, _, createErr := client.RepositoryFiles().CreateFile(project.ID, cleanPath, &gogitlab.CreateFileOptions{
+						Branch:        gogitlab.Ptr(featureBranch),
+						Content:       gogitlab.Ptr(desiredContent),
+						CommitMessage: gogitlab.Ptr(commitMsg),
+					})
+					if createErr != nil {
+						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file on feature branch %s: %w", featureBranch, createErr), start), createErr
+					}
+				} else {
+					builder.AddField("content", summarizeSnippet(featContent), summarizeSnippet(desiredContent), ActionUpdate)
+					diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s (MR !%d)", cleanPath, mrs[0].IID), ActionUpdate))
+					_, _, updateErr := client.RepositoryFiles().UpdateFile(project.ID, cleanPath, &gogitlab.UpdateFileOptions{
+						Branch:        gogitlab.Ptr(featureBranch),
+						Content:       gogitlab.Ptr(desiredContent),
+						CommitMessage: gogitlab.Ptr(commitMsg),
+					})
+					if updateErr != nil {
+						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file on feature branch %s: %w", featureBranch, updateErr), start), updateErr
+					}
+				}
+				if overallAction == ActionNoop {
+					overallAction = ActionUpdate
+				}
+				continue
+			}
+
+			// Ensure feature branch exists
 			_, _, branchErr := client.Branches().GetBranch(project.ID, featureBranch)
 			if branchErr != nil {
 				_, _, createBranchErr := client.Branches().CreateBranch(project.ID, &gogitlab.CreateBranchOptions{
@@ -189,12 +284,15 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 				}
 			}
 
-			// 2. Commit updated file to feature branch if content differs
-			commitMsg := fmt.Sprintf("chore: sync %s to policy", fileCfg.Path)
-			featContent, featExists, _ := fetchFileContent(client, project.ID, fileCfg.Path, featureBranch)
+			// Commit updated file to feature branch
+			commitMsg := fmt.Sprintf("chore: sync %s to policy", cleanPath)
+			featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+			builder := NewDiffBuilder()
 
 			if !featExists {
-				_, _, createErr := client.RepositoryFiles().CreateFile(project.ID, fileCfg.Path, &gogitlab.CreateFileOptions{
+				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
+				_, _, createErr := client.RepositoryFiles().CreateFile(project.ID, cleanPath, &gogitlab.CreateFileOptions{
 					Branch:        gogitlab.Ptr(featureBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
@@ -202,8 +300,10 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 				if createErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file on feature branch %s: %w", featureBranch, createErr), start), createErr
 				}
-			} else if strings.TrimSpace(featContent) != strings.TrimSpace(desiredContent) {
-				_, _, updateErr := client.RepositoryFiles().UpdateFile(project.ID, fileCfg.Path, &gogitlab.UpdateFileOptions{
+			} else if normalizeContent(featContent) != normalizeContent(desiredContent) {
+				builder.AddField("content", summarizeSnippet(featContent), summarizeSnippet(desiredContent), ActionUpdate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionUpdate))
+				_, _, updateErr := client.RepositoryFiles().UpdateFile(project.ID, cleanPath, &gogitlab.UpdateFileOptions{
 					Branch:        gogitlab.Ptr(featureBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
@@ -211,44 +311,38 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 				if updateErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file on feature branch %s: %w", featureBranch, updateErr), start), updateErr
 				}
+			} else {
+				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
+			}
+			if overallAction == ActionNoop {
+				overallAction = action
 			}
 
-			// 3. Check for existing open Merge Request
-			mrs, _, listErr := client.MergeRequests().ListProjectMergeRequests(project.ID, &gogitlab.ListProjectMergeRequestsOptions{
+			// Open MR
+			mrTitle := fileCfg.MRTitle
+			if mrTitle == "" {
+				mrTitle = fmt.Sprintf("chore: sync %s to enterprise policy", cleanPath)
+			}
+			mrLabels := fileCfg.MRLabels
+			if len(mrLabels) == 0 {
+				mrLabels = []string{"automated", "governance"}
+			}
+
+			mrOpt := &gogitlab.CreateMergeRequestOptions{
 				SourceBranch: gogitlab.Ptr(featureBranch),
 				TargetBranch: gogitlab.Ptr(targetBranch),
-				State:        gogitlab.Ptr("opened"),
-			})
-			if listErr != nil {
-				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to list merge requests for branch %s: %w", featureBranch, listErr), start), listErr
+				Title:        gogitlab.Ptr(mrTitle),
+				Labels:       gogitlab.Ptr(gogitlab.LabelOptions(mrLabels)),
 			}
 
-			if len(mrs) == 0 {
-				// Create MR
-				mrTitle := fileCfg.MRTitle
-				if mrTitle == "" {
-					mrTitle = fmt.Sprintf("chore: sync %s to enterprise policy", fileCfg.Path)
-				}
-				mrLabels := fileCfg.MRLabels
-				if len(mrLabels) == 0 {
-					mrLabels = []string{"automated", "governance"}
-				}
+			mr, _, createMRErr := client.MergeRequests().CreateMergeRequest(project.ID, mrOpt)
+			if createMRErr != nil {
+				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create merge request for %s: %w", cleanPath, createMRErr), start), createMRErr
+			}
 
-				mrOpt := &gogitlab.CreateMergeRequestOptions{
-					SourceBranch: gogitlab.Ptr(featureBranch),
-					TargetBranch: gogitlab.Ptr(targetBranch),
-					Title:        gogitlab.Ptr(mrTitle),
-					Labels:       gogitlab.Ptr(gogitlab.LabelOptions(mrLabels)),
-				}
-
-				mr, _, createMRErr := client.MergeRequests().CreateMergeRequest(project.ID, mrOpt)
-				if createMRErr != nil {
-					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create merge request for %s: %w", fileCfg.Path, createMRErr), start), createMRErr
-				}
-
-				if fileCfg.AutoMerge != nil && *fileCfg.AutoMerge && mr != nil {
-					_, _, _ = client.MergeRequests().AcceptMergeRequest(project.ID, mr.IID, &gogitlab.AcceptMergeRequestOptions{})
-				}
+			if fileCfg.AutoMerge != nil && *fileCfg.AutoMerge && mr != nil {
+				_, _, _ = client.MergeRequests().AcceptMergeRequest(project.ID, mr.IID, &gogitlab.AcceptMergeRequestOptions{})
 			}
 		}
 	}
@@ -284,6 +378,26 @@ func fetchFileContent(client gitlab.GitLabClient, projectID int, path, ref strin
 	return string(raw), true, nil
 }
 
+func isForbidden(resp *gogitlab.Response, err error) bool {
+	if resp != nil && resp.StatusCode == 403 {
+		return true
+	}
+	if err != nil && (strings.Contains(err.Error(), "403") || strings.Contains(strings.ToLower(err.Error()), "forbidden")) {
+		return true
+	}
+	return false
+}
+
+func normalizeContent(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	s = strings.TrimRight(s, "\n")
+	if len(s) > 0 {
+		s += "\n"
+	}
+	return s
+}
+
 func calculateFileDrift(ctx context.Context, fileCfg config.RepositoryFileConfig, existing string, fileExists bool, enforcement string) (desired string, hasDrift bool, action ActionType, err error) {
 	desiredRaw := ""
 	if fileCfg.Content != "" {
@@ -300,8 +414,10 @@ func calculateFileDrift(ctx context.Context, fileCfg config.RepositoryFileConfig
 			desiredRaw = strings.Join(fileCfg.EnsureContains, "\n") + "\n"
 		} else {
 			missing := make([]string, 0)
+			normExisting := normalizeContent(existing)
 			for _, check := range fileCfg.EnsureContains {
-				if !strings.Contains(existing, check) {
+				normCheck := strings.ReplaceAll(check, "\r\n", "\n")
+				if !strings.Contains(normExisting, normCheck) {
 					missing = append(missing, check)
 				}
 			}
@@ -324,16 +440,18 @@ func calculateFileDrift(ctx context.Context, fileCfg config.RepositoryFileConfig
 	}
 	desiredRaw = expanded
 
-	// Add managed-by comment header for direct_commit if not present
-	if enforcement == "direct_commit" {
+	// Add managed-by comment header for direct_commit only when full content is specified
+	if enforcement == "direct_commit" && (fileCfg.Content != "" || fileCfg.ContentFile != "") {
 		desiredRaw = attachManagedHeader(fileCfg.Path, desiredRaw)
 	}
+
+	desiredRaw = normalizeContent(desiredRaw)
 
 	if !fileExists {
 		return desiredRaw, true, ActionCreate, nil
 	}
 
-	if strings.TrimSpace(existing) == strings.TrimSpace(desiredRaw) {
+	if normalizeContent(existing) == desiredRaw {
 		return existing, false, ActionNoop, nil
 	}
 
