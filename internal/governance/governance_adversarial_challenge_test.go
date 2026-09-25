@@ -433,7 +433,7 @@ func TestAdversarial_OperationsRegistry_ConcurrencyAndOrder(t *testing.T) {
 
 	// 1. Verify strict ordering 10 -> 100
 	ops := reg.OrderedOperations()
-	require.Len(t, ops, 11)
+	require.Len(t, ops, 12)
 	for i := 0; i < len(ops)-1; i++ {
 		assert.Less(t, ops[i].Order(), ops[i+1].Order(), "Operations must be strictly monotonically ordered")
 	}
@@ -465,19 +465,19 @@ func TestAdversarial_OperationsRegistry_ConcurrencyAndOrder(t *testing.T) {
 			if workerID%2 == 0 {
 				planResults, pErr := reg.PlanProject(ctx, proj, cfg)
 				assert.NoError(t, pErr)
-				assert.Len(t, planResults, 11)
+				assert.Len(t, planResults, 12)
 
 				applyResults, aErr := reg.ApplyProject(ctx, proj, cfg)
 				assert.NoError(t, aErr)
-				assert.Len(t, applyResults, 11)
+				assert.Len(t, applyResults, 12)
 			} else {
 				planGroupResults, pgErr := reg.PlanGroup(ctx, group, cfg)
 				assert.NoError(t, pgErr)
-				assert.Len(t, planGroupResults, 11)
+				assert.Len(t, planGroupResults, 12)
 
 				applyGroupResults, agErr := reg.ApplyGroup(ctx, group, cfg)
 				assert.NoError(t, agErr)
-				assert.Len(t, applyGroupResults, 11)
+				assert.Len(t, applyGroupResults, 12)
 			}
 		}(i)
 	}

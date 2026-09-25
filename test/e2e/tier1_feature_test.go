@@ -749,7 +749,7 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
 	require.NoError(t, err)
 
 	reg := governance.NewDefaultRegistry(client)
-	require.Equal(t, 11, len(reg.OrderedOperations()), "all 11 reconcilers must be registered")
+	require.Equal(t, 12, len(reg.OrderedOperations()), "all 12 reconcilers must be registered")
 
 	// 1. Dry Run Execution
 	t.Run("Dry-Run Simulation: Validates Plan Diffs for All 10 Reconcilers", func(t *testing.T) {

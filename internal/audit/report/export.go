@@ -206,6 +206,27 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 		}
 	}
 
+	for _, f := range report.RepositoryFileFindings {
+		row := []string{
+			"Repository Files",
+			strconv.Itoa(f.ProjectID),
+			f.ProjectName,
+			f.ProjectPath,
+			f.ProjectStatus,
+			f.ProjectWebURL,
+			fmt.Sprintf("File: %s (Branch: %s)", f.FilePath, f.TargetBranch),
+			f.ViolationType,
+			"N/A",
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -239,6 +260,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Human User Violations | %d |\n", report.Summary.HumanUserViolations))
 	sb.WriteString(fmt.Sprintf("| Bot / Service Account Violations | %d |\n", report.Summary.BotUserViolations))
 	sb.WriteString(fmt.Sprintf("| Pipeline Retention Violations | %d |\n", report.Summary.PipelineRetentionViolations))
+	sb.WriteString(fmt.Sprintf("| Repository File Violations | %d |\n", report.Summary.RepositoryFileViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
 	// Commercial Licensing & Statutory Attestation Section
@@ -359,9 +381,22 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("\n")
 	}
 
+	// Repository Files Section
+	if len(report.RepositoryFileFindings) > 0 {
+		sb.WriteString("## 6. Repository Files Compliance Audit (`repository_files`)\n\n")
+		sb.WriteString("| Project | State | File Path | Branch | Status | Violation Type | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|---|:---:|---|---|---|\n")
+		for _, f := range report.RepositoryFileFindings {
+			badge := formatBadge(f.Severity)
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | `%s` | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.FilePath), escapeMD(f.TargetBranch), badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
 	// User Directory Section
 	if len(report.UserDirectory) > 0 {
-		sb.WriteString("## 6. Fleet User Directory\n\n")
+		sb.WriteString("## 7. Fleet User Directory\n\n")
 		sb.WriteString("| ID | Username | Full Name | Account Type | State | Projects Access |\n")
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
@@ -428,6 +463,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <div class="stat-card"><div>Human Violations</div><div class="stat-val ` + dangerClass(report.Summary.HumanUserViolations) + `">` + strconv.Itoa(report.Summary.HumanUserViolations) + `</div></div>
   <div class="stat-card"><div>Bot / Token Violations</div><div class="stat-val">` + strconv.Itoa(report.Summary.BotUserViolations) + `</div></div>
   <div class="stat-card"><div>Retention Violations</div><div class="stat-val ` + dangerClass(report.Summary.PipelineRetentionViolations) + `">` + strconv.Itoa(report.Summary.PipelineRetentionViolations) + `</div></div>
+  <div class="stat-card"><div>File Violations</div><div class="stat-val ` + dangerClass(report.Summary.RepositoryFileViolations) + `">` + strconv.Itoa(report.Summary.RepositoryFileViolations) + `</div></div>
 </div>
 `)
 
@@ -601,6 +637,28 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`</tbody></table>`)
 	}
 
+	if len(report.RepositoryFileFindings) > 0 {
+		sb.WriteString(`<h2>Repository Files Compliance Audit</h2>
+<table>
+  <thead>
+    <tr><th>Project</th><th>State</th><th>File Path</th><th>Branch</th><th>Status</th><th>Violation Type</th><th>Details</th><th>Remediation</th></tr>
+  </thead>
+  <tbody>`)
+		for _, f := range report.RepositoryFileFindings {
+			sb.WriteString(fmt.Sprintf(`<tr>
+  <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
+  <td><code>%s</code></td>
+  <td><code>%s</code></td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, html.EscapeString(f.FilePath), html.EscapeString(f.TargetBranch), htmlBadge(f.Severity), html.EscapeString(f.ViolationType), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
+		}
+		sb.WriteString(`</tbody></table>`)
+	}
+
 	sb.WriteString(`</div></body></html>`)
 	_, err := io.WriteString(out, sb.String())
 	return err
@@ -631,6 +689,8 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		report.Summary.HumanUserViolations, report.Summary.BotUserViolations))
 	sb.WriteString(fmt.Sprintf("Pipeline Audit : Retention & Cleanup Violations: %d\n",
 		report.Summary.PipelineRetentionViolations))
+	sb.WriteString(fmt.Sprintf("Repository Files: File & CODEOWNERS Violations: %d\n",
+		report.Summary.RepositoryFileViolations))
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
 		sb.WriteString(fmt.Sprintf("Licensing      : %s (Tier: %s) | Status: %s | Licensed To: %s\n", att.LicenseModel, att.Tier, att.Status, att.LicensedTo))
@@ -744,6 +804,22 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				truncate(retStr, 15),
 				truncate(strconv.Itoa(f.StalePipelinesCount), 11),
 				truncate(oldest, 15),
+				f.Severity,
+				truncate(f.Details, 40),
+			))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.RepositoryFileFindings) > 0 {
+		sb.WriteString("[REPOSITORY FILES FINDINGS]\n")
+		sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n", "PROJECT", "FILE", "BRANCH", "STATUS", "DETAILS"))
+		sb.WriteString(strings.Repeat("-", 105) + "\n")
+		for _, f := range report.RepositoryFileFindings {
+			sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n",
+				truncate(f.ProjectPath, 27),
+				truncate(f.FilePath, 19),
+				truncate(f.TargetBranch, 11),
 				f.Severity,
 				truncate(f.Details, 40),
 			))

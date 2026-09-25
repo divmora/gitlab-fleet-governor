@@ -747,9 +747,9 @@ func TestAdversarial_OperationsRegistry_HighConcurrencyAndOrdering(t *testing.T)
 
 	t.Run("Registry_Ordering_Invariant", func(t *testing.T) {
 		orderedOps := registry.OrderedOperations()
-		require.Len(t, orderedOps, 11)
+		require.Len(t, orderedOps, 12)
 
-		expectedOrders := []int{10, 20, 30, 40, 45, 50, 60, 70, 80, 90, 100}
+		expectedOrders := []int{10, 15, 20, 30, 40, 45, 50, 60, 70, 80, 90, 100}
 		for i, op := range orderedOps {
 			assert.Equal(t, expectedOrders[i], op.Order(), "Operation %s out of order", op.Name())
 		}

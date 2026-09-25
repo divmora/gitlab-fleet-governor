@@ -275,6 +275,39 @@ type PoliciesConfig struct {
 
 	// TargetBranchRules configures MR default target branch rules based on source branch naming patterns.
 	TargetBranchRules *TargetBranchRulesConfig `yaml:"target_branch_rules,omitempty" json:"target_branch_rules,omitempty"`
+
+	// RepositoryFiles configures standardized repository file synchronization policies.
+	RepositoryFiles []RepositoryFileConfig `yaml:"repository_files,omitempty" json:"repository_files,omitempty"`
+}
+
+// RepositoryFileConfig defines a repository file synchronization policy entry.
+type RepositoryFileConfig struct {
+	// Path is the relative path of the file within the repository (e.g. "CODEOWNERS", "SECURITY.md"). Required.
+	Path string `yaml:"path" json:"path"`
+
+	// Content is the inline file content string. Supports ${ENV_VAR} substitution.
+	Content string `yaml:"content,omitempty" json:"content,omitempty"`
+
+	// ContentFile is the local file path or S3 URI (s3://) to read content from. Supports ${ENV_VAR} substitution.
+	ContentFile string `yaml:"content_file,omitempty" json:"content_file,omitempty"`
+
+	// EnsureContains lists mandatory substrings/lines that must be present in the file content.
+	EnsureContains []string `yaml:"ensure_contains,omitempty" json:"ensure_contains,omitempty"`
+
+	// TargetBranch specifies the target Git branch to reconcile (e.g. "main"). Optional; defaults to the project's default branch.
+	TargetBranch string `yaml:"target_branch,omitempty" json:"target_branch,omitempty"`
+
+	// Enforcement specifies enforcement mode: "direct_commit", "merge_request", "audit_only" (default: "direct_commit").
+	Enforcement string `yaml:"enforcement,omitempty" json:"enforcement,omitempty"`
+
+	// MRTitle is the custom Merge Request title when enforcement is "merge_request".
+	MRTitle string `yaml:"mr_title,omitempty" json:"mr_title,omitempty"`
+
+	// MRLabels specifies labels attached to the created Merge Request.
+	MRLabels []string `yaml:"mr_labels,omitempty" json:"mr_labels,omitempty"`
+
+	// AutoMerge automatically merges the created Merge Request when CI passes.
+	AutoMerge *bool `yaml:"auto_merge,omitempty" json:"auto_merge,omitempty"`
 }
 
 // TargetBranchRulesConfig encapsulates target branch workflow configuration.

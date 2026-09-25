@@ -122,6 +122,33 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 
 	action := parts[1]
 	switch action {
+	case "repository":
+		if len(parts) >= 3 {
+			subAction := parts[2]
+			switch subAction {
+			case "files":
+				filePath := ""
+				if len(parts) > 3 {
+					filePath, _ = url.PathUnescape(strings.Join(parts[3:], "/"))
+				}
+				rt.handleProjectRepositoryFiles(w, r, unescapedID, filePath)
+				return
+			case "branches":
+				branchName := ""
+				if len(parts) > 3 {
+					branchName, _ = url.PathUnescape(strings.Join(parts[3:], "/"))
+				}
+				rt.handleProjectRepositoryBranches(w, r, unescapedID, branchName)
+				return
+			}
+		}
+		http.NotFound(w, r)
+	case "merge_requests":
+		mrIIDStr := ""
+		if len(parts) > 2 {
+			mrIIDStr = parts[2]
+		}
+		rt.handleProjectMergeRequests(w, r, unescapedID, mrIIDStr, parts)
 	case "push_rule":
 		rt.handleProjectPushRule(w, r, unescapedID)
 	case "protected_branches":
@@ -1185,6 +1212,206 @@ func (rt *Router) routeUsers(w http.ResponseWriter, r *http.Request, sub string)
 		return
 	}
 	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+}
+
+func (rt *Router) handleProjectRepositoryFiles(w http.ResponseWriter, r *http.Request, idOrPath, filePath string) {
+	ref := r.URL.Query().Get("ref")
+	if ref == "" {
+		ref = "main"
+	}
+
+	if strings.HasSuffix(filePath, "/raw") {
+		cleanPath := strings.TrimSuffix(filePath, "/raw")
+		content, found := rt.state.GetRawFile(idOrPath, cleanPath, ref)
+		if !found {
+			http.Error(w, `{"message":"404 File Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write(content)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		content, found := rt.state.GetRawFile(idOrPath, filePath, ref)
+		if !found {
+			http.Error(w, `{"message":"404 File Not Found"}`, http.StatusNotFound)
+			return
+		}
+		fileObj := &gitlab.File{
+			FileName: filePath,
+			FilePath: filePath,
+			Ref:      ref,
+			Content:  string(content),
+		}
+		_ = json.NewEncoder(w).Encode(fileObj)
+	case http.MethodPost, http.MethodPut:
+		var body struct {
+			Branch        string `json:"branch"`
+			Content       string `json:"content"`
+			CommitMessage string `json:"commit_message"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+			return
+		}
+		branch := body.Branch
+		if branch == "" {
+			branch = ref
+		}
+		if pb, found := rt.state.GetProtectedBranch(idOrPath, branch); found {
+			disallowed := true
+			for _, pal := range pb.PushAccessLevels {
+				if pal.AccessLevel > 0 {
+					disallowed = false
+					break
+				}
+			}
+			if disallowed && len(pb.PushAccessLevels) > 0 {
+				http.Error(w, `{"message":"403 Forbidden - You are not allowed to push code to protected branches on this project."}`, http.StatusForbidden)
+				return
+			}
+		}
+		ok := rt.state.SetFile(idOrPath, filePath, branch, []byte(body.Content))
+		if !ok {
+			http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+			return
+		}
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+		}
+		fileInfo := &gitlab.FileInfo{
+			FilePath: filePath,
+			Branch:   branch,
+		}
+		_ = json.NewEncoder(w).Encode(fileInfo)
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (rt *Router) handleProjectRepositoryBranches(w http.ResponseWriter, r *http.Request, idOrPath, branchName string) {
+	if branchName != "" {
+		if r.Method == http.MethodGet {
+			b, found := rt.state.GetBranch(idOrPath, branchName)
+			if !found {
+				http.Error(w, `{"message":"404 Branch Not Found"}`, http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(b)
+			return
+		}
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		http.NotFound(w, r)
+	case http.MethodPost:
+		var body struct {
+			Branch string `json:"branch"`
+			Ref    string `json:"ref"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+			return
+		}
+		b, ok := rt.state.CreateBranch(idOrPath, body.Branch, body.Ref)
+		if !ok {
+			http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(b)
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (rt *Router) handleProjectMergeRequests(w http.ResponseWriter, r *http.Request, idOrPath, mrIIDStr string, parts []string) {
+	if mrIIDStr != "" {
+		mrIID, err := strconv.Atoi(mrIIDStr)
+		if err != nil {
+			http.Error(w, `{"error":"invalid mr iid"}`, http.StatusBadRequest)
+			return
+		}
+		if len(parts) >= 4 && parts[3] == "merge" && r.Method == http.MethodPut {
+			mr, ok := rt.state.AcceptMergeRequest(idOrPath, mrIID)
+			if !ok {
+				http.Error(w, `{"message":"404 MR Not Found"}`, http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(mr)
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		q := r.URL.Query()
+		sourceBranch := q.Get("source_branch")
+		targetBranch := q.Get("target_branch")
+		state := q.Get("state")
+		mrs := rt.state.ListMergeRequests(idOrPath, sourceBranch, targetBranch, state)
+		_ = json.NewEncoder(w).Encode(mrs)
+	case http.MethodPost:
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, `{"error":"read body failed"}`, http.StatusBadRequest)
+			return
+		}
+
+		sourceBranch := ""
+		targetBranch := ""
+		title := ""
+		var labels []string
+
+		var jsonBody struct {
+			SourceBranch string `json:"source_branch"`
+			TargetBranch string `json:"target_branch"`
+			Title        string `json:"title"`
+			Labels       any    `json:"labels"`
+		}
+		if jsonErr := json.Unmarshal(bodyBytes, &jsonBody); jsonErr == nil && jsonBody.SourceBranch != "" {
+			sourceBranch = jsonBody.SourceBranch
+			targetBranch = jsonBody.TargetBranch
+			title = jsonBody.Title
+			switch l := jsonBody.Labels.(type) {
+			case string:
+				labels = strings.Split(l, ",")
+			case []any:
+				for _, item := range l {
+					if s, ok := item.(string); ok {
+						labels = append(labels, s)
+					}
+				}
+			}
+		} else {
+			vals, formErr := url.ParseQuery(string(bodyBytes))
+			if formErr == nil {
+				sourceBranch = vals.Get("source_branch")
+				targetBranch = vals.Get("target_branch")
+				title = vals.Get("title")
+				if l := vals.Get("labels"); l != "" {
+					labels = strings.Split(l, ",")
+				}
+			}
+		}
+
+		mr, ok := rt.state.CreateMergeRequest(idOrPath, sourceBranch, targetBranch, title, labels)
+		if !ok {
+			http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(mr)
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
 }
 
 func (rt *Router) handleCurrentUser(w http.ResponseWriter, r *http.Request) {
