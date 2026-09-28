@@ -142,6 +142,34 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
       }
     }
 
+    // Repository Files
+    if (p.repository_files && Array.isArray(p.repository_files)) {
+      p.repository_files.forEach((rf: any, idx: number) => {
+        if (!rf.path || !rf.path.trim()) {
+          errors.push({ path: `policies.repository_files[${idx}].path`, message: 'Repository file path cannot be empty.', severity: 'error' });
+        } else if (rf.path.includes('..')) {
+          errors.push({ path: `policies.repository_files[${idx}].path`, message: `Repository file path '${rf.path}' cannot contain directory traversal ('..').`, severity: 'error' });
+        }
+
+        const hasContent = Boolean(rf.content);
+        const hasContentFile = Boolean(rf.content_file && rf.content_file.trim());
+        const hasEnsureContains = Boolean(rf.ensure_contains && Array.isArray(rf.ensure_contains) && rf.ensure_contains.length > 0);
+
+        if (!hasContent && !hasContentFile && !hasEnsureContains) {
+          errors.push({ path: `policies.repository_files[${idx}]`, message: "Repository file policy requires at least one of 'content', 'content_file', or 'ensure_contains'.", severity: 'error' });
+        }
+        if (hasContent && hasContentFile) {
+          errors.push({ path: `policies.repository_files[${idx}]`, message: "Repository file policy cannot specify both 'content' and 'content_file'.", severity: 'error' });
+        }
+        if ((hasContent || hasContentFile) && hasEnsureContains) {
+          errors.push({ path: `policies.repository_files[${idx}]`, message: "Repository file policy cannot combine full file content with 'ensure_contains'.", severity: 'error' });
+        }
+        if (rf.enforcement && !['direct_commit', 'merge_request', 'audit_only'].includes(rf.enforcement.toLowerCase())) {
+          errors.push({ path: `policies.repository_files[${idx}].enforcement`, message: `Invalid enforcement mode '${rf.enforcement}' (must be direct_commit, merge_request, or audit_only).`, severity: 'error' });
+        }
+      });
+    }
+
     // Protected Branches
     if (p.protected_branches && Array.isArray(p.protected_branches)) {
       p.protected_branches.forEach((pb: any, idx: number) => {

@@ -13,6 +13,18 @@ export const ReconcilerCheatSheet: React.FC = () => {
   reject_unsigned_commits: true`,
     },
     {
+      name: 'repository_files',
+      scope: 'Project',
+      desc: 'Standardized files & CODEOWNERS sync, direct_commit / merge_request enforcement, line ending normalization.',
+      yamlSnippet: `repository_files:
+  - path: "CODEOWNERS"
+    content: |
+      * @security-team
+    target_branch: "main"
+    enforcement: "merge_request"
+    mr_title: "chore: sync CODEOWNERS to enterprise policy"`,
+    },
+    {
       name: 'protected_branches',
       scope: 'Project',
       desc: 'Branch protections, access tiers (0, 30, 40), force push prevention, code owner approvals.',

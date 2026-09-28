@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -349,6 +350,69 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 
 	if p.TargetBranchRules != nil {
 		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs)
+	}
+
+	if len(p.RepositoryFiles) > 0 {
+		validateRepositoryFiles(p.RepositoryFiles, prefix+".repository_files", errs)
+	}
+}
+
+func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *ValidationErrors) {
+	for i, f := range files {
+		fPrefix := fmt.Sprintf("%s[%d]", prefix, i)
+		rawPath := strings.TrimSpace(f.Path)
+		if rawPath == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix + ".path",
+				Message: "repository file path cannot be empty",
+			})
+		} else {
+			cleanGitPath := path.Clean(strings.ReplaceAll(rawPath, "\\", "/"))
+			if strings.HasPrefix(cleanGitPath, "../") || cleanGitPath == ".." {
+				*errs = append(*errs, ValidationError{
+					Field:   fPrefix + ".path",
+					Message: fmt.Sprintf("repository file path '%s' cannot contain directory traversal ('..')", f.Path),
+					Value:   f.Path,
+				})
+			}
+		}
+
+		hasContent := f.Content != ""
+		hasContentFile := strings.TrimSpace(f.ContentFile) != ""
+		hasEnsureContains := len(f.EnsureContains) > 0
+
+		if !hasContent && !hasContentFile && !hasEnsureContains {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' requires at least one of 'content', 'content_file', or 'ensure_contains'", f.Path),
+			})
+		}
+
+		if hasContent && hasContentFile {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' cannot specify both 'content' and 'content_file'", f.Path),
+			})
+		}
+
+		if (hasContent || hasContentFile) && hasEnsureContains {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' cannot combine full file content ('content'/'content_file') with 'ensure_contains'", f.Path),
+			})
+		}
+
+		if f.Enforcement != "" {
+			switch strings.ToLower(f.Enforcement) {
+			case "direct_commit", "merge_request", "audit_only":
+			default:
+				*errs = append(*errs, ValidationError{
+					Field:   fPrefix + ".enforcement",
+					Message: fmt.Sprintf("invalid enforcement mode '%s' (must be direct_commit, merge_request, or audit_only)", f.Enforcement),
+					Value:   f.Enforcement,
+				})
+			}
+		}
 	}
 }
 

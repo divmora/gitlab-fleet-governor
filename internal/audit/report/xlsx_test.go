@@ -122,6 +122,36 @@ func sampleAuditReport() *audit.AuditReport {
 				Remediation:               "Require at least 1 or 2 approvals for production deploys",
 			},
 		},
+		RepositoryFileFindings: []audit.RepositoryFileFinding{
+			{
+				ProjectID:     101,
+				ProjectName:   "payments-api",
+				ProjectPath:   "fintech/payments-api",
+				ProjectWebURL: "https://gitlab.example.com/fintech/payments-api",
+				ProjectStatus: "Active",
+				FilePath:      "CODEOWNERS",
+				TargetBranch:  "main",
+				FileExists:    true,
+				Severity:      audit.SeverityPass,
+				ViolationType: "COMPLIANT",
+				Details:       "Compliant enterprise CODEOWNERS configuration",
+				Remediation:   "No action required",
+			},
+			{
+				ProjectID:     101,
+				ProjectName:   "payments-api",
+				ProjectPath:   "fintech/payments-api",
+				ProjectWebURL: "https://gitlab.example.com/fintech/payments-api",
+				ProjectStatus: "Active",
+				FilePath:      "SECURITY.md",
+				TargetBranch:  "main",
+				FileExists:    false,
+				Severity:      audit.SeverityHigh,
+				ViolationType: "MISSING_FILE",
+				Details:       "Mandatory repository file 'SECURITY.md' is missing",
+				Remediation:   "Synchronize file via fleet governor",
+			},
+		},
 	}
 	r.Summary.TotalProjectsScanned = 2
 	r.ComputeSummary()
@@ -147,6 +177,7 @@ func TestGenerateXLSX(t *testing.T) {
 	assert.Contains(t, sheetList, "Bots & Service Accounts")
 	assert.Contains(t, sheetList, "Protected Branch Access")
 	assert.Contains(t, sheetList, "Protected Environments Access")
+	assert.Contains(t, sheetList, "Repository Files")
 	assert.Contains(t, sheetList, "User Directory")
 
 	// Verify Executive Summary Content

@@ -44,10 +44,16 @@ type PipelineRetentionModuleAuditor interface {
 	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject) ([]PipelineRetentionFinding, error)
 }
 
+// RepositoryFilesModuleAuditor defines project audit for standardized repository files.
+type RepositoryFilesModuleAuditor interface {
+	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject, cfg *config.PolicyConfig) ([]RepositoryFileFinding, error)
+}
+
 // Auditor coordinates fleet discovery and parallel module audits.
 type Auditor struct {
 	client        gl.GitLabClient
 	targets       config.TargetSelectors
+	policyCfg     *config.PolicyConfig
 	concurrency   int
 	activeModules map[string]bool
 	classifier    *BotClassifier
@@ -56,6 +62,7 @@ type Auditor struct {
 	protectedBranchAud   ProtectedBranchesModuleAuditor
 	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
 	pipelineRetentionAud PipelineRetentionModuleAuditor
+	repositoryFilesAud   RepositoryFilesModuleAuditor
 
 	licenseKey       string
 	licenseFile      string
@@ -113,6 +120,13 @@ func WithAuditorConcurrency(c int) AuditorOption {
 func WithAuditorTargets(targets config.TargetSelectors) AuditorOption {
 	return func(a *Auditor) {
 		a.targets = targets
+	}
+}
+
+// WithAuditorPolicy sets the policy configuration for audit modules that evaluate declared policies.
+func WithAuditorPolicy(cfg *config.PolicyConfig) AuditorOption {
+	return func(a *Auditor) {
+		a.policyCfg = cfg
 	}
 }
 
@@ -223,6 +237,10 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 
 	if a.pipelineRetentionAud == nil {
 		a.pipelineRetentionAud = NewPipelineRetentionAuditor()
+	}
+
+	if a.repositoryFilesAud == nil {
+		a.repositoryFilesAud = NewRepositoryFilesAuditor()
 	}
 
 	return a, nil
@@ -365,6 +383,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		ProtectedBranchFindings:   make([]ProtectedBranchFinding, 0),
 		ProtectedEnvFindings:      make([]ProtectedEnvironmentFinding, 0),
 		PipelineRetentionFindings: make([]PipelineRetentionFinding, 0),
+		RepositoryFileFindings:    make([]RepositoryFileFinding, 0),
 	}
 
 	// Register user registry on modules
@@ -398,7 +417,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			uFindings, bFindings, eFindings, rFindings, err := a.auditSingleProject(ctx, p)
+			uFindings, bFindings, eFindings, rFindings, fFindings, err := a.auditSingleProject(ctx, p)
 			if err != nil {
 				slog.Warn("Encountered warning or error auditing project", "project", p.PathWithNamespace, "error", err)
 				mu.Lock()
@@ -422,6 +441,9 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			}
 			if len(rFindings) > 0 {
 				report.PipelineRetentionFindings = append(report.PipelineRetentionFindings, rFindings...)
+			}
+			if len(fFindings) > 0 {
+				report.RepositoryFileFindings = append(report.RepositoryFileFindings, fFindings...)
 			}
 			mu.Unlock()
 		}(proj)
@@ -456,12 +478,14 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 	[]ProtectedBranchFinding,
 	[]ProtectedEnvironmentFinding,
 	[]PipelineRetentionFinding,
+	[]RepositoryFileFinding,
 	error,
 ) {
 	var uFindings []UserAccessFinding
 	var bFindings []ProtectedBranchFinding
 	var eFindings []ProtectedEnvironmentFinding
 	var rFindings []PipelineRetentionFinding
+	var fFindings []RepositoryFileFinding
 	var errs []error
 
 	// User Access Module
@@ -504,11 +528,21 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 		}
 	}
 
+	// Repository Files Module
+	if a.isModuleActive(string(ModuleRepositoryFiles)) && a.repositoryFilesAud != nil && a.policyCfg != nil {
+		findings, err := a.repositoryFilesAud.AuditProject(ctx, a.client, p, a.policyCfg)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("repository_files: %w", err))
+		} else {
+			fFindings = findings
+		}
+	}
+
 	var combinedErr error
 	if len(errs) > 0 {
 		combinedErr = errors.Join(errs...)
 	}
-	return uFindings, bFindings, eFindings, rFindings, combinedErr
+	return uFindings, bFindings, eFindings, rFindings, fFindings, combinedErr
 }
 
 func (a *Auditor) isModuleActive(mod string) bool {

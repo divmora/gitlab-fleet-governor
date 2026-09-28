@@ -103,6 +103,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
         ].filter(Boolean).length;
         return `${count} rule(s)`;
       }
+      case 'repository_files':
+        return Array.isArray(data) ? `${data.length} file(s)` : 'active';
       case 'protected_branches':
         return Array.isArray(data) ? `${data.length} branch(es)` : 'active';
       case 'approval_rules':
@@ -127,6 +129,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       label: 'Push Rules Enforcer',
       icon: '🔒',
       data: config?.policies?.push_rules,
+    },
+    {
+      key: 'repository_files',
+      label: 'Repository Files & CODEOWNERS',
+      icon: '📄',
+      data: config?.policies?.repository_files,
     },
     {
       key: 'protected_branches',
@@ -168,7 +176,7 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
 
   const reconcilerStartX = 420;
   const startY = 20;
-  const gapY = 82;
+  const gapY = 74;
 
   reconcilers.forEach((rec, idx) => {
     const nodeId = `node-rec-${rec.key}`;

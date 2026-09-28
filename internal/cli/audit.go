@@ -86,7 +86,7 @@ terminal tables, with automated SMTP email distribution.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&flags.Modules, "modules", strings.Join(audit.AllModuleNames(), ","), "Comma-separated audit modules to execute (user_access, protected_branches, protected_environments, pipeline_retention)")
+	cmd.Flags().StringVar(&flags.Modules, "modules", strings.Join(audit.AllModuleNames(), ","), "Comma-separated audit modules to execute (user_access, protected_branches, protected_environments, pipeline_retention, repository_files)")
 	cmd.Flags().StringVar(&flags.Format, "format", "", "Audit report presentation format (xlsx, json, csv, markdown, html, table)")
 	cmd.Flags().StringVarP(&flags.OutputFile, "output-file", "o", "", "Destination file path for the audit report (e.g. audit.xlsx, report.json)")
 	cmd.Flags().IntVar(&flags.Concurrency, "concurrency", 10, "Number of concurrent worker goroutines for fleet audits")
@@ -257,6 +257,7 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	auditor, err := audit.NewAuditor(client,
 		audit.WithAuditorConcurrency(concurrency),
 		audit.WithAuditorTargets(cfg.Targets),
+		audit.WithAuditorPolicy(cfg),
 		audit.WithAuditorModules(modules),
 		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
 		audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),

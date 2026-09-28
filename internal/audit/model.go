@@ -28,6 +28,7 @@ const (
 	ModuleProtectedBranches     ModuleName = "protected_branches"
 	ModuleProtectedEnvironments ModuleName = "protected_environments"
 	ModulePipelineRetention     ModuleName = "pipeline_retention"
+	ModuleRepositoryFiles       ModuleName = "repository_files"
 )
 
 // AllModuleNames returns the canonical list of supported audit modules.
@@ -37,6 +38,7 @@ func AllModuleNames() []string {
 		string(ModuleProtectedBranches),
 		string(ModuleProtectedEnvironments),
 		string(ModulePipelineRetention),
+		string(ModuleRepositoryFiles),
 	}
 }
 
@@ -142,6 +144,22 @@ type PipelineRetentionFinding struct {
 	Remediation            string   `json:"remediation"`
 }
 
+// RepositoryFileFinding captures compliance status for a repository file.
+type RepositoryFileFinding struct {
+	ProjectID     int      `json:"project_id"`
+	ProjectName   string   `json:"project_name"`
+	ProjectPath   string   `json:"project_path"`
+	ProjectWebURL string   `json:"project_web_url"`
+	ProjectStatus string   `json:"project_status"` // "Active", "Archived", "Inactive (X days)"
+	FilePath      string   `json:"file_path"`
+	TargetBranch  string   `json:"target_branch"`
+	FileExists    bool     `json:"file_exists"`
+	Severity      Severity `json:"severity"`
+	ViolationType string   `json:"violation_type"` // "MISSING_FILE", "CONTENT_DRIFT", "MISSING_REQUIRED_STRINGS"
+	Details       string   `json:"details"`
+	Remediation   string   `json:"remediation"`
+}
+
 // SummaryMetrics captures aggregate statistical breakdown of audit findings across the fleet.
 type SummaryMetrics struct {
 	TotalProjectsScanned         int              `json:"total_projects_scanned"`
@@ -161,6 +179,7 @@ type SummaryMetrics struct {
 	ProtectedBranchViolations    int              `json:"protected_branch_violations"`
 	ProtectedEnvViolations       int              `json:"protected_env_violations"`
 	PipelineRetentionViolations  int              `json:"pipeline_retention_violations"`
+	RepositoryFileViolations     int              `json:"repository_file_violations"`
 	AuditedBy                    string           `json:"audited_by,omitempty"`
 	SeverityBreakdown            map[Severity]int `json:"severity_breakdown"`
 	ModuleViolations             map[string]int   `json:"module_violations"`
@@ -198,6 +217,7 @@ type AuditReport struct {
 	ProtectedBranchFindings   []ProtectedBranchFinding      `json:"protected_branch_findings,omitempty"`
 	ProtectedEnvFindings      []ProtectedEnvironmentFinding `json:"protected_env_findings,omitempty"`
 	PipelineRetentionFindings []PipelineRetentionFinding    `json:"pipeline_retention_findings,omitempty"`
+	RepositoryFileFindings    []RepositoryFileFinding       `json:"repository_file_findings,omitempty"`
 	UserDirectory             []*UserInfo                   `json:"user_directory,omitempty"`
 }
 
@@ -217,6 +237,7 @@ func (r *AuditReport) ComputeSummary() {
 	r.Summary.ProtectedBranchViolations = 0
 	r.Summary.ProtectedEnvViolations = 0
 	r.Summary.PipelineRetentionViolations = 0
+	r.Summary.RepositoryFileViolations = 0
 
 	nonCompliantProjects := make(map[int]struct{})
 
@@ -322,10 +343,31 @@ func (r *AuditReport) ComputeSummary() {
 		}
 	}
 
+	// Process Repository File findings
+	for _, f := range r.RepositoryFileFindings {
+		if f.Severity != SeverityPass && f.Severity != SeverityInfo {
+			r.Summary.TotalViolations++
+			r.Summary.RepositoryFileViolations++
+			r.Summary.SeverityBreakdown[f.Severity]++
+			nonCompliantProjects[f.ProjectID] = struct{}{}
+			switch f.Severity {
+			case SeverityCritical:
+				r.Summary.CriticalSeverityCount++
+			case SeverityHigh:
+				r.Summary.HighSeverityCount++
+			case SeverityMedium:
+				r.Summary.MediumSeverityCount++
+			case SeverityLow:
+				r.Summary.LowSeverityCount++
+			}
+		}
+	}
+
 	r.Summary.ModuleViolations[string(ModuleUserAccess)] = r.Summary.UserAccessViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedBranches)] = r.Summary.ProtectedBranchViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedEnvironments)] = r.Summary.ProtectedEnvViolations
 	r.Summary.ModuleViolations[string(ModulePipelineRetention)] = r.Summary.PipelineRetentionViolations
+	r.Summary.ModuleViolations[string(ModuleRepositoryFiles)] = r.Summary.RepositoryFileViolations
 
 	r.Summary.NonCompliantProjectsCount = len(nonCompliantProjects)
 	compliant := r.Summary.TotalProjectsScanned - r.Summary.NonCompliantProjectsCount
@@ -413,6 +455,13 @@ func (r *AuditReport) SortFindings() {
 			return r.PipelineRetentionFindings[i].ProjectPath < r.PipelineRetentionFindings[j].ProjectPath
 		}
 		return r.PipelineRetentionFindings[i].OldestPipelineID < r.PipelineRetentionFindings[j].OldestPipelineID
+	})
+
+	sort.Slice(r.RepositoryFileFindings, func(i, j int) bool {
+		if r.RepositoryFileFindings[i].ProjectPath != r.RepositoryFileFindings[j].ProjectPath {
+			return r.RepositoryFileFindings[i].ProjectPath < r.RepositoryFileFindings[j].ProjectPath
+		}
+		return r.RepositoryFileFindings[i].FilePath < r.RepositoryFileFindings[j].FilePath
 	})
 
 	sort.Slice(r.UserDirectory, func(i, j int) bool {

@@ -198,3 +198,32 @@ policies:
       - username: "fleet_compliance_bot"
         access_level: 40
         expires_at: "2027-12-31"
+
+  # 11. Repository Files & CODEOWNERS Sync
+  repository_files:
+    - path: "CODEOWNERS"
+      content: |
+        # Enterprise CODEOWNERS policy
+        # Auto-managed by gitlab-fleet-governor — do not edit manually
+        *                              @platform/security-reviewers
+        /src/                          @platform/backend-leads
+        /infrastructure/               @platform/sre-team
+        /security/                     @platform/appsec @platform/security-architects
+      target_branch: "main"
+      enforcement: "merge_request"
+      mr_title: "chore: sync CODEOWNERS to enterprise policy"
+      mr_labels: ["automated", "governance", "CODEOWNERS"]
+      auto_merge: false
+
+    - path: "SECURITY.md"
+      content_file: "examples/templates/SECURITY.md.tmpl"
+      target_branch: "main"
+      enforcement: "merge_request"
+
+    - path: ".gitlab-ci.yml"
+      ensure_contains:
+        - "include:"
+        - "project: 'platform/ci-templates'"
+      target_branch: "main"
+      enforcement: "merge_request"
+      mr_title: "chore: sync baseline .gitlab-ci.yml includes"

@@ -39,6 +39,9 @@ type Client struct {
 	protectedEnvironments ProtectedEnvironmentsService
 	pipelines             PipelinesService
 	targetBranchRules     TargetBranchRulesService
+	repositoryFiles       RepositoryFilesService
+	branches              BranchesService
+	mergeRequests         MergeRequestsService
 
 	serverTimeMu   sync.RWMutex
 	lastServerTime time.Time
@@ -173,6 +176,21 @@ func WithTargetBranchRulesService(s TargetBranchRulesService) ClientOption {
 	return func(c *Client) { c.targetBranchRules = s }
 }
 
+// WithRepositoryFilesService overrides the default RepositoryFilesService.
+func WithRepositoryFilesService(s RepositoryFilesService) ClientOption {
+	return func(c *Client) { c.repositoryFiles = s }
+}
+
+// WithBranchesService overrides the default BranchesService.
+func WithBranchesService(s BranchesService) ClientOption {
+	return func(c *Client) { c.branches = s }
+}
+
+// WithMergeRequestsService overrides the default MergeRequestsService.
+func WithMergeRequestsService(s MergeRequestsService) ClientOption {
+	return func(c *Client) { c.mergeRequests = s }
+}
+
 // NewClient constructs a new GitLabClient wrapper from resolved authentication.
 func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if auth == nil {
@@ -274,6 +292,15 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 			tokenType:  auth.TokenType,
 		}
 	}
+	if c.repositoryFiles == nil {
+		c.repositoryFiles = &defaultRepositoryFilesService{client: rawClient}
+	}
+	if c.branches == nil {
+		c.branches = &defaultBranchesService{client: rawClient}
+	}
+	if c.mergeRequests == nil {
+		c.mergeRequests = &defaultMergeRequestsService{client: rawClient}
+	}
 
 	return c, nil
 }
@@ -333,6 +360,9 @@ func (c *Client) Users() UsersService                                 { return c
 func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c.protectedEnvironments }
 func (c *Client) Pipelines() PipelinesService                         { return c.pipelines }
 func (c *Client) TargetBranchRules() TargetBranchRulesService         { return c.targetBranchRules }
+func (c *Client) RepositoryFiles() RepositoryFilesService             { return c.repositoryFiles }
+func (c *Client) Branches() BranchesService                           { return c.branches }
+func (c *Client) MergeRequests() MergeRequestsService                 { return c.mergeRequests }
 func (c *Client) BaseURL() string                                     { return c.baseURL }
 func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
 
@@ -635,6 +665,42 @@ func (s *defaultComplianceService) setAuthHeader(req *http.Request) {
 	default:
 		req.Header.Set("PRIVATE-TOKEN", s.token)
 	}
+}
+
+type defaultRepositoryFilesService struct{ client *gitlab.Client }
+
+func (s *defaultRepositoryFilesService) GetFile(pid any, fileName string, opt *gitlab.GetFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.File, *gitlab.Response, error) {
+	return s.client.RepositoryFiles.GetFile(pid, fileName, opt, options...)
+}
+func (s *defaultRepositoryFilesService) GetRawFile(pid any, fileName string, opt *gitlab.GetRawFileOptions, options ...gitlab.RequestOptionFunc) ([]byte, *gitlab.Response, error) {
+	return s.client.RepositoryFiles.GetRawFile(pid, fileName, opt, options...)
+}
+func (s *defaultRepositoryFilesService) CreateFile(pid any, fileName string, opt *gitlab.CreateFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.FileInfo, *gitlab.Response, error) {
+	return s.client.RepositoryFiles.CreateFile(pid, fileName, opt, options...)
+}
+func (s *defaultRepositoryFilesService) UpdateFile(pid any, fileName string, opt *gitlab.UpdateFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.FileInfo, *gitlab.Response, error) {
+	return s.client.RepositoryFiles.UpdateFile(pid, fileName, opt, options...)
+}
+
+type defaultBranchesService struct{ client *gitlab.Client }
+
+func (s *defaultBranchesService) GetBranch(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Branch, *gitlab.Response, error) {
+	return s.client.Branches.GetBranch(pid, branch, options...)
+}
+func (s *defaultBranchesService) CreateBranch(pid any, opt *gitlab.CreateBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Branch, *gitlab.Response, error) {
+	return s.client.Branches.CreateBranch(pid, opt, options...)
+}
+
+type defaultMergeRequestsService struct{ client *gitlab.Client }
+
+func (s *defaultMergeRequestsService) ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.MergeRequest, *gitlab.Response, error) {
+	return s.client.MergeRequests.ListProjectMergeRequests(pid, opt, options...)
+}
+func (s *defaultMergeRequestsService) CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+	return s.client.MergeRequests.CreateMergeRequest(pid, opt, options...)
+}
+func (s *defaultMergeRequestsService) AcceptMergeRequest(pid any, mr int, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+	return s.client.MergeRequests.AcceptMergeRequest(pid, mr, opt, options...)
 }
 
 type defaultWebhooksService struct{ client *gitlab.Client }

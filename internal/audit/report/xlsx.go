@@ -78,7 +78,12 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 		return fmt.Errorf("failed to build pipeline retention sheet: %w", err)
 	}
 
-	// 7. User Directory Sheet
+	// 7. Repository Files Sheet
+	if err := gen.buildRepositoryFilesSheet(report); err != nil {
+		return fmt.Errorf("failed to build repository files sheet: %w", err)
+	}
+
+	// 8. User Directory Sheet
 	if err := gen.buildUserDirectorySheet(report); err != nil {
 		return fmt.Errorf("failed to build user directory sheet: %w", err)
 	}
@@ -344,6 +349,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		{"Protected Branches Compliance Auditor (protected_branches)", report.Summary.ProtectedBranchViolations},
 		{"Protected Environments Deployment Auditor (protected_environments)", report.Summary.ProtectedEnvViolations},
 		{"Pipeline Retention & Cleanup Auditor (pipeline_retention)", report.Summary.PipelineRetentionViolations},
+		{"Repository Files & CODEOWNERS Auditor (repository_files)", report.Summary.RepositoryFileViolations},
 	}
 
 	for i, mm := range modMetrics {
@@ -1150,6 +1156,131 @@ func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditRep
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
 				}
 			case 11: // Status
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
+			default:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+			}
+		}
+
+		row++
+	}
+
+	if currentSpan != nil {
+		spans = append(spans, *currentSpan)
+	}
+
+	// Contiguous row merging across columns 1..4
+	for _, span := range spans {
+		if span.StartRow < span.EndRow {
+			for col := 1; col <= 4; col++ {
+				topCell, _ := excelize.CoordinatesToCellName(col, span.StartRow)
+				bottomCell, _ := excelize.CoordinatesToCellName(col, span.EndRow)
+				_ = g.file.MergeCell(sheet, topCell, bottomCell)
+			}
+		}
+	}
+
+	g.applyColumnWidths(sheet, maxColLengths)
+	return nil
+}
+
+func (g *XLSXReportGenerator) buildRepositoryFilesSheet(report *audit.AuditReport) error {
+	sheet := "Repository Files"
+	_, err := g.file.NewSheet(sheet)
+	if err != nil {
+		return err
+	}
+
+	headers := []string{
+		"Project ID",
+		"Project Name",
+		"Project State",
+		"Project URL",
+		"File Path",
+		"Target Branch",
+		"File Exists",
+		"Status",
+		"Violation Type",
+		"Details",
+		"Remediation",
+	}
+
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	type projectSpan struct {
+		ProjectID int
+		StartRow  int
+		EndRow    int
+	}
+	var spans []projectSpan
+	var currentSpan *projectSpan
+
+	maxColLengths := make([]int, len(headers))
+	for i, h := range headers {
+		maxColLengths[i] = len(h)
+	}
+
+	row := 2
+	for _, f := range report.RepositoryFileFindings {
+		if currentSpan == nil || currentSpan.ProjectID != f.ProjectID {
+			if currentSpan != nil {
+				spans = append(spans, *currentSpan)
+			}
+			currentSpan = &projectSpan{
+				ProjectID: f.ProjectID,
+				StartRow:  row,
+				EndRow:    row,
+			}
+		} else {
+			currentSpan.EndRow = row
+		}
+
+		existsStr := "No"
+		if f.FileExists {
+			existsStr = "Yes"
+		}
+
+		values := []any{
+			f.ProjectID,
+			f.ProjectPath,
+			f.ProjectStatus,
+			f.ProjectWebURL,
+			f.FilePath,
+			f.TargetBranch,
+			existsStr,
+			string(f.Severity),
+			f.ViolationType,
+			f.Details,
+			f.Remediation,
+		}
+
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
+			_ = g.file.SetCellValue(sheet, cell, val)
+
+			strVal := fmt.Sprintf("%v", val)
+			for _, line := range strings.Split(strVal, "\n") {
+				if len(line) > maxColLengths[colIdx] {
+					maxColLengths[colIdx] = len(line)
+				}
+			}
+
+			switch colIdx {
+			case 0, 2, 5, 6:
+				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
+			case 3: // URL
+				if f.ProjectWebURL != "" {
+					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
+				} else {
+					_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)
+				}
+			case 7: // Status
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.severityStyle(f.Severity))
 			default:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.dataCellStyle)

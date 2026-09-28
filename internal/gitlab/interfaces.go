@@ -23,6 +23,9 @@ type GitLabClient interface {
 	ProtectedEnvironments() ProtectedEnvironmentsService
 	Pipelines() PipelinesService
 	TargetBranchRules() TargetBranchRulesService
+	RepositoryFiles() RepositoryFilesService
+	Branches() BranchesService
+	MergeRequests() MergeRequestsService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -163,4 +166,25 @@ type TargetBranchRulesService interface {
 	GetTargetBranchRules(ctx context.Context, projectFullPath string) ([]TargetBranchRule, error)
 	CreateTargetBranchRule(ctx context.Context, projectID any, name, targetBranch string) (*TargetBranchRule, error)
 	DestroyTargetBranchRule(ctx context.Context, ruleID string) error
+}
+
+// RepositoryFilesService abstracts repository file retrieval, creation, and updates.
+type RepositoryFilesService interface {
+	GetFile(pid any, fileName string, opt *gitlab.GetFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.File, *gitlab.Response, error)
+	GetRawFile(pid any, fileName string, opt *gitlab.GetRawFileOptions, options ...gitlab.RequestOptionFunc) ([]byte, *gitlab.Response, error)
+	CreateFile(pid any, fileName string, opt *gitlab.CreateFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.FileInfo, *gitlab.Response, error)
+	UpdateFile(pid any, fileName string, opt *gitlab.UpdateFileOptions, options ...gitlab.RequestOptionFunc) (*gitlab.FileInfo, *gitlab.Response, error)
+}
+
+// BranchesService abstracts Git branch inspection and creation operations.
+type BranchesService interface {
+	GetBranch(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Branch, *gitlab.Response, error)
+	CreateBranch(pid any, opt *gitlab.CreateBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Branch, *gitlab.Response, error)
+}
+
+// MergeRequestsService abstracts merge request creation, listing, and auto-merge operations.
+type MergeRequestsService interface {
+	ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.MergeRequest, *gitlab.Response, error)
+	CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
+	AcceptMergeRequest(pid any, mr int, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
 }
