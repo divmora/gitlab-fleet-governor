@@ -72,6 +72,7 @@ func TestExportFormats(t *testing.T) {
 		assert.Contains(t, csvContent, "user_access,101,payments-api")
 		assert.Contains(t, csvContent, "protected_branches,101,payments-api")
 		assert.Contains(t, csvContent, "protected_environments,101,payments-api")
+		assert.Contains(t, csvContent, "Repository Files,101,payments-api")
 	})
 
 	t.Run("Markdown", func(t *testing.T) {
@@ -90,6 +91,7 @@ func TestExportFormats(t *testing.T) {
 		assert.Contains(t, mdContent, "## 1. Human User Access & Expiration Audit (`user_access`)")
 		assert.Contains(t, mdContent, "## 3. Protected Branches Compliance Audit (`protected_branches`)")
 		assert.Contains(t, mdContent, "## 4. Protected Environments Deployment Audit (`protected_environments`)")
+		assert.Contains(t, mdContent, "## 6. Repository Files Compliance Audit (`repository_files`)")
 		assert.Contains(t, mdContent, "🔴 `CRITICAL`")
 	})
 
@@ -106,6 +108,7 @@ func TestExportFormats(t *testing.T) {
 		assert.Contains(t, htmlContent, "Acme Corp")
 		assert.Contains(t, htmlContent, "badge-critical")
 		assert.Contains(t, htmlContent, "badge-pass")
+		assert.Contains(t, htmlContent, "Repository Files Compliance Audit")
 	})
 
 	t.Run("Table", func(t *testing.T) {
@@ -120,6 +123,8 @@ func TestExportFormats(t *testing.T) {
 		assert.Contains(t, tableContent, "[HUMAN USER ACCESS & EXPIRATION FINDINGS]")
 		assert.Contains(t, tableContent, "[PROTECTED BRANCHES FINDINGS]")
 		assert.Contains(t, tableContent, "[PROTECTED ENVIRONMENTS FINDINGS]")
+		assert.Contains(t, tableContent, "[REPOSITORY FILES FINDINGS]")
+		assert.Contains(t, tableContent, "Repository Files: File & CODEOWNERS Violations:")
 		assert.Contains(t, tableContent, "payments-api")
 	})
 }

@@ -3,7 +3,8 @@ package governance
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"log/slog"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 	overallAction := ActionNoop
 
 	for _, fileCfg := range cfg.Policies.RepositoryFiles {
-		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
+		cleanPath := strings.TrimPrefix(path.Clean(strings.ReplaceAll(fileCfg.Path, "\\", "/")), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -58,7 +59,7 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 			}
 		}
 
-		existingContent, fileExists, err := fetchFileContent(client, project.ID, cleanPath, targetBranch)
+		existingContent, fileExists, err := fetchFileContent(ctx, client, project.ID, cleanPath, targetBranch)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch raw file %s on branch %s: %w", cleanPath, targetBranch, err)
 		}
@@ -80,9 +81,15 @@ func (r *RepositoryFilesReconciler) Plan(ctx context.Context, client gitlab.GitL
 					SourceBranch: gogitlab.Ptr(featureBranch),
 					TargetBranch: gogitlab.Ptr(targetBranch),
 					State:        gogitlab.Ptr("opened"),
-				})
-				if listErr == nil && len(mrs) > 0 {
-					featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+				}, gogitlab.WithContext(ctx))
+				if listErr != nil {
+					return nil, fmt.Errorf("failed to list merge requests for branch %s: %w", featureBranch, listErr)
+				}
+				if len(mrs) > 0 {
+					featContent, featExists, featErr := fetchFileContent(ctx, client, project.ID, cleanPath, featureBranch)
+					if featErr != nil {
+						return nil, fmt.Errorf("failed to fetch raw file %s on feature branch %s: %w", cleanPath, featureBranch, featErr)
+					}
 					if featExists && normalizeContent(featContent) == normalizeContent(desiredContent) {
 						// Open MR already has the compliant file content and is pending review (0 drift / skipped)
 						continue
@@ -138,7 +145,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 	overallAction := ActionNoop
 
 	for _, fileCfg := range cfg.Policies.RepositoryFiles {
-		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
+		cleanPath := strings.TrimPrefix(path.Clean(strings.ReplaceAll(fileCfg.Path, "\\", "/")), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -152,7 +159,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 			enforcement = "direct_commit"
 		}
 
-		existingContent, fileExists, err := fetchFileContent(client, project.ID, cleanPath, targetBranch)
+		existingContent, fileExists, err := fetchFileContent(ctx, client, project.ID, cleanPath, targetBranch)
 		if err != nil {
 			return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionNoop, StatusFailed, nil, err, start), err
 		}
@@ -191,7 +198,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
 				}
-				_, resp, createErr := client.RepositoryFiles().CreateFile(project.ID, cleanPath, opt)
+				_, resp, createErr := client.RepositoryFiles().CreateFile(project.ID, cleanPath, opt, gogitlab.WithContext(ctx))
 				if createErr != nil {
 					if isForbidden(resp, createErr) {
 						actionableErr := fmt.Errorf("direct commit to branch %s failed with HTTP 403 Forbidden: push permissions are restricted; please use 'enforcement: merge_request' for protected branches: %w", targetBranch, createErr)
@@ -207,7 +214,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
 				}
-				_, resp, updateErr := client.RepositoryFiles().UpdateFile(project.ID, cleanPath, opt)
+				_, resp, updateErr := client.RepositoryFiles().UpdateFile(project.ID, cleanPath, opt, gogitlab.WithContext(ctx))
 				if updateErr != nil {
 					if isForbidden(resp, updateErr) {
 						actionableErr := fmt.Errorf("direct commit to branch %s failed with HTTP 403 Forbidden: push permissions are restricted; please use 'enforcement: merge_request' for protected branches: %w", targetBranch, updateErr)
@@ -228,13 +235,16 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 				SourceBranch: gogitlab.Ptr(featureBranch),
 				TargetBranch: gogitlab.Ptr(targetBranch),
 				State:        gogitlab.Ptr("opened"),
-			})
+			}, gogitlab.WithContext(ctx))
 			if listErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to list merge requests for branch %s: %w", featureBranch, listErr), start), listErr
 			}
 
 			if len(mrs) > 0 {
-				featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+				featContent, featExists, featErr := fetchFileContent(ctx, client, project.ID, cleanPath, featureBranch)
+				if featErr != nil {
+					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to fetch raw file %s on feature branch %s: %w", cleanPath, featureBranch, featErr), start), featErr
+				}
 				if featExists && normalizeContent(featContent) == normalizeContent(desiredContent) {
 					// Open MR already has compliant file content and is pending review (0 drift / skipped)
 					continue
@@ -250,7 +260,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 						Branch:        gogitlab.Ptr(featureBranch),
 						Content:       gogitlab.Ptr(desiredContent),
 						CommitMessage: gogitlab.Ptr(commitMsg),
-					})
+					}, gogitlab.WithContext(ctx))
 					if createErr != nil {
 						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file on feature branch %s: %w", featureBranch, createErr), start), createErr
 					}
@@ -261,7 +271,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 						Branch:        gogitlab.Ptr(featureBranch),
 						Content:       gogitlab.Ptr(desiredContent),
 						CommitMessage: gogitlab.Ptr(commitMsg),
-					})
+					}, gogitlab.WithContext(ctx))
 					if updateErr != nil {
 						return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file on feature branch %s: %w", featureBranch, updateErr), start), updateErr
 					}
@@ -273,12 +283,12 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 			}
 
 			// Ensure feature branch exists
-			_, _, branchErr := client.Branches().GetBranch(project.ID, featureBranch)
+			_, _, branchErr := client.Branches().GetBranch(project.ID, featureBranch, gogitlab.WithContext(ctx))
 			if branchErr != nil {
 				_, _, createBranchErr := client.Branches().CreateBranch(project.ID, &gogitlab.CreateBranchOptions{
 					Branch: gogitlab.Ptr(featureBranch),
 					Ref:    gogitlab.Ptr(targetBranch),
-				})
+				}, gogitlab.WithContext(ctx))
 				if createBranchErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create feature branch %s: %w", featureBranch, createBranchErr), start), createBranchErr
 				}
@@ -286,7 +296,10 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 
 			// Commit updated file to feature branch
 			commitMsg := fmt.Sprintf("chore: sync %s to policy", cleanPath)
-			featContent, featExists, _ := fetchFileContent(client, project.ID, cleanPath, featureBranch)
+			featContent, featExists, featErr := fetchFileContent(ctx, client, project.ID, cleanPath, featureBranch)
+			if featErr != nil {
+				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to fetch raw file %s on feature branch %s: %w", cleanPath, featureBranch, featErr), start), featErr
+			}
 			builder := NewDiffBuilder()
 
 			if !featExists {
@@ -296,7 +309,7 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 					Branch:        gogitlab.Ptr(featureBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
-				})
+				}, gogitlab.WithContext(ctx))
 				if createErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create file on feature branch %s: %w", featureBranch, createErr), start), createErr
 				}
@@ -307,13 +320,13 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 					Branch:        gogitlab.Ptr(featureBranch),
 					Content:       gogitlab.Ptr(desiredContent),
 					CommitMessage: gogitlab.Ptr(commitMsg),
-				})
+				}, gogitlab.WithContext(ctx))
 				if updateErr != nil {
 					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update file on feature branch %s: %w", featureBranch, updateErr), start), updateErr
 				}
 			} else {
-				builder.AddField("content", nil, summarizeSnippet(desiredContent), ActionCreate)
-				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s", cleanPath), ActionCreate))
+				builder.AddField("content", summarizeSnippet(existingContent), summarizeSnippet(desiredContent), ActionCreate)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("file:%s (MR)", cleanPath), ActionCreate))
 			}
 			if overallAction == ActionNoop {
 				overallAction = action
@@ -336,13 +349,20 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 				Labels:       gogitlab.Ptr(gogitlab.LabelOptions(mrLabels)),
 			}
 
-			mr, _, createMRErr := client.MergeRequests().CreateMergeRequest(project.ID, mrOpt)
+			mr, _, createMRErr := client.MergeRequests().CreateMergeRequest(project.ID, mrOpt, gogitlab.WithContext(ctx))
 			if createMRErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create merge request for %s: %w", cleanPath, createMRErr), start), createMRErr
 			}
 
 			if fileCfg.AutoMerge != nil && *fileCfg.AutoMerge && mr != nil {
-				_, _, _ = client.MergeRequests().AcceptMergeRequest(project.ID, mr.IID, &gogitlab.AcceptMergeRequestOptions{})
+				acceptOpt := &gogitlab.AcceptMergeRequestOptions{
+					MergeWhenPipelineSucceeds: gogitlab.Ptr(true),
+					ShouldRemoveSourceBranch:  gogitlab.Ptr(true),
+				}
+				_, _, acceptErr := client.MergeRequests().AcceptMergeRequest(project.ID, mr.IID, acceptOpt, gogitlab.WithContext(ctx))
+				if acceptErr != nil {
+					slog.Warn("Failed to configure auto-merge on merge request", "mr", mr.IID, "project", project.PathWithNamespace, "error", acceptErr)
+				}
 			}
 		}
 	}
@@ -364,8 +384,8 @@ func (r *RepositoryFilesReconciler) ApplyGroup(ctx context.Context, client gitla
 	return NewSkippedApplyResult(r.Name(), ResourceTypeGroup, group.ID, group.FullPath, "Repository files governance is not applicable to groups"), nil
 }
 
-func fetchFileContent(client gitlab.GitLabClient, projectID int, path, ref string) (string, bool, error) {
-	raw, resp, err := client.RepositoryFiles().GetRawFile(projectID, path, &gogitlab.GetRawFileOptions{Ref: gogitlab.Ptr(ref)})
+func fetchFileContent(ctx context.Context, client gitlab.GitLabClient, projectID int, path, ref string) (string, bool, error) {
+	raw, resp, err := client.RepositoryFiles().GetRawFile(projectID, path, &gogitlab.GetRawFileOptions{Ref: gogitlab.Ptr(ref)}, gogitlab.WithContext(ctx))
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			return "", false, nil
@@ -463,11 +483,26 @@ func attachManagedHeader(filePath, content string) string {
 		return content
 	}
 
-	ext := strings.ToLower(filepath.Ext(filePath))
-	header := "# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n"
+	ext := strings.ToLower(path.Ext(filePath))
+	if ext == ".json" {
+		return content
+	}
 
+	header := "# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n"
 	if ext == ".md" || ext == ".html" {
 		header = "<!-- Auto-managed by gitlab-fleet-governor — do not edit manually -->\n"
+	} else if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".java" || ext == ".c" || ext == ".cpp" || ext == ".rs" {
+		header = "// Enterprise policy\n// Auto-managed by gitlab-fleet-governor — do not edit manually\n"
+	}
+
+	if strings.HasPrefix(content, "#!") {
+		lines := strings.SplitN(content, "\n", 2)
+		shebang := lines[0] + "\n"
+		rest := ""
+		if len(lines) > 1 {
+			rest = lines[1]
+		}
+		return shebang + header + rest
 	}
 
 	return header + content

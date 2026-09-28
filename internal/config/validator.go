@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -359,12 +360,21 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *ValidationErrors) {
 	for i, f := range files {
 		fPrefix := fmt.Sprintf("%s[%d]", prefix, i)
-		path := strings.TrimSpace(f.Path)
-		if path == "" {
+		rawPath := strings.TrimSpace(f.Path)
+		if rawPath == "" {
 			*errs = append(*errs, ValidationError{
 				Field:   fPrefix + ".path",
 				Message: "repository file path cannot be empty",
 			})
+		} else {
+			cleanGitPath := path.Clean(strings.ReplaceAll(rawPath, "\\", "/"))
+			if strings.HasPrefix(cleanGitPath, "../") || cleanGitPath == ".." {
+				*errs = append(*errs, ValidationError{
+					Field:   fPrefix + ".path",
+					Message: fmt.Sprintf("repository file path '%s' cannot contain directory traversal ('..')", f.Path),
+					Value:   f.Path,
+				})
+			}
 		}
 
 		hasContent := f.Content != ""
@@ -375,6 +385,20 @@ func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *
 			*errs = append(*errs, ValidationError{
 				Field:   fPrefix,
 				Message: fmt.Sprintf("repository file policy '%s' requires at least one of 'content', 'content_file', or 'ensure_contains'", f.Path),
+			})
+		}
+
+		if hasContent && hasContentFile {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' cannot specify both 'content' and 'content_file'", f.Path),
+			})
+		}
+
+		if (hasContent || hasContentFile) && hasEnsureContains {
+			*errs = append(*errs, ValidationError{
+				Field:   fPrefix,
+				Message: fmt.Sprintf("repository file policy '%s' cannot combine full file content ('content'/'content_file') with 'ensure_contains'", f.Path),
 			})
 		}
 

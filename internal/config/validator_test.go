@@ -724,6 +724,53 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			},
 			expectedErr: "invalid enforcement mode 'invalid_mode'",
 		},
+		{
+			name: "Repository file path directory traversal",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "../../etc/passwd",
+							TargetBranch: "main",
+							Content:      "data",
+						},
+					},
+				},
+			},
+			expectedErr: "cannot contain directory traversal",
+		},
+		{
+			name: "Repository file both content and content_file",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:         "CODEOWNERS",
+							TargetBranch: "main",
+							Content:      "inline content",
+							ContentFile:  "/path/to/file",
+						},
+					},
+				},
+			},
+			expectedErr: "cannot specify both 'content' and 'content_file'",
+		},
+		{
+			name: "Repository file combining content and ensure_contains",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					RepositoryFiles: []config.RepositoryFileConfig{
+						{
+							Path:           ".gitlab-ci.yml",
+							TargetBranch:   "main",
+							Content:        "stages:\n  - test\n",
+							EnsureContains: []string{"include:"},
+						},
+					},
+				},
+			},
+			expectedErr: "cannot combine full file content",
+		},
 	}
 
 	for _, tt := range tests {

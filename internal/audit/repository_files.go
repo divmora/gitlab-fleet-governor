@@ -3,7 +3,7 @@ package audit
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -52,7 +52,7 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 	fileConfigs := cfg.Policies.RepositoryFiles
 
 	for _, fileCfg := range fileConfigs {
-		cleanPath := strings.TrimPrefix(filepath.Clean(fileCfg.Path), "/")
+		cleanPath := strings.TrimPrefix(path.Clean(strings.ReplaceAll(fileCfg.Path, "\\", "/")), "/")
 		targetBranch := fileCfg.TargetBranch
 		if targetBranch == "" {
 			targetBranch = project.DefaultBranch
@@ -61,7 +61,7 @@ func (a *RepositoryFilesAuditor) AuditProject(ctx context.Context, client gl.Git
 			}
 		}
 
-		raw, resp, err := client.RepositoryFiles().GetRawFile(project.ID, cleanPath, &gitlab.GetRawFileOptions{Ref: gitlab.Ptr(targetBranch)})
+		raw, resp, err := client.RepositoryFiles().GetRawFile(project.ID, cleanPath, &gitlab.GetRawFileOptions{Ref: gitlab.Ptr(targetBranch)}, gitlab.WithContext(ctx))
 		fileExists := true
 		if err != nil {
 			if (resp != nil && resp.StatusCode == 404) || strings.Contains(err.Error(), "404") {
@@ -176,11 +176,26 @@ func attachHeader(filePath, content string) string {
 		return content
 	}
 
-	ext := strings.ToLower(filepath.Ext(filePath))
-	header := "# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n"
+	ext := strings.ToLower(path.Ext(filePath))
+	if ext == ".json" {
+		return content
+	}
 
+	header := "# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n"
 	if ext == ".md" || ext == ".html" {
 		header = "<!-- Auto-managed by gitlab-fleet-governor — do not edit manually -->\n"
+	} else if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".java" || ext == ".c" || ext == ".cpp" || ext == ".rs" {
+		header = "// Enterprise policy\n// Auto-managed by gitlab-fleet-governor — do not edit manually\n"
+	}
+
+	if strings.HasPrefix(content, "#!") {
+		lines := strings.SplitN(content, "\n", 2)
+		shebang := lines[0] + "\n"
+		rest := ""
+		if len(lines) > 1 {
+			rest = lines[1]
+		}
+		return shebang + header + rest
 	}
 
 	return header + content
