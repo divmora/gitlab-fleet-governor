@@ -25,6 +25,13 @@ export const RECONCILER_DEFAULTS: Record<string, any> = {
       code_owner_approval_required: true,
     },
   ],
+  repository_files: [
+    {
+      path: 'CODEOWNERS',
+      content: '* @platform/security-reviewers\n',
+      enforcement: 'merge_request',
+    },
+  ],
   approval_rules: {
     allow_author_approval: false,
     allow_committer_approval: false,

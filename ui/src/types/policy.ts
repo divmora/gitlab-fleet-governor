@@ -155,8 +155,21 @@ export interface TargetBranchRulesConfig {
   rules?: TargetBranchRuleItem[];
 }
 
+export interface RepositoryFileItem {
+  path: string;
+  content?: string;
+  content_file?: string;
+  ensure_contains?: string[];
+  target_branch?: string;
+  enforcement?: 'direct_commit' | 'merge_request' | 'audit_only' | string;
+  mr_title?: string;
+  mr_labels?: string[];
+  auto_merge?: boolean;
+}
+
 export interface PolicyModules {
   push_rules?: PushRulesConfig;
+  repository_files?: RepositoryFileItem[];
   protected_branches?: ProtectedBranchConfig[];
   approval_rules?: ApprovalRulesConfig;
   target_branch_rules?: TargetBranchRulesConfig;

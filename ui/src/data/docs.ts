@@ -54,6 +54,41 @@ policies:
 When applied, GitLab automatically purges historical pipelines and ephemeral storage older than 30 days.`,
   },
   {
+    id: 'repository-files',
+    title: 'Repository Files & CODEOWNERS',
+    category: 'Operations',
+    content: `# Repository Files & CODEOWNERS Sync
+
+Declaratively enforce and synchronize standardized files across repositories (such as \`CODEOWNERS\`, \`SECURITY.md\`, \`.editorconfig\`, or baseline \`.gitlab-ci.yml\` includes).
+
+## Configuration
+\`\`\`yaml
+policies:
+  repository_files:
+    - path: "CODEOWNERS"
+      content: |
+        * @platform/security-reviewers
+      target_branch: "main"
+      enforcement: "merge_request" # direct_commit | merge_request | audit_only
+      mr_title: "chore: sync CODEOWNERS to enterprise policy"
+      mr_labels: ["automated", "governance"]
+      auto_merge: false
+    - path: "SECURITY.md"
+      content_file: "templates/SECURITY.md.tmpl"
+      enforcement: "merge_request"
+    - path: ".gitlab-ci.yml"
+      ensure_contains:
+        - "include:"
+        - "project: 'platform/ci-templates'"
+      enforcement: "direct_commit"
+\`\`\`
+
+## Features
+- **Enforcement Modes**: Supports \`direct_commit\`, \`merge_request\` (with branch reuse and duplicate MR prevention), and \`audit_only\`.
+- **Line Ending Normalization**: Automatically normalizes CRLF and LF line endings to eliminate false-positive drift.
+- **Dynamic Branch Fallback**: Falls back to the project default branch if \`target_branch\` is omitted.`,
+  },
+  {
     id: 'target-branch-rules',
     title: 'Merge Request Target Branch Rules',
     category: 'Operations',

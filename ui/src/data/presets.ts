@@ -51,6 +51,15 @@ export const PRESETS: Record<string, { name: string; icon: string; description: 
             code_owner_approval_required: true,
           },
         ],
+        repository_files: [
+          {
+            path: 'CODEOWNERS',
+            content: '* @platform/security-reviewers\n',
+            target_branch: 'main',
+            enforcement: 'merge_request',
+            mr_title: 'chore: sync CODEOWNERS to enterprise policy',
+          },
+        ],
         approval_rules: {
           settings: {
             allow_author_approval: false,
