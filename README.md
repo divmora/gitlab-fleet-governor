@@ -1,4 +1,10 @@
-# GitLab Fleet Governor
+<div align="center">
+
+<a href="https://github.com/divmora/gitlab-fleet-governor">
+  <img src="docs/assets/banner.jpg" alt="GitLab Fleet Governor" width="100%" />
+</a>
+
+<br/>
 
 [![Latest Release](https://img.shields.io/github/v/release/divmora/gitlab-fleet-governor?logo=github)](https://github.com/divmora/gitlab-fleet-governor/releases)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](https://github.com/divmora/.github/blob/main/LICENSING.md)
