@@ -7,6 +7,15 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.11.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.10.0...v0.11.0) (2026-09-29)
+
+
+### Features
+
+* **deploy:** add CloudFormation templates for AWS Lambda and ECS Fargate ([b2df375](https://github.com/divmora/gitlab-fleet-governor/commit/b2df3751c4bf009d209c902d7f9d134accc9bcb3))
+* **governance:** repository file & CODEOWNERS sync reconciler ([#63](https://github.com/divmora/gitlab-fleet-governor/issues/63)) ([f4e48a5](https://github.com/divmora/gitlab-fleet-governor/commit/f4e48a5fe48a98ee47384780081af30fbb69f8bf))
+* **onboarding:** add `export` command for reverse-sync of live fleet state to policy.yaml ([#60](https://github.com/divmora/gitlab-fleet-governor/issues/60)) ([bb91d06](https://github.com/divmora/gitlab-fleet-governor/commit/bb91d063aae99716dcfa6f815425e96c1fbf763b))
+
 ## [0.10.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.9.0...v0.10.0) (2026-09-24)
 
 
