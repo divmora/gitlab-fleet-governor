@@ -78,7 +78,7 @@ kubectl logs -f job/manual-audit-01
 
 ## 2. AWS Lambda Serverless Deployment
 
-Official AWS CloudFormation templates are maintained in [`cloudformation-templates/gitlab-fleet-governor/`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor).
+Official AWS CloudFormation templates are maintained in [`deploy/cloudformation/`](https://github.com/divmora/gitlab-fleet-governor/tree/main/deploy/cloudformation).
 
 ### Dual-Runtime Auto-Detection
 
@@ -88,12 +88,12 @@ When deployed to AWS Lambda, `cmd/gitlab-fleet-governor/main.go` automatically d
 
 ```bash
 aws cloudformation deploy \
-  --template-file ../cloudformation-templates/gitlab-fleet-governor/gitlab-fleet-governor-lambda.yaml \
+  --template-file deploy/cloudformation/lambda.yaml \
   --stack-name gitlab-fleet-governor-lambda \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     GitLabTokenSecretArn="arn:aws:secretsmanager:us-east-1:123456789012:secret:gitlab-token-xxxx" \
-    ConfigS3Uri="s3://my-governance-bucket/policies/production.yaml" \
+    ConfigSource="s3://my-governance-bucket/policies/production.yaml" \
     ScheduleCron="cron(0 2 * * ? *)"
 ```
 
@@ -101,7 +101,7 @@ aws cloudformation deploy \
 
 ## 3. AWS ECS Fargate Deployment
 
-Official AWS CloudFormation templates for ECS Fargate scheduled tasks are maintained in [`cloudformation-templates/gitlab-fleet-governor/`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor).
+Official AWS CloudFormation templates for ECS Fargate scheduled tasks are maintained in [`deploy/cloudformation/`](https://github.com/divmora/gitlab-fleet-governor/tree/main/deploy/cloudformation).
 
 ### Why ECS for Large Fleets?
 
@@ -111,14 +111,14 @@ Scanning 5,000+ repositories with deep branch protection analysis, merge request
 
 ```bash
 aws cloudformation deploy \
-  --template-file ../cloudformation-templates/gitlab-fleet-governor/gitlab-fleet-governor-ecs-fargate.yaml \
+  --template-file deploy/cloudformation/ecs-fargate.yaml \
   --stack-name gitlab-fleet-governor-ecs \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     VpcId="vpc-0123456789abcdef0" \
     SubnetIds="subnet-0123456789abcdef0,subnet-0abcdef0123456789" \
     GitLabTokenSecretArn="arn:aws:secretsmanager:us-east-1:123456789012:secret:gitlab-token-xxxx" \
-    ConfigS3Uri="s3://my-governance-bucket/policies/production.yaml" \
+    ConfigSource="s3://my-governance-bucket/policies/production.yaml" \
     ScheduleCron="cron(0 2 * * ? *)"
 ```
 

@@ -5,8 +5,8 @@ This directory contains production-ready deployment configurations for orchestra
 | Target Platform | Technology Stack | Best Suited For | Location |
 |---|---|---|---|
 | **Kubernetes** | CronJob / Kustomize | Self-hosted Kubernetes, EKS, GKE, AKS clusters with GitOps (ArgoCD, Flux) | [`deploy/kubernetes`](./kubernetes/) |
-| **AWS Lambda** | CloudFormation / Serverless | Cloud-native serverless periodic runs & S3 event triggers (fleets < 1,000 repos) | [`cloudformation-templates/gitlab-fleet-governor`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor) |
-| **AWS ECS Fargate** | CloudFormation / Scheduled Tasks | Large enterprise fleets (> 1,000 to > 10,000 repos) with long runtimes (> 15 mins) | [`cloudformation-templates/gitlab-fleet-governor`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor) |
+| **AWS Lambda** | CloudFormation / Serverless | Cloud-native serverless periodic runs & S3 event triggers (fleets < 1,000 repos) | [`deploy/cloudformation`](./cloudformation/) |
+| **AWS ECS Fargate** | CloudFormation / Scheduled Tasks | Large enterprise fleets (> 1,000 to > 10,000 repos) with long runtimes (> 15 mins) | [`deploy/cloudformation`](./cloudformation/) |
 
 ---
 
@@ -26,5 +26,5 @@ This directory contains production-ready deployment configurations for orchestra
 ## Getting Started
 
 - Deploy on Kubernetes: See [`deploy/kubernetes/README.md`](./kubernetes/README.md)
-- Deploy on AWS Lambda (CloudFormation): See [`cloudformation-templates/gitlab-fleet-governor`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor)
-- Deploy on AWS ECS Fargate (CloudFormation): See [`cloudformation-templates/gitlab-fleet-governor`](https://github.com/divmora/cloudformation-templates/tree/main/gitlab-fleet-governor)
+- Deploy on AWS Lambda (CloudFormation): See [`deploy/cloudformation/README.md`](./cloudformation/README.md#1-aws-lambda-deployment-lambdayaml)
+- Deploy on AWS ECS Fargate (CloudFormation): See [`deploy/cloudformation/README.md`](./cloudformation/README.md#2-aws-ecs-fargate-deployment-ecs-fargateyaml)
