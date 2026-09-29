@@ -132,6 +132,19 @@ lint: check-go-version ## Run golangci-lint on the entire workspace
 		$(GO) vet ./...; \
 	fi
 
+.PHONY: cfn-lint
+cfn-lint: ## Lint CloudFormation templates (requires cfn-lint)
+	@echo "==> Linting CloudFormation templates"
+	@if command -v cfn-lint >/dev/null 2>&1; then \
+		cfn-lint deploy/cloudformation/*.yaml; \
+	elif [ -x "$$HOME/Library/Python/3.12/bin/cfn-lint" ]; then \
+		"$$HOME/Library/Python/3.12/bin/cfn-lint" deploy/cloudformation/*.yaml; \
+	elif [ -x "$$HOME/.local/bin/cfn-lint" ]; then \
+		"$$HOME/.local/bin/cfn-lint" deploy/cloudformation/*.yaml; \
+	else \
+		echo "cfn-lint not found in PATH (install via 'pip install cfn-lint')"; \
+	fi
+
 .PHONY: vet
 vet: check-go-version ## Run go vet static analysis
 	@echo "==> Running go vet"
