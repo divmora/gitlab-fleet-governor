@@ -18,7 +18,7 @@ updates:
       prefix: "chore"
       include: "scope"
 
-  # Maintain npm packages for UI portal
+  # Maintain pnpm packages for UI portal
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:

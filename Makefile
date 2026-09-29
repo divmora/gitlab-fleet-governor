@@ -289,10 +289,33 @@ release-snapshot: ## Test GoReleaser release workflow locally in snapshot mode
 	@echo "==> Testing GoReleaser snapshot build"
 	goreleaser release --snapshot --clean --skip=publish
 
+# ==============================================================================
+# UI Studio & Documentation Portal Targets
+# ==============================================================================
+
+.PHONY: ui-install
+ui-install: ## Install UI Studio dependencies with pnpm
+	@echo "==> Installing UI Studio dependencies"
+	@cd ui && pnpm install
+
+.PHONY: ui-dev
+ui-dev: ## Run local UI Studio development server with Vite
+	@cd ui && pnpm run dev
+
+.PHONY: ui-build
+ui-build: ## Build UI Studio production bundle
+	@echo "==> Building UI Studio bundle"
+	@cd ui && pnpm run build
+
+.PHONY: ui-pages
+ui-pages: ## Build unified GitHub Pages bundle (Studio + AI Manifests)
+	@echo "==> Building unified GitHub Pages bundle"
+	@cd ui && pnpm run build:pages
+
 .PHONY: clean
 clean: ## Clean up build artifacts, dist files, and test coverage
 	@echo "==> Cleaning build outputs"
-	@rm -rf $(BIN_DIR) $(DIST_DIR) $(COVERAGE_DIR) coverage.out coverage.txt release.sig
+	@rm -rf $(BIN_DIR) $(DIST_DIR) $(COVERAGE_DIR) coverage.out coverage.txt release.sig site ui/dist
 
 # ==============================================================================
 # Self-Documenting Help

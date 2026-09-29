@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:pages": "tsc && vite build && node ../scripts/build-site.js dist",
     "preview": "vite preview"
   },
+  "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "clsx": "^2.1.1",
     "js-yaml": "^4.1.0",
