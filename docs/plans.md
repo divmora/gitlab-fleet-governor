@@ -33,7 +33,8 @@ flowchart LR
         P3["Runner Fleet Governance"]
         P4["Webhook Automation"]
         P5["Pipeline History Retention"]
-        P6["Extended Team Fleets (> 25)"]
+        P6["Protected Environments & Deploy Gates"]
+        P7["Extended Team Fleets (> 25)"]
     end
 
     subgraph Enterprise["Enterprise Subscription"]
@@ -76,6 +77,7 @@ The following table details feature availability and runtime verification mechan
 | **CI/CD Runner Fleet Governance** | `governance.runners` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Webhook Integrations & Security** | `governance.webhooks` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Pipeline Retention & Pruning** | `governance.pipeline_retention` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
+| **Protected Environments & Deploy Gates** | `governance.protected_environments` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Compliance Audit Suite** | `audit.*` (`audit.run`, `audit.drift`) | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Multi-Sheet Excel Reports** | `audit.export.xlsx` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Headless SMTP Email Dispatch** | `audit.smtp` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
@@ -104,6 +106,7 @@ The following table details feature availability and runtime verification mechan
 - **Runner Fleet Governance (`governance.runners`)**: Shared and group runner controls, maintenance pause/lock status, and runner tag assertions across large fleet hierarchies.
 - **Webhook Integrations (`governance.webhooks`)**: Automated provisioning of fleet-wide security and audit webhooks, HMAC secret token rotation, and SSL verification enforcement.
 - **Pipeline Retention & Pruning (`governance.pipeline_retention`)**: Automated GitLab CI pipeline cleanup (`retention_days` converted to `ci_delete_pipelines_in_seconds`), eliminating storage bloat.
+- **Protected Environments & Deployment Gates (`governance.protected_environments`)**: Declarative deployment protections, multi-tier approval counts, role-based deployer access levels, group/user approver lists, unmanaged environment pruning, and wildcard environment name expansion (`dr-*`, `prod-*`).
 
 ### 4.3 Enterprise Plan Capabilities
 - **Compliance & Security Audit Suite (`audit.*`)**: Fleet-wide, non-mutating compliance posture scans inspecting access hygiene, protected branch posture, and pipeline history accumulation.

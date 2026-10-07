@@ -791,6 +791,7 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 		"governance.runners",
 		"governance.webhooks",
 		"governance.pipeline_retention",
+		"governance.protected_environments",
 	}
 	for _, pf := range proFeatures {
 		assert.False(t, license.IsCommunityFeature(pf), "expected %s NOT to be community feature", pf)
@@ -903,6 +904,7 @@ func TestTierFeatures_CommunityZeroCheckAndCommercialEnforcement(t *testing.T) {
 			"governance.runners",
 			"governance.webhooks",
 			"governance.pipeline_retention",
+			"governance.protected_environments",
 		},
 	})
 	require.NoError(t, err)

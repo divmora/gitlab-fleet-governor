@@ -404,6 +404,9 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	}
 
 	var requiredFeatures []string
+	if cfg.Policies.ProtectedEnvironments != nil && (len(cfg.Policies.ProtectedEnvironments.Rules) > 0 || (cfg.Policies.ProtectedEnvironments.Prune != nil && *cfg.Policies.ProtectedEnvironments.Prune)) {
+		requiredFeatures = append(requiredFeatures, "governance.protected_environments")
+	}
 	if cfg.Policies.ApprovalRules != nil {
 		requiredFeatures = append(requiredFeatures, "governance.approval_rules")
 	}

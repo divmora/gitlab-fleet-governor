@@ -87,6 +87,7 @@ var DefaultTierFeatures = liblicense.TierFeatures{
 		"governance.runners",
 		"governance.webhooks",
 		"governance.pipeline_retention",
+		"governance.protected_environments",
 		"report.*",
 	},
 	"enterprise": {
@@ -123,7 +124,8 @@ func RequiredTierForFeature(feature string) string {
 		"governance.target_branch_rules",
 		"governance.runners",
 		"governance.webhooks",
-		"governance.pipeline_retention":
+		"governance.pipeline_retention",
+		"governance.protected_environments":
 		return "pro"
 	default:
 		return "enterprise"
