@@ -1,0 +1,49 @@
+# Git & CI
+.git
+.gitignore
+.github
+
+# Documentation & Specifications
+*.md
+docs/
+
+# Secrets & Environment
+.env*
+*.pem
+*.key
+
+# Build Artifacts & Binaries
+bin/
+dist/
+tmp/
+temp/
+bootstrap
+
+# Testing & Coverage
+coverage/
+*.cov
+*.test
+*.out
+coverage.txt
+coverage.html
+profile.out
+*.prof
+
+# UI & Node Dependencies
+node_modules/
+ui/node_modules/
+ui/dist/
+.pnpm-store/
+
+# Editor & OS Artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+.dockerignore
