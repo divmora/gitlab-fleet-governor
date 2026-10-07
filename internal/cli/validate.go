@@ -40,13 +40,13 @@ type PolicySummaryJSON struct {
 	ProtectedBranches     int  `json:"protected_branches"`
 	ProtectedEnvironments int  `json:"protected_environments"`
 	ApprovalRules         int  `json:"approval_rules"`
-	ProjectSettings   bool `json:"project_settings"`
-	PipelineRetention bool `json:"pipeline_retention"`
-	Variables         int  `json:"variables"`
-	Runners           int  `json:"runners"`
-	Compliance        bool `json:"compliance"`
-	Webhooks          int  `json:"webhooks"`
-	Members           int  `json:"members"`
+	ProjectSettings       bool `json:"project_settings"`
+	PipelineRetention     bool `json:"pipeline_retention"`
+	Variables             int  `json:"variables"`
+	Runners               int  `json:"runners"`
+	Compliance            bool `json:"compliance"`
+	Webhooks              int  `json:"webhooks"`
+	Members               int  `json:"members"`
 }
 
 func newValidateCmd() *cobra.Command {
