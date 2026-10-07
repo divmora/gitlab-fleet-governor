@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { PolicyConfig } from '../types/policy';
 
 export interface ValidationError {

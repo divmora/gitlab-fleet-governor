@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { PolicyConfig } from '../types/policy';
 import { PRESETS } from '../data/presets';
 import { validatePolicyContent, ValidationResult } from '../engine/validator';
