@@ -160,6 +160,72 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 		})
 	}
 
+	// 2. Discover project environments that have zero protection configured
+	if client.Environments() != nil {
+		var projectEnvs []*gitlab.Environment
+		pPage := 1
+		for {
+			opts := &gitlab.ListEnvironmentsOptions{
+				ListOptions: gitlab.ListOptions{
+					Page:    pPage,
+					PerPage: 100,
+				},
+			}
+			envs, resp, err := client.Environments().ListEnvironments(project.ID, opts, gitlab.WithContext(ctx))
+			if err != nil {
+				break
+			}
+			projectEnvs = append(projectEnvs, envs...)
+			if resp == nil || resp.NextPage == 0 {
+				break
+			}
+			pPage = resp.NextPage
+		}
+
+		protectedMap := make(map[string]bool)
+		for _, pe := range allEnvs {
+			if pe != nil && pe.Name != "" {
+				protectedMap[pe.Name] = true
+			}
+		}
+
+		for _, penv := range projectEnvs {
+			if penv == nil || penv.Name == "" || protectedMap[penv.Name] {
+				continue
+			}
+
+			nameLower := strings.ToLower(penv.Name)
+			isProd := strings.Contains(nameLower, "prod") ||
+				strings.Contains(nameLower, "live") ||
+				strings.Contains(nameLower, "production")
+
+			sev := SeverityMedium
+			violation := fmt.Sprintf("Environment '%s' has no deployment protection configured", penv.Name)
+			remediation := fmt.Sprintf("Configure protected environment rules for '%s' to enforce maintainer deployment and approvals", penv.Name)
+			if isProd {
+				sev = SeverityCritical
+				violation = fmt.Sprintf("Production environment '%s' is completely unprotected (zero deployment gates or approvals)", penv.Name)
+			}
+			sev = AdjustSeverityForProject(sev, isArchived, isInactive)
+
+			findings = append(findings, ProtectedEnvironmentFinding{
+				ProjectID:                 project.ID,
+				ProjectName:               project.Name,
+				ProjectPath:               project.PathWithNamespace,
+				ProjectWebURL:             webURL,
+				ProjectStatus:             projState,
+				EnvironmentName:           penv.Name,
+				IsProduction:              isProd,
+				RequiredApprovalCount:     0,
+				DeployAccessLevelsSummary: "Unprotected",
+				Severity:                  sev,
+				Violations:                []string{violation},
+				Details:                   violation,
+				Remediation:               remediation,
+			})
+		}
+	}
+
 	return findings, nil
 }
 

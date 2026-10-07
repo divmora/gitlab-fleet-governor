@@ -21,6 +21,7 @@ type GitLabClient interface {
 	Members() MembersService
 	Users() UsersService
 	ProtectedEnvironments() ProtectedEnvironmentsService
+	Environments() EnvironmentsService
 	Pipelines() PipelinesService
 	TargetBranchRules() TargetBranchRulesService
 	RepositoryFiles() RepositoryFilesService
@@ -70,6 +71,11 @@ type ProtectedEnvironmentsService interface {
 	ProtectRepositoryEnvironments(pid any, opt *gitlab.ProtectRepositoryEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
 	UnprotectEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 	UpdateProtectedEnvironments(pid any, environment string, opt *gitlab.UpdateProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
+}
+
+// EnvironmentsService abstracts project deployment environments.
+type EnvironmentsService interface {
+	ListEnvironments(pid any, opt *gitlab.ListEnvironmentsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Environment, *gitlab.Response, error)
 }
 
 // PushRulesService abstracts project-level and group-level push rules.

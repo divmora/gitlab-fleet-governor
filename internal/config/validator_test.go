@@ -71,15 +71,17 @@ func TestValidate_ValidConfigs(t *testing.T) {
 						CodeOwnerApprovalRequired: boolPtr(true),
 					},
 				},
-				ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
-					{
-						Name: "production",
-						DeployAccessLevels: []config.EnvironmentAccessDescription{
-							{AccessLevel: 40},
-						},
-						RequiredApprovalCount: intPtr(2),
-						ApprovalRules: []config.EnvironmentApprovalRuleConfig{
-							{AccessLevel: 40, RequiredApprovalCount: intPtr(2)},
+				ProtectedEnvironments: &config.ProtectedEnvironmentsConfig{
+					Rules: []config.ProtectedEnvironmentRuleConfig{
+						{
+							Name: "production",
+							DeployAccessLevels: []config.EnvironmentAccessDescription{
+								{AccessLevel: 40},
+							},
+							RequiredApprovalCount: intPtr(2),
+							ApprovalRules: []config.EnvironmentApprovalRuleConfig{
+								{AccessLevel: 40, RequiredApprovalCount: intPtr(2)},
+							},
 						},
 					},
 				},
@@ -787,9 +789,11 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			name: "Empty protected environment name",
 			cfg: &config.PolicyConfig{
 				Policies: config.PoliciesConfig{
-					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
-						{
-							Name: "",
+					ProtectedEnvironments: &config.ProtectedEnvironmentsConfig{
+						Rules: []config.ProtectedEnvironmentRuleConfig{
+							{
+								Name: "",
+							},
 						},
 					},
 				},
@@ -800,12 +804,14 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			name: "Duplicate protected environment rule",
 			cfg: &config.PolicyConfig{
 				Policies: config.PoliciesConfig{
-					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
-						{
-							Name: "production",
-						},
-						{
-							Name: "production",
+					ProtectedEnvironments: &config.ProtectedEnvironmentsConfig{
+						Rules: []config.ProtectedEnvironmentRuleConfig{
+							{
+								Name: "production",
+							},
+							{
+								Name: "production",
+							},
 						},
 					},
 				},
@@ -816,10 +822,12 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			name: "Negative required_approval_count",
 			cfg: &config.PolicyConfig{
 				Policies: config.PoliciesConfig{
-					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
-						{
-							Name:                  "production",
-							RequiredApprovalCount: intPtr(-1),
+					ProtectedEnvironments: &config.ProtectedEnvironmentsConfig{
+						Rules: []config.ProtectedEnvironmentRuleConfig{
+							{
+								Name:                  "production",
+								RequiredApprovalCount: intPtr(-1),
+							},
 						},
 					},
 				},
@@ -830,11 +838,13 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			name: "Invalid access level in deploy_access_levels",
 			cfg: &config.PolicyConfig{
 				Policies: config.PoliciesConfig{
-					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
-						{
-							Name: "production",
-							DeployAccessLevels: []config.EnvironmentAccessDescription{
-								{AccessLevel: 99},
+					ProtectedEnvironments: &config.ProtectedEnvironmentsConfig{
+						Rules: []config.ProtectedEnvironmentRuleConfig{
+							{
+								Name: "production",
+								DeployAccessLevels: []config.EnvironmentAccessDescription{
+									{AccessLevel: 99},
+								},
 							},
 						},
 					},

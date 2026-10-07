@@ -81,7 +81,29 @@ policies:
       allow_force_push: false
       code_owner_approval_required: true
 
-  # 3. Merge Request Approval Rules
+  # 3. Protected Environments Deployment Gates
+  protected_environments:
+    prune: true
+    rules:
+      - name: "production"
+        required_approval_count: 2
+        deploy_access_levels:
+          - access_level: 40 # Maintainers only
+        approval_rules:
+          - access_level: 40
+            required_approvals: 2
+            group_path: "enterprise-fleet/security-reviewers"
+      - name: "staging"
+        required_approval_count: 1
+        deploy_access_levels:
+          - access_level: 30
+      - name: "dr-*"
+        required_approval_count: 1
+        deploy_access_levels:
+          - access_level: 30
+            username: "deploy_bot"
+
+  # 4. Merge Request Approval Rules
   approval_rules:
     settings:
       allow_author_approval: false

@@ -194,9 +194,17 @@ func TestProtectedEnvironmentsAuditor(t *testing.T) {
 		},
 	})
 
+	// 3. Add project environments in GitLab (one protected, one completely unprotected)
+	server.State().AddEnvironment(targetProj.ID, &gogitlab.Environment{
+		Name: "production",
+	})
+	server.State().AddEnvironment(targetProj.ID, &gogitlab.Environment{
+		Name: "prod-customer-facing",
+	})
+
 	findings, err := auditor.AuditProject(context.Background(), client, targetProj)
 	require.NoError(t, err)
-	require.Len(t, findings, 2)
+	require.Len(t, findings, 3)
 
 	findingMap := make(map[string]audit.ProtectedEnvironmentFinding)
 	for _, f := range findings {
@@ -214,6 +222,13 @@ func TestProtectedEnvironmentsAuditor(t *testing.T) {
 	assert.Equal(t, 1, staging.RequiredApprovalCount)
 	assert.Equal(t, audit.SeverityPass, staging.Severity)
 	assert.Empty(t, staging.Violations)
+
+	unprotected := findingMap["prod-customer-facing"]
+	assert.True(t, unprotected.IsProduction)
+	assert.Equal(t, 0, unprotected.RequiredApprovalCount)
+	assert.Equal(t, audit.SeverityCritical, unprotected.Severity)
+	assert.Equal(t, "Unprotected", unprotected.DeployAccessLevelsSummary)
+	assert.Contains(t, unprotected.Details, "completely unprotected")
 }
 
 func TestAuditorCoordinator(t *testing.T) {

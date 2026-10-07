@@ -144,14 +144,16 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 	}
 
 	policySummary := &PolicySummaryJSON{
-		PushRules:             cfg.Policies.PushRules != nil,
-		ProtectedBranches:     len(cfg.Policies.ProtectedBranches),
-		ProtectedEnvironments: len(cfg.Policies.ProtectedEnvironments),
-		ProjectSettings:       cfg.Policies.ProjectSettings != nil,
-		PipelineRetention:     cfg.Policies.PipelineRetention != nil,
-		Variables:             len(cfg.Policies.Variables),
-		Compliance:            cfg.Policies.Compliance != nil,
-		Webhooks:              len(cfg.Policies.Webhooks),
+		PushRules:         cfg.Policies.PushRules != nil,
+		ProtectedBranches: len(cfg.Policies.ProtectedBranches),
+		ProjectSettings:   cfg.Policies.ProjectSettings != nil,
+		PipelineRetention: cfg.Policies.PipelineRetention != nil,
+		Variables:         len(cfg.Policies.Variables),
+		Compliance:        cfg.Policies.Compliance != nil,
+		Webhooks:          len(cfg.Policies.Webhooks),
+	}
+	if cfg.Policies.ProtectedEnvironments != nil {
+		policySummary.ProtectedEnvironments = len(cfg.Policies.ProtectedEnvironments.Rules)
 	}
 	if cfg.Policies.ApprovalRules != nil {
 		policySummary.ApprovalRules = len(cfg.Policies.ApprovalRules.Rules)

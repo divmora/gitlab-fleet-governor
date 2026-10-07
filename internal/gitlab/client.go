@@ -37,6 +37,7 @@ type Client struct {
 	members               MembersService
 	users                 UsersService
 	protectedEnvironments ProtectedEnvironmentsService
+	environments          EnvironmentsService
 	pipelines             PipelinesService
 	targetBranchRules     TargetBranchRulesService
 	repositoryFiles       RepositoryFilesService
@@ -166,6 +167,11 @@ func WithProtectedEnvironmentsService(s ProtectedEnvironmentsService) ClientOpti
 	return func(c *Client) { c.protectedEnvironments = s }
 }
 
+// WithEnvironmentsService overrides the default EnvironmentsService.
+func WithEnvironmentsService(s EnvironmentsService) ClientOption {
+	return func(c *Client) { c.environments = s }
+}
+
 // WithPipelinesService overrides the default PipelinesService.
 func WithPipelinesService(s PipelinesService) ClientOption {
 	return func(c *Client) { c.pipelines = s }
@@ -281,6 +287,9 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.protectedEnvironments == nil {
 		c.protectedEnvironments = &defaultProtectedEnvironmentsService{client: rawClient}
 	}
+	if c.environments == nil {
+		c.environments = &defaultEnvironmentsService{client: rawClient}
+	}
 	if c.pipelines == nil {
 		c.pipelines = &defaultPipelinesService{client: rawClient}
 	}
@@ -358,6 +367,7 @@ func (c *Client) Webhooks() WebhooksService                           { return c
 func (c *Client) Members() MembersService                             { return c.members }
 func (c *Client) Users() UsersService                                 { return c.users }
 func (c *Client) ProtectedEnvironments() ProtectedEnvironmentsService { return c.protectedEnvironments }
+func (c *Client) Environments() EnvironmentsService                   { return c.environments }
 func (c *Client) Pipelines() PipelinesService                         { return c.pipelines }
 func (c *Client) TargetBranchRules() TargetBranchRulesService         { return c.targetBranchRules }
 func (c *Client) RepositoryFiles() RepositoryFilesService             { return c.repositoryFiles }
@@ -482,6 +492,12 @@ func (s *defaultProtectedEnvironmentsService) UnprotectEnvironment(pid any, envi
 
 func (s *defaultProtectedEnvironmentsService) UpdateProtectedEnvironments(pid any, environment string, opt *gitlab.UpdateProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error) {
 	return s.client.ProtectedEnvironments.UpdateProtectedEnvironments(pid, environment, opt, options...)
+}
+
+type defaultEnvironmentsService struct{ client *gitlab.Client }
+
+func (s *defaultEnvironmentsService) ListEnvironments(pid any, opt *gitlab.ListEnvironmentsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Environment, *gitlab.Response, error) {
+	return s.client.Environments.ListEnvironments(pid, opt, options...)
 }
 
 type defaultPushRulesService struct{ client *gitlab.Client }

@@ -163,6 +163,8 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 			envName, _ = url.PathUnescape(strings.Join(parts[2:], "/"))
 		}
 		rt.handleProjectProtectedEnvironments(w, r, unescapedID, envName)
+	case "environments":
+		rt.handleProjectEnvironments(w, r, unescapedID)
 	case "approvals":
 		rt.handleProjectApprovals(w, r, unescapedID)
 	case "approval_rules":
@@ -515,6 +517,29 @@ func (rt *Router) handleProjectProtectedEnvironments(w http.ResponseWriter, r *h
 		}
 		w.WriteHeader(http.StatusNoContent)
 		return
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (rt *Router) handleProjectEnvironments(w http.ResponseWriter, r *http.Request, idOrPath string) {
+	switch r.Method {
+	case http.MethodGet:
+		envs := rt.state.ListEnvironments(idOrPath)
+		rt.paginate(w, r, len(envs), func(i int) any { return envs[i] })
+	case http.MethodPost:
+		var env gitlab.Environment
+		if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
+			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+			return
+		}
+		saved, ok := rt.state.AddEnvironment(idOrPath, &env)
+		if !ok {
+			http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(saved)
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}

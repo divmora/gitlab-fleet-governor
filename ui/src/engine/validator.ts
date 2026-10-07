@@ -194,24 +194,44 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
     }
 
     // Protected Environments
-    if (p.protected_environments && Array.isArray(p.protected_environments)) {
-      p.protected_environments.forEach((pe: any, idx: number) => {
+    const peRules = Array.isArray(p.protected_environments)
+      ? p.protected_environments
+      : (p.protected_environments && typeof p.protected_environments === 'object' && Array.isArray(p.protected_environments.rules))
+        ? p.protected_environments.rules
+        : null;
+
+    if (peRules) {
+      peRules.forEach((pe: any, idx: number) => {
+        const prefix = Array.isArray(p.protected_environments)
+          ? `policies.protected_environments[${idx}]`
+          : `policies.protected_environments.rules[${idx}]`;
+
         if (!pe.name) {
-          errors.push({ path: `policies.protected_environments[${idx}].name`, message: "Protected environment 'name' is required.", severity: 'error' });
+          errors.push({ path: `${prefix}.name`, message: "Protected environment 'name' is required.", severity: 'error' });
         }
         if (pe.required_approval_count !== undefined && pe.required_approval_count < 0) {
-          errors.push({ path: `policies.protected_environments[${idx}].required_approval_count`, message: 'required_approval_count cannot be negative.', severity: 'error' });
+          errors.push({ path: `${prefix}.required_approval_count`, message: 'required_approval_count cannot be negative.', severity: 'error' });
         }
         if (pe.name) {
           const lower = pe.name.toLowerCase();
           if ((lower.includes('prod') || lower.includes('live')) && pe.required_approval_count === 0) {
-            warnings.push({ path: `policies.protected_environments[${idx}].required_approval_count`, message: `Production environment '${pe.name}' requires 0 deployment approvals.`, severity: 'warning' });
+            warnings.push({ path: `${prefix}.required_approval_count`, message: `Production environment '${pe.name}' requires 0 deployment approvals.`, severity: 'warning' });
           }
         }
         if (pe.deploy_access_levels && Array.isArray(pe.deploy_access_levels)) {
           pe.deploy_access_levels.forEach((rule: any, rIdx: number) => {
             if (rule.access_level !== undefined && !VALID_ACCESS_LEVELS.includes(rule.access_level)) {
-              errors.push({ path: `policies.protected_environments[${idx}].deploy_access_levels[${rIdx}].access_level`, message: `Invalid access_level '${rule.access_level}'. Allowed: 0, 5, 10, 20, 30, 40, 50, 60.`, severity: 'error' });
+              errors.push({ path: `${prefix}.deploy_access_levels[${rIdx}].access_level`, message: `Invalid access_level '${rule.access_level}'. Allowed: 0, 5, 10, 20, 30, 40, 50, 60.`, severity: 'error' });
+            }
+          });
+        }
+        if (pe.approval_rules && Array.isArray(pe.approval_rules)) {
+          pe.approval_rules.forEach((rule: any, rIdx: number) => {
+            if (rule.access_level !== undefined && !VALID_ACCESS_LEVELS.includes(rule.access_level)) {
+              errors.push({ path: `${prefix}.approval_rules[${rIdx}].access_level`, message: `Invalid access_level '${rule.access_level}'. Allowed: 0, 5, 10, 20, 30, 40, 50, 60.`, severity: 'error' });
+            }
+            if (rule.required_approvals !== undefined && rule.required_approvals < 0) {
+              errors.push({ path: `${prefix}.approval_rules[${rIdx}].required_approvals`, message: 'required_approvals cannot be negative.', severity: 'error' });
             }
           });
         }

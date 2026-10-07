@@ -3,6 +3,7 @@ package governance
 import (
 	"context"
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -14,16 +15,22 @@ import (
 )
 
 // ProtectedEnvironmentsReconciler implements GovernanceOperation for protected environments.
-type ProtectedEnvironmentsReconciler struct{}
+type ProtectedEnvironmentsReconciler struct {
+	resolver *CachingResolver
+}
 
 // NewProtectedEnvironmentsReconciler instantiates a new protected environments reconciler.
-func NewProtectedEnvironmentsReconciler() *ProtectedEnvironmentsReconciler {
-	return &ProtectedEnvironmentsReconciler{}
+func NewProtectedEnvironmentsReconciler(resolver ...*CachingResolver) *ProtectedEnvironmentsReconciler {
+	res := NewCachingResolver()
+	if len(resolver) > 0 && resolver[0] != nil {
+		res = resolver[0]
+	}
+	return &ProtectedEnvironmentsReconciler{resolver: res}
 }
 
 // NewProtectedEnvironmentsOperation creates a new protected environments operation instance.
-func NewProtectedEnvironmentsOperation() *ProtectedEnvironmentsReconciler {
-	return NewProtectedEnvironmentsReconciler()
+func NewProtectedEnvironmentsOperation(resolver ...*CachingResolver) *ProtectedEnvironmentsReconciler {
+	return NewProtectedEnvironmentsReconciler(resolver...)
 }
 
 // Name returns the canonical operation identifier.
@@ -38,13 +45,23 @@ func (r *ProtectedEnvironmentsReconciler) Order() int {
 
 // Plan evaluates project protected environments against policy config (dry-run).
 func (r *ProtectedEnvironmentsReconciler) Plan(ctx context.Context, client gitlab.GitLabClient, project *gogitlab.Project, cfg *config.PolicyConfig) (*PlanResult, error) {
-	if cfg == nil || len(cfg.Policies.ProtectedEnvironments) == 0 {
+	if cfg == nil || cfg.Policies.ProtectedEnvironments == nil {
+		return NewNoopPlanResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace), nil
+	}
+	peCfg := cfg.Policies.ProtectedEnvironments
+	prune := peCfg.Prune != nil && *peCfg.Prune
+	if len(peCfg.Rules) == 0 && !prune {
 		return NewNoopPlanResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace), nil
 	}
 
 	liveEnvs, err := r.fetchAllLiveProtectedEnvironments(ctx, client, project.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list protected environments for project %d: %w", project.ID, err)
+	}
+
+	expandedRules, err := r.expandRules(ctx, client, project.ID, peCfg.Rules, liveEnvs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to expand protected environment rules: %w", err)
 	}
 
 	liveMap := make(map[string]*gogitlab.ProtectedEnvironment)
@@ -56,23 +73,47 @@ func (r *ProtectedEnvironmentsReconciler) Plan(ctx context.Context, client gitla
 
 	var allDiffs []Diff
 	overallAction := ActionNoop
+	managedNames := make(map[string]bool)
 
-	for _, rule := range cfg.Policies.ProtectedEnvironments {
+	for _, rule := range expandedRules {
+		managedNames[rule.Name] = true
+		protectOpt, optErr := r.toProtectOptions(ctx, client, &rule)
+		if optErr != nil {
+			return nil, optErr
+		}
+
 		live, found := liveMap[rule.Name]
 		if !found {
 			// Protection missing -> CREATE
-			diff := r.buildCreateDiff(&rule)
+			diff := r.buildCreateDiff(&rule, protectOpt)
 			allDiffs = append(allDiffs, diff)
 			if overallAction == ActionNoop {
 				overallAction = ActionCreate
 			}
 		} else {
 			// Protection exists -> compare attributes
-			diff := r.buildUpdateDiff(live, &rule)
+			diff := r.buildUpdateDiff(live, &rule, protectOpt)
 			if diff.HasChanges() {
 				allDiffs = append(allDiffs, diff)
 				if overallAction == ActionNoop {
 					overallAction = ActionUpdate
+				}
+			}
+		}
+	}
+
+	// Prune unmanaged protected environments
+	if prune {
+		for _, live := range liveEnvs {
+			if live == nil {
+				continue
+			}
+			if !r.isManaged(live.Name, peCfg.Rules, managedNames) {
+				builder := NewDiffBuilder()
+				builder.AddField("protected", true, false, ActionDelete)
+				allDiffs = append(allDiffs, builder.Build(fmt.Sprintf("protected_environment:%s", live.Name), ActionDelete))
+				if overallAction == ActionNoop {
+					overallAction = ActionDelete
 				}
 			}
 		}
@@ -88,11 +129,21 @@ func (r *ProtectedEnvironmentsReconciler) Plan(ctx context.Context, client gitla
 // Apply executes protected environments policy enforcement (live mutation).
 func (r *ProtectedEnvironmentsReconciler) Apply(ctx context.Context, client gitlab.GitLabClient, project *gogitlab.Project, cfg *config.PolicyConfig) (*ApplyResult, error) {
 	start := time.Now()
-	if cfg == nil || len(cfg.Policies.ProtectedEnvironments) == 0 {
+	if cfg == nil || cfg.Policies.ProtectedEnvironments == nil {
+		return NewNoopApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace), nil
+	}
+	peCfg := cfg.Policies.ProtectedEnvironments
+	prune := peCfg.Prune != nil && *peCfg.Prune
+	if len(peCfg.Rules) == 0 && !prune {
 		return NewNoopApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace), nil
 	}
 
 	liveEnvs, err := r.fetchAllLiveProtectedEnvironments(ctx, client, project.ID)
+	if err != nil {
+		return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionNoop, StatusFailed, nil, err, start), err
+	}
+
+	expandedRules, err := r.expandRules(ctx, client, project.ID, peCfg.Rules, liveEnvs)
 	if err != nil {
 		return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionNoop, StatusFailed, nil, err, start), err
 	}
@@ -106,13 +157,19 @@ func (r *ProtectedEnvironmentsReconciler) Apply(ctx context.Context, client gitl
 
 	var appliedDiffs []Diff
 	overallAction := ActionNoop
+	managedNames := make(map[string]bool)
 
-	for _, rule := range cfg.Policies.ProtectedEnvironments {
+	for _, rule := range expandedRules {
+		managedNames[rule.Name] = true
+		protectOpt, optErr := r.toProtectOptions(ctx, client, &rule)
+		if optErr != nil {
+			return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionNoop, StatusFailed, appliedDiffs, optErr, start), optErr
+		}
+
 		live, found := liveMap[rule.Name]
 		if !found {
 			// 1. Missing: Create environment protection
-			diff := r.buildCreateDiff(&rule)
-			protectOpt := r.toProtectOptions(&rule)
+			diff := r.buildCreateDiff(&rule, protectOpt)
 			_, _, createErr := client.ProtectedEnvironments().ProtectRepositoryEnvironments(project.ID, protectOpt, gogitlab.WithContext(ctx))
 			if createErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionCreate, StatusFailed, append(appliedDiffs, diff), createErr, start), createErr
@@ -123,7 +180,7 @@ func (r *ProtectedEnvironmentsReconciler) Apply(ctx context.Context, client gitl
 			}
 		} else {
 			// 2. Exists: Evaluate differences
-			diff := r.buildUpdateDiff(live, &rule)
+			diff := r.buildUpdateDiff(live, &rule, protectOpt)
 			if !diff.HasChanges() {
 				continue
 			}
@@ -131,7 +188,6 @@ func (r *ProtectedEnvironmentsReconciler) Apply(ctx context.Context, client gitl
 			// Drift detected: Recreate protection atomically (Unprotect -> Protect)
 			_, _ = client.ProtectedEnvironments().UnprotectEnvironment(project.ID, rule.Name, gogitlab.WithContext(ctx))
 
-			protectOpt := r.toProtectOptions(&rule)
 			_, _, reprotectErr := client.ProtectedEnvironments().ProtectRepositoryEnvironments(project.ID, protectOpt, gogitlab.WithContext(ctx))
 			if reprotectErr != nil {
 				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionUpdate, StatusFailed, append(appliedDiffs, diff), reprotectErr, start), reprotectErr
@@ -140,6 +196,27 @@ func (r *ProtectedEnvironmentsReconciler) Apply(ctx context.Context, client gitl
 			appliedDiffs = append(appliedDiffs, diff)
 			if overallAction == ActionNoop {
 				overallAction = ActionUpdate
+			}
+		}
+	}
+
+	// Prune unmanaged protected environments
+	if prune {
+		for _, live := range liveEnvs {
+			if live == nil {
+				continue
+			}
+			if !r.isManaged(live.Name, peCfg.Rules, managedNames) {
+				_, unprotectErr := client.ProtectedEnvironments().UnprotectEnvironment(project.ID, live.Name, gogitlab.WithContext(ctx))
+				if unprotectErr != nil {
+					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, ActionDelete, StatusFailed, appliedDiffs, fmt.Errorf("failed to prune unmanaged protected environment '%s': %w", live.Name, unprotectErr), start), unprotectErr
+				}
+				builder := NewDiffBuilder()
+				builder.AddField("protected", true, false, ActionDelete)
+				appliedDiffs = append(appliedDiffs, builder.Build(fmt.Sprintf("protected_environment:%s", live.Name), ActionDelete))
+				if overallAction == ActionNoop {
+					overallAction = ActionDelete
+				}
 			}
 		}
 	}
@@ -165,6 +242,96 @@ func (r *ProtectedEnvironmentsReconciler) ApplyGroup(ctx context.Context, client
 // Internal Helpers & Diff Computations
 // ============================================================================
 
+func (r *ProtectedEnvironmentsReconciler) expandRules(ctx context.Context, client gitlab.GitLabClient, projectID int, rules []config.ProtectedEnvironmentRuleConfig, liveEnvs []*gogitlab.ProtectedEnvironment) ([]config.ProtectedEnvironmentRuleConfig, error) {
+	var hasWildcards bool
+	for _, rule := range rules {
+		if strings.ContainsAny(rule.Name, "*?[") {
+			hasWildcards = true
+			break
+		}
+	}
+
+	if !hasWildcards {
+		return rules, nil
+	}
+
+	// Fetch all project environments for wildcard expansion
+	var projectEnvs []*gogitlab.Environment
+	if client.Environments() != nil {
+		page := 1
+		for {
+			opts := &gogitlab.ListEnvironmentsOptions{
+				ListOptions: gogitlab.ListOptions{
+					Page:    page,
+					PerPage: 100,
+				},
+			}
+			envs, resp, err := client.Environments().ListEnvironments(projectID, opts, gogitlab.WithContext(ctx))
+			if err != nil {
+				break
+			}
+			projectEnvs = append(projectEnvs, envs...)
+			if resp == nil || resp.NextPage == 0 {
+				break
+			}
+			page = resp.NextPage
+		}
+	}
+
+	candidateNames := make(map[string]bool)
+	for _, pe := range projectEnvs {
+		if pe != nil && pe.Name != "" {
+			candidateNames[pe.Name] = true
+		}
+	}
+	for _, le := range liveEnvs {
+		if le != nil && le.Name != "" {
+			candidateNames[le.Name] = true
+		}
+	}
+
+	seenNames := make(map[string]bool)
+	var expanded []config.ProtectedEnvironmentRuleConfig
+
+	for _, rule := range rules {
+		if strings.ContainsAny(rule.Name, "*?[") {
+			for name := range candidateNames {
+				matched, _ := path.Match(rule.Name, name)
+				if matched && !seenNames[name] {
+					seenNames[name] = true
+					concrete := rule
+					concrete.Name = name
+					expanded = append(expanded, concrete)
+				}
+			}
+		} else {
+			if !seenNames[rule.Name] {
+				seenNames[rule.Name] = true
+				expanded = append(expanded, rule)
+			}
+		}
+	}
+
+	return expanded, nil
+}
+
+func (r *ProtectedEnvironmentsReconciler) isManaged(name string, rules []config.ProtectedEnvironmentRuleConfig, explicitManaged map[string]bool) bool {
+	if explicitManaged[name] {
+		return true
+	}
+	for _, rule := range rules {
+		if rule.Name == name {
+			return true
+		}
+		if strings.ContainsAny(rule.Name, "*?[") {
+			if matched, _ := path.Match(rule.Name, name); matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (r *ProtectedEnvironmentsReconciler) fetchAllLiveProtectedEnvironments(ctx context.Context, client gitlab.GitLabClient, projectID int) ([]*gogitlab.ProtectedEnvironment, error) {
 	var all []*gogitlab.ProtectedEnvironment
 	page := 1
@@ -186,7 +353,7 @@ func (r *ProtectedEnvironmentsReconciler) fetchAllLiveProtectedEnvironments(ctx 
 	return all, nil
 }
 
-func (r *ProtectedEnvironmentsReconciler) toProtectOptions(rule *config.ProtectedEnvironmentRuleConfig) *gogitlab.ProtectRepositoryEnvironmentsOptions {
+func (r *ProtectedEnvironmentsReconciler) toProtectOptions(ctx context.Context, client gitlab.GitLabClient, rule *config.ProtectedEnvironmentRuleConfig) (*gogitlab.ProtectRepositoryEnvironmentsOptions, error) {
 	opt := &gogitlab.ProtectRepositoryEnvironmentsOptions{
 		Name: gogitlab.Ptr(rule.Name),
 	}
@@ -200,55 +367,121 @@ func (r *ProtectedEnvironmentsReconciler) toProtectOptions(rule *config.Protecte
 			if acc.AccessLevel > 0 {
 				entry.AccessLevel = gogitlab.Ptr(gogitlab.AccessLevelValue(acc.AccessLevel))
 			}
-			if acc.UserID > 0 {
-				entry.UserID = gogitlab.Ptr(acc.UserID)
+			uid := acc.UserID
+			if uid == 0 && acc.Username != "" && r.resolver != nil {
+				resolved, err := r.resolver.ResolveUsername(ctx, client, acc.Username)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve username '%s' for deploy access: %w", acc.Username, err)
+				}
+				uid = resolved
 			}
-			if acc.GroupID > 0 {
-				entry.GroupID = gogitlab.Ptr(acc.GroupID)
+			if uid > 0 {
+				entry.UserID = gogitlab.Ptr(uid)
+			}
+			gid := acc.GroupID
+			if gid == 0 && acc.GroupPath != "" && r.resolver != nil {
+				resolved, err := r.resolver.ResolveGroupPath(ctx, client, acc.GroupPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve group_path '%s' for deploy access: %w", acc.GroupPath, err)
+				}
+				gid = resolved
+			}
+			if gid > 0 {
+				entry.GroupID = gogitlab.Ptr(gid)
 			}
 			accessList = append(accessList, entry)
 		}
 		opt.DeployAccessLevels = &accessList
 	}
-	if len(rule.ApprovalRules) > 0 {
-		var ruleList []*gogitlab.EnvironmentApprovalRuleOptions
-		for _, ar := range rule.ApprovalRules {
-			entry := &gogitlab.EnvironmentApprovalRuleOptions{}
-			if ar.AccessLevel > 0 {
-				entry.AccessLevel = gogitlab.Ptr(gogitlab.AccessLevelValue(ar.AccessLevel))
-			}
-			if ar.UserID > 0 {
-				entry.UserID = gogitlab.Ptr(ar.UserID)
-			}
-			if ar.GroupID > 0 {
-				entry.GroupID = gogitlab.Ptr(ar.GroupID)
-			}
-			if ar.RequiredApprovalCount != nil {
-				entry.RequiredApprovalCount = ar.RequiredApprovalCount
-			}
-			ruleList = append(ruleList, entry)
+
+	var ruleList []*gogitlab.EnvironmentApprovalRuleOptions
+	for _, ar := range rule.ApprovalRules {
+		entry := &gogitlab.EnvironmentApprovalRuleOptions{}
+		if ar.AccessLevel > 0 {
+			entry.AccessLevel = gogitlab.Ptr(gogitlab.AccessLevelValue(ar.AccessLevel))
 		}
+		uid := ar.UserID
+		if uid == 0 && ar.Username != "" && r.resolver != nil {
+			resolved, err := r.resolver.ResolveUsername(ctx, client, ar.Username)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve username '%s' for approval rule: %w", ar.Username, err)
+			}
+			uid = resolved
+		}
+		if uid > 0 {
+			entry.UserID = gogitlab.Ptr(uid)
+		}
+		gid := ar.GroupID
+		if gid == 0 && ar.GroupPath != "" && r.resolver != nil {
+			resolved, err := r.resolver.ResolveGroupPath(ctx, client, ar.GroupPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve group_path '%s' for approval rule: %w", ar.GroupPath, err)
+			}
+			gid = resolved
+		}
+		if gid > 0 {
+			entry.GroupID = gogitlab.Ptr(gid)
+		}
+		if ar.RequiredApprovalCount != nil {
+			entry.RequiredApprovalCount = ar.RequiredApprovalCount
+		}
+		ruleList = append(ruleList, entry)
+	}
+
+	for _, u := range rule.ApprovalUsers {
+		uid := u.UserID
+		if uid == 0 && u.Username != "" && r.resolver != nil {
+			resolved, err := r.resolver.ResolveUsername(ctx, client, u.Username)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve username '%s' for approval user: %w", u.Username, err)
+			}
+			uid = resolved
+		}
+		if uid > 0 {
+			ruleList = append(ruleList, &gogitlab.EnvironmentApprovalRuleOptions{
+				UserID: gogitlab.Ptr(uid),
+			})
+		}
+	}
+
+	for _, g := range rule.ApprovalGroups {
+		gid := g.GroupID
+		if gid == 0 && g.GroupPath != "" && r.resolver != nil {
+			resolved, err := r.resolver.ResolveGroupPath(ctx, client, g.GroupPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve group_path '%s' for approval group: %w", g.GroupPath, err)
+			}
+			gid = resolved
+		}
+		if gid > 0 {
+			ruleList = append(ruleList, &gogitlab.EnvironmentApprovalRuleOptions{
+				GroupID: gogitlab.Ptr(gid),
+			})
+		}
+	}
+
+	if len(ruleList) > 0 {
 		opt.ApprovalRules = &ruleList
 	}
-	return opt
+	return opt, nil
 }
 
-func (r *ProtectedEnvironmentsReconciler) buildCreateDiff(rule *config.ProtectedEnvironmentRuleConfig) Diff {
+func (r *ProtectedEnvironmentsReconciler) buildCreateDiff(rule *config.ProtectedEnvironmentRuleConfig, opt *gogitlab.ProtectRepositoryEnvironmentsOptions) Diff {
 	builder := NewDiffBuilder()
 	builder.AddField("name", nil, rule.Name, ActionCreate)
 	if rule.RequiredApprovalCount != nil {
 		builder.AddField("required_approval_count", nil, *rule.RequiredApprovalCount, ActionCreate)
 	}
-	if len(rule.DeployAccessLevels) > 0 {
-		builder.AddField("deploy_access_levels", nil, formatConfigEnvAccess(rule.DeployAccessLevels), ActionCreate)
+	if opt != nil && opt.DeployAccessLevels != nil && len(*opt.DeployAccessLevels) > 0 {
+		builder.AddField("deploy_access_levels", nil, formatDesiredEnvAccess(*opt.DeployAccessLevels), ActionCreate)
 	}
-	if len(rule.ApprovalRules) > 0 {
-		builder.AddField("approval_rules", nil, formatConfigApprovalRules(rule.ApprovalRules), ActionCreate)
+	if opt != nil && opt.ApprovalRules != nil && len(*opt.ApprovalRules) > 0 {
+		builder.AddField("approval_rules", nil, formatDesiredApprovalRules(*opt.ApprovalRules), ActionCreate)
 	}
 	return builder.Build(fmt.Sprintf("protected_environment:%s", rule.Name), ActionCreate)
 }
 
-func (r *ProtectedEnvironmentsReconciler) buildUpdateDiff(live *gogitlab.ProtectedEnvironment, rule *config.ProtectedEnvironmentRuleConfig) Diff {
+func (r *ProtectedEnvironmentsReconciler) buildUpdateDiff(live *gogitlab.ProtectedEnvironment, rule *config.ProtectedEnvironmentRuleConfig, opt *gogitlab.ProtectRepositoryEnvironmentsOptions) Diff {
 	builder := NewDiffBuilder()
 
 	// Compare RequiredApprovalCount
@@ -257,16 +490,16 @@ func (r *ProtectedEnvironmentsReconciler) buildUpdateDiff(live *gogitlab.Protect
 	}
 
 	// Compare DeployAccessLevels
-	if len(rule.DeployAccessLevels) > 0 {
-		if !equalEnvAccess(live.DeployAccessLevels, rule.DeployAccessLevels) {
-			builder.AddField("deploy_access_levels", formatLiveEnvAccess(live.DeployAccessLevels), formatConfigEnvAccess(rule.DeployAccessLevels), ActionUpdate)
+	if opt != nil && opt.DeployAccessLevels != nil && len(*opt.DeployAccessLevels) > 0 {
+		if !equalEnvAccess(live.DeployAccessLevels, *opt.DeployAccessLevels) {
+			builder.AddField("deploy_access_levels", formatLiveEnvAccess(live.DeployAccessLevels), formatDesiredEnvAccess(*opt.DeployAccessLevels), ActionUpdate)
 		}
 	}
 
 	// Compare ApprovalRules
-	if len(rule.ApprovalRules) > 0 {
-		if !equalEnvApprovalRules(live.ApprovalRules, rule.ApprovalRules) {
-			builder.AddField("approval_rules", formatLiveApprovalRules(live.ApprovalRules), formatConfigApprovalRules(rule.ApprovalRules), ActionUpdate)
+	if opt != nil && opt.ApprovalRules != nil && len(*opt.ApprovalRules) > 0 {
+		if !equalEnvApprovalRules(live.ApprovalRules, *opt.ApprovalRules) {
+			builder.AddField("approval_rules", formatLiveApprovalRules(live.ApprovalRules), formatDesiredApprovalRules(*opt.ApprovalRules), ActionUpdate)
 		}
 	}
 
@@ -294,16 +527,43 @@ func formatAccessLevel(level int) string {
 	}
 }
 
-func formatConfigEnvAccess(list []config.EnvironmentAccessDescription) string {
+func formatDesiredEnvAccess(list []*gogitlab.EnvironmentAccessOptions) string {
 	parts := make([]string, 0, len(list))
 	for _, a := range list {
-		if a.UserID > 0 {
-			parts = append(parts, fmt.Sprintf("User:%d", a.UserID))
-		} else if a.GroupID > 0 {
-			parts = append(parts, fmt.Sprintf("Group:%d", a.GroupID))
-		} else if a.AccessLevel > 0 {
-			parts = append(parts, formatAccessLevel(a.AccessLevel))
+		if a == nil {
+			continue
 		}
+		if a.UserID != nil && *a.UserID > 0 {
+			parts = append(parts, fmt.Sprintf("User:%d", *a.UserID))
+		} else if a.GroupID != nil && *a.GroupID > 0 {
+			parts = append(parts, fmt.Sprintf("Group:%d", *a.GroupID))
+		} else if a.AccessLevel != nil && *a.AccessLevel > 0 {
+			parts = append(parts, formatAccessLevel(int(*a.AccessLevel)))
+		}
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
+}
+
+func formatDesiredApprovalRules(list []*gogitlab.EnvironmentApprovalRuleOptions) string {
+	parts := make([]string, 0, len(list))
+	for _, a := range list {
+		if a == nil {
+			continue
+		}
+		target := "unknown"
+		if a.UserID != nil && *a.UserID > 0 {
+			target = fmt.Sprintf("User:%d", *a.UserID)
+		} else if a.GroupID != nil && *a.GroupID > 0 {
+			target = fmt.Sprintf("Group:%d", *a.GroupID)
+		} else if a.AccessLevel != nil && *a.AccessLevel > 0 {
+			target = formatAccessLevel(int(*a.AccessLevel))
+		}
+		req := 1
+		if a.RequiredApprovalCount != nil {
+			req = *a.RequiredApprovalCount
+		}
+		parts = append(parts, fmt.Sprintf("%s(%d)", target, req))
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, ", ")
@@ -327,7 +587,7 @@ func formatLiveEnvAccess(list []*gogitlab.EnvironmentAccessDescription) string {
 	return strings.Join(parts, ", ")
 }
 
-func equalEnvAccess(live []*gogitlab.EnvironmentAccessDescription, desired []config.EnvironmentAccessDescription) bool {
+func equalEnvAccess(live []*gogitlab.EnvironmentAccessDescription, desired []*gogitlab.EnvironmentAccessOptions) bool {
 	liveKeys := make([]string, 0, len(live))
 	for _, l := range live {
 		if l == nil {
@@ -339,7 +599,22 @@ func equalEnvAccess(live []*gogitlab.EnvironmentAccessDescription, desired []con
 
 	desiredKeys := make([]string, 0, len(desired))
 	for _, d := range desired {
-		desiredKeys = append(desiredKeys, fmt.Sprintf("%d:%d:%d", d.AccessLevel, d.UserID, d.GroupID))
+		if d == nil {
+			continue
+		}
+		acc := 0
+		if d.AccessLevel != nil {
+			acc = int(*d.AccessLevel)
+		}
+		uid := 0
+		if d.UserID != nil {
+			uid = *d.UserID
+		}
+		gid := 0
+		if d.GroupID != nil {
+			gid = *d.GroupID
+		}
+		desiredKeys = append(desiredKeys, fmt.Sprintf("%d:%d:%d", acc, uid, gid))
 	}
 	sort.Strings(desiredKeys)
 
@@ -352,25 +627,6 @@ func equalEnvAccess(live []*gogitlab.EnvironmentAccessDescription, desired []con
 		}
 	}
 	return true
-}
-
-func formatConfigApprovalRules(list []config.EnvironmentApprovalRuleConfig) string {
-	parts := make([]string, 0, len(list))
-	for _, a := range list {
-		req := 1
-		if a.RequiredApprovalCount != nil {
-			req = *a.RequiredApprovalCount
-		}
-		target := formatAccessLevel(a.AccessLevel)
-		if a.UserID > 0 {
-			target = fmt.Sprintf("User:%d", a.UserID)
-		} else if a.GroupID > 0 {
-			target = fmt.Sprintf("Group:%d", a.GroupID)
-		}
-		parts = append(parts, fmt.Sprintf("%s(%d)", target, req))
-	}
-	sort.Strings(parts)
-	return strings.Join(parts, ", ")
 }
 
 func formatLiveApprovalRules(list []*gogitlab.EnvironmentApprovalRule) string {
@@ -391,7 +647,7 @@ func formatLiveApprovalRules(list []*gogitlab.EnvironmentApprovalRule) string {
 	return strings.Join(parts, ", ")
 }
 
-func equalEnvApprovalRules(live []*gogitlab.EnvironmentApprovalRule, desired []config.EnvironmentApprovalRuleConfig) bool {
+func equalEnvApprovalRules(live []*gogitlab.EnvironmentApprovalRule, desired []*gogitlab.EnvironmentApprovalRuleOptions) bool {
 	liveKeys := make([]string, 0, len(live))
 	for _, l := range live {
 		if l == nil {
@@ -403,11 +659,26 @@ func equalEnvApprovalRules(live []*gogitlab.EnvironmentApprovalRule, desired []c
 
 	desiredKeys := make([]string, 0, len(desired))
 	for _, d := range desired {
+		if d == nil {
+			continue
+		}
+		acc := 0
+		if d.AccessLevel != nil {
+			acc = int(*d.AccessLevel)
+		}
+		uid := 0
+		if d.UserID != nil {
+			uid = *d.UserID
+		}
+		gid := 0
+		if d.GroupID != nil {
+			gid = *d.GroupID
+		}
 		req := 1
 		if d.RequiredApprovalCount != nil {
 			req = *d.RequiredApprovalCount
 		}
-		desiredKeys = append(desiredKeys, fmt.Sprintf("%d:%d:%d:%d", d.AccessLevel, d.UserID, d.GroupID, req))
+		desiredKeys = append(desiredKeys, fmt.Sprintf("%d:%d:%d:%d", acc, uid, gid, req))
 	}
 	sort.Strings(desiredKeys)
 

@@ -45,9 +45,13 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Access Level Normalization**: Translates role names (`No Access`, `Developer`, `Maintainer`, `Admin`) into integer access levels (`0`, `30`, `40`, `60`).
 
 ### 4. Protected Environments Reconciler (`protected_environments`)
-- **Deployment Gates & Approvals**: Declaratively configures protected environments (`name`, `required_approval_count`, `deploy_access_levels`, `approval_rules`).
-- **Upsert Mechanics**: If the environment protection does not exist, it issues `POST /projects/:id/protected_environments`. If configuration drift is detected, it unprotects and reprotects the environment atomically (`DELETE /projects/:id/protected_environments/:name` followed by `POST`).
+- **Deployment Gates & Approvals**: Declaratively configures protected environments (`name`, `required_approval_count`, `deploy_access_levels`, `approval_rules`, `approval_groups`, `approval_users`).
+- **Dynamic Username & Group Path Resolution**: Automatically resolves usernames (`username: "alice"`) and group paths (`group_path: "security/appsec"`) to GitLab IDs with in-memory memoization to avoid redundant API queries.
+- **Wildcard Environment Expansion**: Supports glob pattern matching (e.g. `dr-*`, `prod-*`). Queries the project's actual environments via `GET /projects/:id/environments` and expands concrete protected environment configurations for each matching environment.
+- **Pruning Unmanaged Environments**: When `prune: true` is configured, identifies and removes unmanaged protected environments (environments protected in GitLab that do not match any configured rule or wildcard pattern) via `DELETE /projects/:id/protected_environments/:name`.
+- **Atomic Upsert & Re-protection**: If the environment protection does not exist, issues `POST /projects/:id/protected_environments`. If configuration drift is detected, unprotects and reprotects the environment atomically (`DELETE` followed by `POST`) to guarantee full convergence of nested access levels and approval rules.
 - **Access Level Normalization**: Supports role-based access tiers (Developer: 30, Maintainer: 40, Admin: 60) as well as explicit user and group IDs.
+
 
 ### 5. MR Approval Rules Reconciler (`approval_rules`)
 - **General Settings**: Reconciles author approval bans, committer approval bans, approver list overrides, and approval retention on new commits.

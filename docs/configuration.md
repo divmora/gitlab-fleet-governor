@@ -165,24 +165,35 @@ policies:
 
 ### 3. `protected_environments`
 
-Declaratively govern deployment access tiers, required approval counts, and approver rules across fleet environments:
+Declaratively govern deployment access tiers, required approval counts, and approver rules across fleet environments. Supports pruning unmanaged environments, wildcard pattern expansion (`dr-*`, `prod-*`), and automatic username and group path resolution:
 
 ```yaml
 policies:
   protected_environments:
-    - name: "production"
-      required_approval_count: 2
-      deploy_access_levels:
-        - access_level: 40 # 30=Developer, 40=Maintainer, 60=Admin
-      approval_rules:
-        - access_level: 40
-          required_approvals: 2
-    - name: "staging"
-      required_approval_count: 1
-      deploy_access_levels:
-        - access_level: 30
-
+    prune: true # Optional: unprotect environments not declared in policy or matching wildcards
+    rules:
+      - name: "production"
+        required_approval_count: 2
+        deploy_access_levels:
+          - access_level: 40 # 30=Developer, 40=Maintainer, 60=Admin
+        approval_rules:
+          - access_level: 40
+            required_approvals: 2
+            group_path: "security/appsec" # Resolves group path to group ID
+      - name: "staging"
+        required_approval_count: 1
+        deploy_access_levels:
+          - access_level: 30
+      - name: "dr-*" # Wildcard expansion against project environments
+        required_approval_count: 1
+        deploy_access_levels:
+          - access_level: 30
+            username: "deploy-service-bot" # Resolves username to user ID
 ```
+
+> [!TIP]
+> **Backward Compatibility**: `protected_environments` also accepts a direct list of environment rules without the `prune` wrapper (e.g. `protected_environments: [{ name: "production", ... }]`).
+
 
 ### 4. `approval_rules`
 

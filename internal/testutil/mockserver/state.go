@@ -42,6 +42,10 @@ type State struct {
 	// Protected Environments: projectID -> envName -> *gitlab.ProtectedEnvironment
 	protectedEnvironments map[int]map[string]*gitlab.ProtectedEnvironment
 
+	// Environments: projectID -> envID -> *gitlab.Environment
+	environments      map[int]map[int]*gitlab.Environment
+	nextEnvironmentID int
+
 	// Merge Request Approvals
 	projectApprovals     map[int]*gitlab.ProjectApprovals
 	projectApprovalRules map[int]map[int]*gitlab.ProjectApprovalRule // projectID -> ruleID -> rule
@@ -135,6 +139,8 @@ func (s *State) Reset() {
 
 	s.protectedBranches = make(map[int]map[string]*gitlab.ProtectedBranch)
 	s.protectedEnvironments = make(map[int]map[string]*gitlab.ProtectedEnvironment)
+	s.environments = make(map[int]map[int]*gitlab.Environment)
+	s.nextEnvironmentID = 1
 	s.projectApprovals = make(map[int]*gitlab.ProjectApprovals)
 	s.projectApprovalRules = make(map[int]map[int]*gitlab.ProjectApprovalRule)
 	s.nextApprovalRuleID = 1
@@ -884,6 +890,41 @@ func (s *State) UpdateProtectedEnvironment(idOrPath any, envName string, pe *git
 		existing.ApprovalRules = pe.ApprovalRules
 	}
 	return existing, true
+}
+
+func (s *State) ListEnvironments(idOrPath any) []*gitlab.Environment {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil
+	}
+	envs := s.environments[id]
+	res := make([]*gitlab.Environment, 0, len(envs))
+	for _, env := range envs {
+		res = append(res, env)
+	}
+	return res
+}
+
+func (s *State) AddEnvironment(idOrPath any, env *gitlab.Environment) (*gitlab.Environment, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.environments[id] == nil {
+		s.environments[id] = make(map[int]*gitlab.Environment)
+	}
+	if env.ID == 0 {
+		env.ID = s.nextEnvironmentID
+		s.nextEnvironmentID++
+	}
+	s.environments[id][env.ID] = env
+	return env, true
 }
 
 // ----------------------------------------------------------------------------

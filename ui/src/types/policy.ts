@@ -72,13 +72,29 @@ export interface EnvironmentAccessRule {
   access_level?: number;
   user_id?: number;
   group_id?: number;
+  username?: string;
+  group_path?: string;
 }
 
 export interface EnvironmentApprovalRule {
   access_level?: number;
   user_id?: number;
   group_id?: number;
+  username?: string;
+  group_path?: string;
   required_approvals?: number;
+  group_inheritance_type?: number;
+}
+
+export interface EnvironmentApprovalGroup {
+  group_id?: number;
+  group_path?: string;
+  required_approvals?: number;
+}
+
+export interface EnvironmentApprovalUser {
+  user_id?: number;
+  username?: string;
 }
 
 export interface ProtectedEnvironmentConfig {
@@ -86,6 +102,13 @@ export interface ProtectedEnvironmentConfig {
   deploy_access_levels?: EnvironmentAccessRule[];
   required_approval_count?: number;
   approval_rules?: EnvironmentApprovalRule[];
+  approval_groups?: EnvironmentApprovalGroup[];
+  approval_users?: EnvironmentApprovalUser[];
+}
+
+export interface ProtectedEnvironmentsWrapper {
+  prune?: boolean;
+  rules: ProtectedEnvironmentConfig[];
 }
 
 export interface ApprovalRuleItem {
@@ -191,7 +214,7 @@ export interface PolicyModules {
   push_rules?: PushRulesConfig;
   repository_files?: RepositoryFileItem[];
   protected_branches?: ProtectedBranchConfig[];
-  protected_environments?: ProtectedEnvironmentConfig[];
+  protected_environments?: ProtectedEnvironmentConfig[] | ProtectedEnvironmentsWrapper;
   approval_rules?: ApprovalRulesConfig;
   target_branch_rules?: TargetBranchRulesConfig;
   project_settings?: ProjectSettingsConfig;

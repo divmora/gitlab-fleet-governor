@@ -38,13 +38,19 @@ export const ReconcilerCheatSheet: React.FC = () => {
       scope: 'Project',
       desc: 'Environment deployment protections, required approval counts, and approver rules.',
       yamlSnippet: `protected_environments:
-  - name: "production"
-    required_approval_count: 2
-    deploy_access_levels:
-      - access_level: 40 # Maintainers
-    approval_rules:
-      - access_level: 40
-        required_approvals: 2`,
+  prune: true
+  rules:
+    - name: "production"
+      required_approval_count: 2
+      deploy_access_levels:
+        - access_level: 40 # Maintainers
+      approval_rules:
+        - group_path: "security/leads"
+          required_approvals: 2
+    - name: "dr-*"
+      required_approval_count: 1
+      deploy_access_levels:
+        - username: "deploy-bot"`,
     },
     {
       name: 'approval_rules',

@@ -337,21 +337,23 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 		validateProtectedBranch(&p.ProtectedBranches[i], fmt.Sprintf("%s.protected_branches[%d]", prefix, i), errs)
 	}
 
-	seenEnvs := make(map[string]bool)
-	for i := range p.ProtectedEnvironments {
-		pe := &p.ProtectedEnvironments[i]
-		pePrefix := fmt.Sprintf("%s.protected_environments[%d]", prefix, i)
-		validateProtectedEnvironment(pe, pePrefix, errs)
-		normName := strings.TrimSpace(pe.Name)
-		if normName != "" {
-			if seenEnvs[normName] {
-				*errs = append(*errs, ValidationError{
-					Field:   pePrefix + ".name",
-					Message: fmt.Sprintf("duplicate protected environment rule for environment '%s'", normName),
-					Value:   normName,
-				})
+	if p.ProtectedEnvironments != nil {
+		seenEnvs := make(map[string]bool)
+		for i := range p.ProtectedEnvironments.Rules {
+			pe := &p.ProtectedEnvironments.Rules[i]
+			pePrefix := fmt.Sprintf("%s.protected_environments[%d]", prefix, i)
+			validateProtectedEnvironment(pe, pePrefix, errs)
+			normName := strings.TrimSpace(pe.Name)
+			if normName != "" {
+				if seenEnvs[normName] {
+					*errs = append(*errs, ValidationError{
+						Field:   pePrefix + ".name",
+						Message: fmt.Sprintf("duplicate protected environment rule for environment '%s'", normName),
+						Value:   normName,
+					})
+				}
+				seenEnvs[normName] = true
 			}
-			seenEnvs[normName] = true
 		}
 	}
 

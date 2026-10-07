@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 )
 
@@ -250,7 +252,7 @@ type PoliciesConfig struct {
 	ProtectedBranches []ProtectedBranchRuleConfig `yaml:"protected_branches,omitempty" json:"protected_branches,omitempty"`
 
 	// ProtectedEnvironments configures environment deployment protections on projects.
-	ProtectedEnvironments []ProtectedEnvironmentRuleConfig `yaml:"protected_environments,omitempty" json:"protected_environments,omitempty"`
+	ProtectedEnvironments *ProtectedEnvironmentsConfig `yaml:"protected_environments,omitempty" json:"protected_environments,omitempty"`
 
 	// ApprovalRules configures merge request approval settings and named approver rules.
 	ApprovalRules *ApprovalRulesConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
@@ -424,6 +426,37 @@ type BranchAccessDescription struct {
 // 6a. Protected Environments Configuration
 // ============================================================================
 
+// ProtectedEnvironmentsConfig encapsulates project protected environment policies and pruning.
+type ProtectedEnvironmentsConfig struct {
+	// Prune deletes unmanaged protected environments not declared in policy when true.
+	Prune *bool `yaml:"prune,omitempty" json:"prune,omitempty"`
+
+	// Rules lists individual protected environment configurations.
+	Rules []ProtectedEnvironmentRuleConfig `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
+// UnmarshalYAML supports both list syntax and mapping syntax with prune: true.
+func (c *ProtectedEnvironmentsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var rules []ProtectedEnvironmentRuleConfig
+	if err := unmarshal(&rules); err == nil {
+		c.Rules = rules
+		return nil
+	}
+
+	type plain ProtectedEnvironmentsConfig
+	return unmarshal((*plain)(c))
+}
+
+// UnmarshalJSON supports both JSON array and object format.
+func (c *ProtectedEnvironmentsConfig) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return json.Unmarshal(trimmed, &c.Rules)
+	}
+	type plain ProtectedEnvironmentsConfig
+	return json.Unmarshal(trimmed, (*plain)(c))
+}
+
 // ProtectedEnvironmentRuleConfig defines protected environment parameters for a project.
 type ProtectedEnvironmentRuleConfig struct {
 	// Name is the environment name or wildcard pattern (e.g. "production", "staging", "dr-*"). Required.
@@ -437,6 +470,12 @@ type ProtectedEnvironmentRuleConfig struct {
 
 	// ApprovalRules specifies required approver rules for deployment.
 	ApprovalRules []EnvironmentApprovalRuleConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
+
+	// ApprovalGroups specifies groups required to approve deployments.
+	ApprovalGroups []EnvironmentApprovalGroupConfig `yaml:"approval_groups,omitempty" json:"approval_groups,omitempty"`
+
+	// ApprovalUsers specifies individual users required to approve deployments.
+	ApprovalUsers []EnvironmentApprovalUserConfig `yaml:"approval_users,omitempty" json:"approval_users,omitempty"`
 }
 
 // EnvironmentAccessDescription specifies role level, user, or group deployment access.
@@ -449,6 +488,24 @@ type EnvironmentAccessDescription struct {
 
 	// GroupID specifies explicit group ID granted deployment access.
 	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+
+	// Username specifies user by username for dynamic ID resolution.
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+
+	// GroupPath specifies group by full path for dynamic ID resolution.
+	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
+}
+
+// EnvironmentApprovalGroupConfig specifies deployment approval group.
+type EnvironmentApprovalGroupConfig struct {
+	GroupID   int    `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
+}
+
+// EnvironmentApprovalUserConfig specifies deployment approval user.
+type EnvironmentApprovalUserConfig struct {
+	UserID   int    `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 }
 
 // EnvironmentApprovalRuleConfig specifies deployment approval rules.
@@ -461,6 +518,12 @@ type EnvironmentApprovalRuleConfig struct {
 
 	// GroupID specifies explicit group ID required to approve.
 	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+
+	// Username specifies user by username for dynamic ID resolution.
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+
+	// GroupPath specifies group by full path for dynamic ID resolution.
+	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
 
 	// RequiredApprovalCount specifies required approvals for this specific rule (default: 1).
 	RequiredApprovalCount *int `yaml:"required_approvals,omitempty" json:"required_approvals,omitempty"`
