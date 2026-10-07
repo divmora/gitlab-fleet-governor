@@ -837,6 +837,48 @@ func (s *State) GetProtectedEnvironment(idOrPath any, envName string) (*gitlab.P
 	return pe, true
 }
 
+func (s *State) UnprotectEnvironment(idOrPath any, envName string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.protectedEnvironments[id] == nil {
+		return false
+	}
+	if _, found := s.protectedEnvironments[id][envName]; !found {
+		return false
+	}
+	delete(s.protectedEnvironments[id], envName)
+	return true
+}
+
+func (s *State) UpdateProtectedEnvironment(idOrPath any, envName string, pe *gitlab.ProtectedEnvironment) (*gitlab.ProtectedEnvironment, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.protectedEnvironments[id] == nil {
+		return nil, false
+	}
+	existing, found := s.protectedEnvironments[id][envName]
+	if !found {
+		return nil, false
+	}
+	if pe.Name != "" && pe.Name != envName {
+		delete(s.protectedEnvironments[id], envName)
+		existing.Name = pe.Name
+		s.protectedEnvironments[id][pe.Name] = existing
+	}
+	if len(pe.DeployAccessLevels) > 0 {
+		existing.DeployAccessLevels = pe.DeployAccessLevels
+	}
+	existing.RequiredApprovalCount = pe.RequiredApprovalCount
+	if len(pe.ApprovalRules) > 0 {
+		existing.ApprovalRules = pe.ApprovalRules
+	}
+	return existing, true
+}
+
 // ----------------------------------------------------------------------------
 // Merge Request Approvals Operations
 // ----------------------------------------------------------------------------

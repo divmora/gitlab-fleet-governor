@@ -318,6 +318,24 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 		validateProtectedBranch(&p.ProtectedBranches[i], fmt.Sprintf("%s.protected_branches[%d]", prefix, i), errs)
 	}
 
+	seenEnvs := make(map[string]bool)
+	for i := range p.ProtectedEnvironments {
+		pe := &p.ProtectedEnvironments[i]
+		pePrefix := fmt.Sprintf("%s.protected_environments[%d]", prefix, i)
+		validateProtectedEnvironment(pe, pePrefix, errs)
+		normName := strings.TrimSpace(pe.Name)
+		if normName != "" {
+			if seenEnvs[normName] {
+				*errs = append(*errs, ValidationError{
+					Field:   pePrefix + ".name",
+					Message: fmt.Sprintf("duplicate protected environment rule for environment '%s'", normName),
+					Value:   normName,
+				})
+			}
+			seenEnvs[normName] = true
+		}
+	}
+
 	if p.ApprovalRules != nil {
 		validateApprovalRules(p.ApprovalRules, prefix+".approval_rules", errs)
 	}
@@ -510,6 +528,80 @@ func validateBranchAccessList(list []BranchAccessDescription, prefix string, err
 				Field:   fmt.Sprintf("%s[%d].deploy_key_id", prefix, i),
 				Message: "deploy_key_id must be non-negative",
 				Value:   access.DeployKeyID,
+			})
+		}
+	}
+}
+
+func validateProtectedEnvironment(e *ProtectedEnvironmentRuleConfig, prefix string, errs *ValidationErrors) {
+	if strings.TrimSpace(e.Name) == "" {
+		*errs = append(*errs, ValidationError{
+			Field:   prefix + ".name",
+			Message: "protected environment name cannot be empty",
+		})
+	}
+
+	if e.RequiredApprovalCount != nil && *e.RequiredApprovalCount < 0 {
+		*errs = append(*errs, ValidationError{
+			Field:   prefix + ".required_approval_count",
+			Message: fmt.Sprintf("required_approval_count cannot be negative (got %d)", *e.RequiredApprovalCount),
+			Value:   *e.RequiredApprovalCount,
+		})
+	}
+
+	for i, access := range e.DeployAccessLevels {
+		accPrefix := fmt.Sprintf("%s.deploy_access_levels[%d]", prefix, i)
+		if access.AccessLevel != 0 && access.AccessLevel != 30 && access.AccessLevel != 40 && access.AccessLevel != 60 {
+			*errs = append(*errs, ValidationError{
+				Field:   accPrefix + ".access_level",
+				Message: fmt.Sprintf("invalid access level %d (must be 0, 30, 40, or 60)", access.AccessLevel),
+				Value:   access.AccessLevel,
+			})
+		}
+		if access.UserID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   accPrefix + ".user_id",
+				Message: "user_id must be non-negative",
+				Value:   access.UserID,
+			})
+		}
+		if access.GroupID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   accPrefix + ".group_id",
+				Message: "group_id must be non-negative",
+				Value:   access.GroupID,
+			})
+		}
+	}
+
+	for i, rule := range e.ApprovalRules {
+		rulePrefix := fmt.Sprintf("%s.approval_rules[%d]", prefix, i)
+		if rule.AccessLevel != 0 && rule.AccessLevel != 30 && rule.AccessLevel != 40 && rule.AccessLevel != 60 {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".access_level",
+				Message: fmt.Sprintf("invalid access level %d (must be 0, 30, 40, or 60)", rule.AccessLevel),
+				Value:   rule.AccessLevel,
+			})
+		}
+		if rule.UserID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".user_id",
+				Message: "user_id must be non-negative",
+				Value:   rule.UserID,
+			})
+		}
+		if rule.GroupID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".group_id",
+				Message: "group_id must be non-negative",
+				Value:   rule.GroupID,
+			})
+		}
+		if rule.RequiredApprovalCount != nil && *rule.RequiredApprovalCount < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   rulePrefix + ".required_approvals",
+				Message: fmt.Sprintf("required_approvals cannot be negative (got %d)", *rule.RequiredApprovalCount),
+				Value:   *rule.RequiredApprovalCount,
 			})
 		}
 	}

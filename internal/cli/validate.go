@@ -36,9 +36,10 @@ type TargetSummaryJSON struct {
 
 // PolicySummaryJSON summarizes the configured policy modules.
 type PolicySummaryJSON struct {
-	PushRules         bool `json:"push_rules"`
-	ProtectedBranches int  `json:"protected_branches"`
-	ApprovalRules     int  `json:"approval_rules"`
+	PushRules             bool `json:"push_rules"`
+	ProtectedBranches     int  `json:"protected_branches"`
+	ProtectedEnvironments int  `json:"protected_environments"`
+	ApprovalRules         int  `json:"approval_rules"`
 	ProjectSettings   bool `json:"project_settings"`
 	PipelineRetention bool `json:"pipeline_retention"`
 	Variables         int  `json:"variables"`
@@ -132,13 +133,14 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 	}
 
 	policySummary := &PolicySummaryJSON{
-		PushRules:         cfg.Policies.PushRules != nil,
-		ProtectedBranches: len(cfg.Policies.ProtectedBranches),
-		ProjectSettings:   cfg.Policies.ProjectSettings != nil,
-		PipelineRetention: cfg.Policies.PipelineRetention != nil,
-		Variables:         len(cfg.Policies.Variables),
-		Compliance:        cfg.Policies.Compliance != nil,
-		Webhooks:          len(cfg.Policies.Webhooks),
+		PushRules:             cfg.Policies.PushRules != nil,
+		ProtectedBranches:     len(cfg.Policies.ProtectedBranches),
+		ProtectedEnvironments: len(cfg.Policies.ProtectedEnvironments),
+		ProjectSettings:       cfg.Policies.ProjectSettings != nil,
+		PipelineRetention:     cfg.Policies.PipelineRetention != nil,
+		Variables:             len(cfg.Policies.Variables),
+		Compliance:            cfg.Policies.Compliance != nil,
+		Webhooks:              len(cfg.Policies.Webhooks),
 	}
 	if cfg.Policies.ApprovalRules != nil {
 		policySummary.ApprovalRules = len(cfg.Policies.ApprovalRules.Rules)

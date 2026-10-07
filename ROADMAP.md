@@ -32,9 +32,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
   - Enforce automated tag expiration and retention rules on project container registries (`cadence`, `keep_n`, `older_than`, `name_regex_delete`, `name_regex_keep`).
   - Purge orphaned or untagged container images and manage package registry retention to eliminate storage waste and control cloud hosting costs.
 
-- [ ] **Protected Environments & Deployment Approvals Reconciler (`protected_environments`)**
-  - Declaratively govern GitLab `environments` across fleet repositories (e.g., `production`, `staging`, `dr-*`).
-  - Enforce protected environment access tiers, required deployment approvers (`required_approval_count`, designated groups or users), and deployment freeze schedules.
 
 - [ ] **Stale & Zombie Repository Lifecycle Reconciler**
   - Automatically detect inactive, abandoned, or stale repositories based on configurable inactivity thresholds (e.g., no commits or pipeline runs for >180 days).

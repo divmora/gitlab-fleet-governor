@@ -152,7 +152,7 @@ internal/
   engine/                   # Parallel worker pool reconciler & diff calculation engine
   export/                   # Fleet state reverse-sync engine, divergence normalization, archetype templates
   gitlab/                   # Resilient GitLab REST API client (rate limiting, jittered backoff)
-  governance/               # 11 modular reconciler engines (push_rules, protected_branches, etc.)
+  governance/               # 13 modular reconciler engines (push_rules, protected_branches, protected_environments, etc.)
   lambda/                   # AWS Lambda event drivers (EventBridge, S3 Put, Direct JSON)
   logging/                  # Structured log/slog handler (text/json formatting)
   report/                   # Multi-format report renderer (table, json, csv, markdown)
@@ -179,6 +179,20 @@ pkg/version/                # Release Please versioning and build metadata
 - Adhere strictly to the [Conventional Commits](https://www.conventionalcommits.org/) specification (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `ci:`, `feat!:`) for automated release tagging and changelog generation via Google Release Please.
 - Version numbers are maintained in `.release-please-manifest.json` and injected into `pkg/version` at build time via `-ldflags`.
 
+### Documentation & Studio UI Synchronization
+Whenever changes are introduced to policies, governance reconcilers, CLI commands, configuration schemas, or runtime options, you MUST update both the documentation and the Fleet Governor Studio UI afterwards:
+- **Documentation Updates (`docs/`, `README.md`)**:
+  - Keep documentation strictly synchronized with code and schema changes.
+  - Update `docs/operations.md` for any new, modified, or reordered reconcilers, including their execution order, API endpoints, diffing mechanics, and edge cases.
+  - Update `docs/architecture.md`, `README.md`, `docs/plans.md`, or `docs/playground.md` whenever configuration models, flags, or workflows are updated.
+- **Fleet Governor Studio UI Updates (`ui/`)**:
+  - Update TypeScript configuration schemas and AST types in `ui/src/types/policy.ts`.
+  - Update the visual DAG engine in `ui/src/engine/dag.ts` and `ui/src/components/DAG/PolicyDAG.tsx` to reflect new or modified reconciler nodes, badges, and execution flow edges.
+  - Update the in-browser policy validator in `ui/src/engine/validator.ts` with relevant schema validation rules and security guardrails.
+  - Update `ui/src/components/ReconcilerCheatSheet.tsx` with reference cards, YAML examples, and descriptions for new reconcilers.
+  - Update policy presets and templates in `ui/src/data/presets.ts`.
+  - Verify UI compilation with `make ui-build` (or `pnpm build` in `ui/`).
+
 ### Verification Commands
 ```bash
 make fmt          # Format Go code with gofmt and goimports
@@ -186,6 +200,7 @@ make lint         # Run golangci-lint static analysis
 make test         # Run unit & integration tests with race detector
 make build        # Build host binary in bin/gitlab-fleet-governor
 make build-lambda # Compile AWS Lambda custom runtime bootstrap zip
+make ui-build     # Build UI Studio bundle and verify TypeScript/React compilation
 ```
 
 ---

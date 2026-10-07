@@ -163,7 +163,28 @@ policies:
       code_owner_approval_required: true
 ```
 
-### 3. `approval_rules`
+### 3. `protected_environments`
+
+Declaratively govern deployment access tiers, required approval counts, and approver rules across fleet environments:
+
+```yaml
+policies:
+  protected_environments:
+    - name: "production"
+      required_approval_count: 2
+      deploy_access_levels:
+        - access_level: 40 # 30=Developer, 40=Maintainer, 60=Admin
+      approval_rules:
+        - access_level: 40
+          required_approvals: 2
+    - name: "staging"
+      required_approval_count: 1
+      deploy_access_levels:
+        - access_level: 30
+
+```
+
+### 4. `approval_rules`
 
 ```yaml
 policies:
@@ -185,7 +206,7 @@ policies:
     prune: true # Deletes unmanaged named approval rules
 ```
 
-### 4. `project_settings` & `pipeline_retention`
+### 5. `project_settings` & `pipeline_retention`
 
 ```yaml
 policies:
@@ -211,7 +232,7 @@ policies:
     retention_days: 30 # Maps to ci_delete_pipelines_in_seconds = 2592000
 ```
 
-### 5. `variables`
+### 6. `variables`
 
 ```yaml
 policies:
@@ -232,7 +253,7 @@ policies:
       environment_scope: "production"
 ```
 
-### 6. `runners`
+### 7. `runners`
 
 ```yaml
 policies:
@@ -248,7 +269,7 @@ policies:
         access_level: "ref_protected"
 ```
 
-### 7. `compliance`
+### 8. `compliance`
 
 ```yaml
 policies:
@@ -257,7 +278,7 @@ policies:
     prune: false
 ```
 
-### 8. `webhooks`
+### 9. `webhooks`
 
 ```yaml
 policies:
@@ -271,7 +292,7 @@ policies:
       secret_token: "${SIEM_WEBHOOK_SECRET}"
 ```
 
-### 9. `members`
+### 10. `members`
 
 ```yaml
 policies:
@@ -285,7 +306,7 @@ policies:
         access_level: 20 # Reporter
         expires_at: "2026-12-31"
 
-### 10. `target_branch_rules`
+### 11. `target_branch_rules`
 
 Declaratively govern GitLab Merge Request Branch Workflow default targets based on source branch naming patterns:
 
@@ -302,7 +323,7 @@ policies:
         target_branch: "production"
 ```
 
-### 11. `repository_files`
+### 12. `repository_files`
 
 Declaratively enforce and synchronize standardized files across fleet repositories (e.g. `CODEOWNERS`, `SECURITY.md`, `.editorconfig`, baseline `.gitlab-ci.yml` includes):
 

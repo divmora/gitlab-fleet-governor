@@ -249,6 +249,9 @@ type PoliciesConfig struct {
 	// ProtectedBranches configures branch protections on projects.
 	ProtectedBranches []ProtectedBranchRuleConfig `yaml:"protected_branches,omitempty" json:"protected_branches,omitempty"`
 
+	// ProtectedEnvironments configures environment deployment protections on projects.
+	ProtectedEnvironments []ProtectedEnvironmentRuleConfig `yaml:"protected_environments,omitempty" json:"protected_environments,omitempty"`
+
 	// ApprovalRules configures merge request approval settings and named approver rules.
 	ApprovalRules *ApprovalRulesConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
 
@@ -415,6 +418,52 @@ type BranchAccessDescription struct {
 
 	// DeployKeyID specifies deploy key ID granted push access.
 	DeployKeyID int `yaml:"deploy_key_id,omitempty" json:"deploy_key_id,omitempty"`
+}
+
+// ============================================================================
+// 6a. Protected Environments Configuration
+// ============================================================================
+
+// ProtectedEnvironmentRuleConfig defines protected environment parameters for a project.
+type ProtectedEnvironmentRuleConfig struct {
+	// Name is the environment name or wildcard pattern (e.g. "production", "staging", "dr-*"). Required.
+	Name string `yaml:"name" json:"name"`
+
+	// DeployAccessLevels defines permissions allowed to deploy to the environment.
+	DeployAccessLevels []EnvironmentAccessDescription `yaml:"deploy_access_levels,omitempty" json:"deploy_access_levels,omitempty"`
+
+	// RequiredApprovalCount defines minimum number of required approvals before deployment.
+	RequiredApprovalCount *int `yaml:"required_approval_count,omitempty" json:"required_approval_count,omitempty"`
+
+	// ApprovalRules specifies required approver rules for deployment.
+	ApprovalRules []EnvironmentApprovalRuleConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
+}
+
+// EnvironmentAccessDescription specifies role level, user, or group deployment access.
+type EnvironmentAccessDescription struct {
+	// AccessLevel is the GitLab numeric access level: 30 (Developer), 40 (Maintainer), 60 (Admin).
+	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
+
+	// UserID specifies explicit user ID granted deployment access.
+	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+
+	// GroupID specifies explicit group ID granted deployment access.
+	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+}
+
+// EnvironmentApprovalRuleConfig specifies deployment approval rules.
+type EnvironmentApprovalRuleConfig struct {
+	// AccessLevel is the required approver role level (e.g. 40 for Maintainer).
+	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
+
+	// UserID specifies explicit user ID required to approve.
+	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+
+	// GroupID specifies explicit group ID required to approve.
+	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+
+	// RequiredApprovalCount specifies required approvals for this specific rule (default: 1).
+	RequiredApprovalCount *int `yaml:"required_approvals,omitempty" json:"required_approvals,omitempty"`
 }
 
 // ============================================================================

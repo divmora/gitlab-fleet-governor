@@ -34,6 +34,19 @@ export const ReconcilerCheatSheet: React.FC = () => {
     allowed_to_merge: [{ access_level: 40 }]`,
     },
     {
+      name: 'protected_environments',
+      scope: 'Project',
+      desc: 'Environment deployment protections, required approval counts, and approver rules.',
+      yamlSnippet: `protected_environments:
+  - name: "production"
+    required_approval_count: 2
+    deploy_access_levels:
+      - access_level: 40 # Maintainers
+    approval_rules:
+      - access_level: 40
+        required_approvals: 2`,
+    },
+    {
       name: 'approval_rules',
       scope: 'Project',
       desc: 'Merge request approval rules, named reviewer lists, author/committer approval overrides.',

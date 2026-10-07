@@ -66,7 +66,7 @@ flowchart TD
 - [Getting Started](getting-started.md): Installation, authentication, and running your first simulation.
 - [Subscription Plans & Feature Matrix](plans.md): Free Community Tier, Pro, and Enterprise feature entitlements.
 - [Configuration Guide](configuration.md): Complete reference for policy YAML/JSON schemas.
-- [Operations Guide](operations.md): In-depth mechanics of all 11 governance reconcilers and the Security Audit Suite.
+- [Operations Guide](operations.md): In-depth mechanics of all 13 governance reconcilers and the Security Audit Suite.
 - [AWS Lambda Deployment](lambda.md): Serverless cron and event-driven automation.
 - [CI/CD Integration](ci-cd.md): Automated governance in GitLab CI and GitHub Actions.
 - [Architecture Details](architecture.md): Internal concurrency, rate limiting, and design principles.

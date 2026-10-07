@@ -486,7 +486,8 @@ func (rt *Router) handleProjectProtectedEnvironments(w http.ResponseWriter, r *h
 		return
 	}
 
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		pe, found := rt.state.GetProtectedEnvironment(idOrPath, envName)
 		if !found {
 			http.Error(w, `{"message":"404 Protected Environment Not Found"}`, http.StatusNotFound)
@@ -494,8 +495,29 @@ func (rt *Router) handleProjectProtectedEnvironments(w http.ResponseWriter, r *h
 		}
 		_ = json.NewEncoder(w).Encode(pe)
 		return
+	case http.MethodPut:
+		var pe gitlab.ProtectedEnvironment
+		if err := json.NewDecoder(r.Body).Decode(&pe); err != nil {
+			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+			return
+		}
+		updated, ok := rt.state.UpdateProtectedEnvironment(idOrPath, envName, &pe)
+		if !ok {
+			http.Error(w, `{"message":"404 Protected Environment Not Found"}`, http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(updated)
+		return
+	case http.MethodDelete:
+		if !rt.state.UnprotectEnvironment(idOrPath, envName) {
+			http.Error(w, `{"message":"404 Protected Environment Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
-	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 }
 
 func (rt *Router) handleProjectApprovals(w http.ResponseWriter, r *http.Request, idOrPath string) {

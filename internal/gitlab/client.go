@@ -472,6 +472,18 @@ func (s *defaultProtectedEnvironmentsService) GetProtectedEnvironment(pid any, e
 	return s.client.ProtectedEnvironments.GetProtectedEnvironment(pid, environment, options...)
 }
 
+func (s *defaultProtectedEnvironmentsService) ProtectRepositoryEnvironments(pid any, opt *gitlab.ProtectRepositoryEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error) {
+	return s.client.ProtectedEnvironments.ProtectRepositoryEnvironments(pid, opt, options...)
+}
+
+func (s *defaultProtectedEnvironmentsService) UnprotectEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
+	return s.client.ProtectedEnvironments.UnprotectEnvironment(pid, environment, options...)
+}
+
+func (s *defaultProtectedEnvironmentsService) UpdateProtectedEnvironments(pid any, environment string, opt *gitlab.UpdateProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error) {
+	return s.client.ProtectedEnvironments.UpdateProtectedEnvironments(pid, environment, opt, options...)
+}
+
 type defaultPushRulesService struct{ client *gitlab.Client }
 
 func (s *defaultPushRulesService) GetProjectPushRule(pid any, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectPushRules, *gitlab.Response, error) {

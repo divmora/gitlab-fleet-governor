@@ -67,6 +67,9 @@ type ProtectedBranchesService interface {
 type ProtectedEnvironmentsService interface {
 	ListProtectedEnvironments(pid any, opt *gitlab.ListProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedEnvironment, *gitlab.Response, error)
 	GetProtectedEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
+	ProtectRepositoryEnvironments(pid any, opt *gitlab.ProtectRepositoryEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
+	UnprotectEnvironment(pid any, environment string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
+	UpdateProtectedEnvironments(pid any, environment string, opt *gitlab.UpdateProtectedEnvironmentsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedEnvironment, *gitlab.Response, error)
 }
 
 // PushRulesService abstracts project-level and group-level push rules.

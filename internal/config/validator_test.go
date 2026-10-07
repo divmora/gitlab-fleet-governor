@@ -71,6 +71,18 @@ func TestValidate_ValidConfigs(t *testing.T) {
 						CodeOwnerApprovalRequired: boolPtr(true),
 					},
 				},
+				ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
+					{
+						Name: "production",
+						DeployAccessLevels: []config.EnvironmentAccessDescription{
+							{AccessLevel: 40},
+						},
+						RequiredApprovalCount: intPtr(2),
+						ApprovalRules: []config.EnvironmentApprovalRuleConfig{
+							{AccessLevel: 40, RequiredApprovalCount: intPtr(2)},
+						},
+					},
+				},
 				ProjectSettings: &config.ProjectSettingsConfig{
 					SquashOption:                     "always",
 					MergeMethod:                      "rebase_merge",
@@ -770,6 +782,65 @@ func TestValidate_SemanticErrors(t *testing.T) {
 				},
 			},
 			expectedErr: "cannot combine full file content",
+		},
+		{
+			name: "Empty protected environment name",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
+						{
+							Name: "",
+						},
+					},
+				},
+			},
+			expectedErr: "protected environment name cannot be empty",
+		},
+		{
+			name: "Duplicate protected environment rule",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
+						{
+							Name: "production",
+						},
+						{
+							Name: "production",
+						},
+					},
+				},
+			},
+			expectedErr: "duplicate protected environment rule for environment 'production'",
+		},
+		{
+			name: "Negative required_approval_count",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
+						{
+							Name:                  "production",
+							RequiredApprovalCount: intPtr(-1),
+						},
+					},
+				},
+			},
+			expectedErr: "required_approval_count cannot be negative",
+		},
+		{
+			name: "Invalid access level in deploy_access_levels",
+			cfg: &config.PolicyConfig{
+				Policies: config.PoliciesConfig{
+					ProtectedEnvironments: []config.ProtectedEnvironmentRuleConfig{
+						{
+							Name: "production",
+							DeployAccessLevels: []config.EnvironmentAccessDescription{
+								{AccessLevel: 99},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid access level 99",
 		},
 	}
 

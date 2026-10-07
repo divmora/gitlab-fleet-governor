@@ -51,6 +51,13 @@ export const PRESETS: Record<string, { name: string; icon: string; description: 
             code_owner_approval_required: true,
           },
         ],
+        protected_environments: [
+          {
+            name: 'production',
+            required_approval_count: 2,
+            deploy_access_levels: [{ access_level: 40 }],
+          },
+        ],
         repository_files: [
           {
             path: 'CODEOWNERS',

@@ -20,7 +20,7 @@ gitlab-fleet-governor/
 │   ├── engine/                        # Bounded worker pool & execution orchestrator
 │   ├── export/                        # Fleet state reverse-sync engine & policy normalizer
 │   ├── gitlab/                        # Resilient API client wrapper & rate limiting
-│   ├── governance/                    # 11 governance reconcilers & diff engine
+│   ├── governance/                    # 13 governance reconcilers & diff engine
 │   ├── lambda/                        # AWS Lambda event adapters & handlers
 │   ├── logging/                       # Structured slog handlers (colored text & JSON)
 │   ├── report/                        # ASCII table, JSON, CSV, Markdown reporters

@@ -107,6 +107,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
         return Array.isArray(data) ? `${data.length} file(s)` : 'active';
       case 'protected_branches':
         return Array.isArray(data) ? `${data.length} branch(es)` : 'active';
+      case 'protected_environments':
+        return Array.isArray(data) ? `${data.length} env(s)` : 'active';
       case 'approval_rules':
         return data.rules ? `${data.rules.length} rule(s)` : 'active';
       case 'target_branch_rules':
@@ -141,6 +143,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       label: 'Protected Branches',
       icon: '🛡️',
       data: config?.policies?.protected_branches,
+    },
+    {
+      key: 'protected_environments',
+      label: 'Protected Environments',
+      icon: '🌐',
+      data: config?.policies?.protected_environments,
     },
     {
       key: 'approval_rules',

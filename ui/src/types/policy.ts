@@ -68,6 +68,26 @@ export interface ProtectedBranchConfig {
   code_owner_approval_required?: boolean;
 }
 
+export interface EnvironmentAccessRule {
+  access_level?: number;
+  user_id?: number;
+  group_id?: number;
+}
+
+export interface EnvironmentApprovalRule {
+  access_level?: number;
+  user_id?: number;
+  group_id?: number;
+  required_approvals?: number;
+}
+
+export interface ProtectedEnvironmentConfig {
+  name: string;
+  deploy_access_levels?: EnvironmentAccessRule[];
+  required_approval_count?: number;
+  approval_rules?: EnvironmentApprovalRule[];
+}
+
 export interface ApprovalRuleItem {
   name: string;
   approvals_required: number;
@@ -171,6 +191,7 @@ export interface PolicyModules {
   push_rules?: PushRulesConfig;
   repository_files?: RepositoryFileItem[];
   protected_branches?: ProtectedBranchConfig[];
+  protected_environments?: ProtectedEnvironmentConfig[];
   approval_rules?: ApprovalRulesConfig;
   target_branch_rules?: TargetBranchRulesConfig;
   project_settings?: ProjectSettingsConfig;
