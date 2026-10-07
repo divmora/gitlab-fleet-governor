@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.12.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.11.0...v0.12.0) (2026-10-07)
+
+
+### Features
+
+* **governance:** add protected environments reconciler ([#73](https://github.com/divmora/gitlab-fleet-governor/issues/73)) ([bf7a735](https://github.com/divmora/gitlab-fleet-governor/commit/bf7a735dda5bcb93464e79530ac18e8cbe6de11c))
+
 ## [0.11.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.10.0...v0.11.0) (2026-09-29)
 
 
