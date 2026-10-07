@@ -70,11 +70,6 @@ func (r *TargetBranchRulesReconciler) Apply(ctx context.Context, client gitlab.G
 		return NewNoopApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace), nil
 	}
 
-	liveMap := make(map[string]gitlab.TargetBranchRule)
-	for _, lr := range liveRules {
-		liveMap[lr.Name] = lr
-	}
-
 	desiredMap := make(map[string]config.TargetBranchRuleConfig)
 	for _, dr := range cfg.Policies.TargetBranchRules.Rules {
 		desiredMap[dr.Name] = dr
@@ -82,34 +77,28 @@ func (r *TargetBranchRulesReconciler) Apply(ctx context.Context, client gitlab.G
 
 	prune := cfg.Policies.TargetBranchRules.Prune != nil && *cfg.Policies.TargetBranchRules.Prune
 
-	// 1. Prune unmanaged rules if requested
-	if prune {
-		for name, liveRule := range liveMap {
-			if _, exists := desiredMap[name]; !exists {
-				if destroyErr := client.TargetBranchRules().DestroyTargetBranchRule(ctx, liveRule.ID); destroyErr != nil {
-					return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to destroy target branch rule %s (%s): %w", name, liveRule.ID, destroyErr), start), destroyErr
-				}
+	// 1. Destroy existing managed rules (and unmanaged rules if prune is enabled).
+	// GitLab sorts target branch rules in reverse creation order (ORDER BY created_at DESC, id DESC)
+	// and does not offer an update mutation. Any newly created rule is prepended to the top of the UI list.
+	// To guarantee that the declared sequence (rules[0] at the top) is deterministically achieved
+	// without older rules sinking or updated catch-all rules jumping to the top,
+	// we atomically destroy existing rules and re-create the desired rules in reverse order.
+	for _, lr := range liveRules {
+		_, isManaged := desiredMap[lr.Name]
+		if isManaged || prune {
+			if destroyErr := client.TargetBranchRules().DestroyTargetBranchRule(ctx, lr.ID); destroyErr != nil {
+				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to destroy target branch rule %s (%s): %w", lr.Name, lr.ID, destroyErr), start), destroyErr
 			}
 		}
 	}
 
-	// 2. Process desired rules (Create / Update)
-	for _, dr := range cfg.Policies.TargetBranchRules.Rules {
-		liveRule, exists := liveMap[dr.Name]
-		if !exists {
-			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.ID, dr.Name, dr.TargetBranch)
-			if createErr != nil {
-				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create target branch rule %s -> %s: %w", dr.Name, dr.TargetBranch, createErr), start), createErr
-			}
-		} else if liveRule.TargetBranch != dr.TargetBranch {
-			// Update: Destroy existing rule then create new rule with updated target branch
-			if destroyErr := client.TargetBranchRules().DestroyTargetBranchRule(ctx, liveRule.ID); destroyErr != nil {
-				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update (destroy) target branch rule %s: %w", dr.Name, destroyErr), start), destroyErr
-			}
-			_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.ID, dr.Name, dr.TargetBranch)
-			if createErr != nil {
-				return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to update (re-create) target branch rule %s -> %s: %w", dr.Name, dr.TargetBranch, createErr), start), createErr
-			}
+	// 2. Re-create desired rules in reverse sequence (rules[N-1] down to rules[0]):
+	// This ensures rules[0] is created last and therefore sits at the very top of the GitLab UI table.
+	for i := len(cfg.Policies.TargetBranchRules.Rules) - 1; i >= 0; i-- {
+		dr := cfg.Policies.TargetBranchRules.Rules[i]
+		_, createErr := client.TargetBranchRules().CreateTargetBranchRule(ctx, project.ID, dr.Name, dr.TargetBranch)
+		if createErr != nil {
+			return NewApplyResult(r.Name(), ResourceTypeProject, project.ID, project.PathWithNamespace, overallAction, StatusFailed, diffs, fmt.Errorf("failed to create target branch rule %s -> %s: %w", dr.Name, dr.TargetBranch, createErr), start), createErr
 		}
 	}
 
@@ -140,7 +129,7 @@ func (r *TargetBranchRulesReconciler) calculateDiffs(liveRules []gitlab.TargetBr
 		desiredMap[dr.Name] = dr
 	}
 
-	// 1. Process desired rules
+	// 1. Process desired rules (Create / Update)
 	for _, dr := range desiredCfg.Rules {
 		liveRule, exists := liveMap[dr.Name]
 		if !exists {
@@ -163,15 +152,49 @@ func (r *TargetBranchRulesReconciler) calculateDiffs(liveRules []gitlab.TargetBr
 	// 2. Process unmanaged rules if prune is enabled
 	prune := desiredCfg.Prune != nil && *desiredCfg.Prune
 	if prune {
-		for name, liveRule := range liveMap {
-			if _, exists := desiredMap[name]; !exists {
+		for _, lr := range liveRules {
+			if _, exists := desiredMap[lr.Name]; !exists {
 				builder := NewDiffBuilder()
-				builder.AddField("target_branch", liveRule.TargetBranch, nil, ActionDelete)
-				diffs = append(diffs, builder.Build(fmt.Sprintf("target_branch_rule:%s", name), ActionDelete))
+				builder.AddField("target_branch", lr.TargetBranch, nil, ActionDelete)
+				diffs = append(diffs, builder.Build(fmt.Sprintf("target_branch_rule:%s", lr.Name), ActionDelete))
 				if overallAction == ActionNoop {
 					overallAction = ActionDelete
 				}
 			}
+		}
+	}
+
+	// 3. Order Drift Detection:
+	// In GitLab, target branch rules are evaluated on a first-match basis from top to bottom.
+	// When all managed rules are present with matching target branches,
+	// verify whether the live sequence matches the declared evaluation order.
+	var liveSequence []string
+	for _, lr := range liveRules {
+		if _, exists := desiredMap[lr.Name]; exists {
+			liveSequence = append(liveSequence, lr.Name)
+		}
+	}
+	var desiredSequence []string
+	for _, dr := range desiredCfg.Rules {
+		desiredSequence = append(desiredSequence, dr.Name)
+	}
+
+	orderDrift := false
+	if len(liveSequence) == len(desiredSequence) {
+		for i := range liveSequence {
+			if liveSequence[i] != desiredSequence[i] {
+				orderDrift = true
+				break
+			}
+		}
+	}
+
+	if orderDrift && len(diffs) == 0 {
+		builder := NewDiffBuilder()
+		builder.AddField("evaluation_order", liveSequence, desiredSequence, ActionUpdate)
+		diffs = append(diffs, builder.Build("target_branch_rules:evaluation_order", ActionUpdate))
+		if overallAction == ActionNoop {
+			overallAction = ActionUpdate
 		}
 	}
 

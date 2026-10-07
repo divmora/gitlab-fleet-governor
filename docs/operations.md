@@ -61,8 +61,10 @@ Operations execute sequentially per targeted project/group in the following dete
 ### 7. Target Branch Rules Reconciler (`target_branch_rules`)
 - **GraphQL ID Specification**: GitLab's Target Branch Rules API is exclusively exposed via GraphQL. Mutations target `ProjectID!` (`gid://gitlab/Project/:id`) using `projectTargetBranchRuleCreate` and `projectTargetBranchRuleDestroy`.
 - **Merge Request Workflow Routing**: Maps wildcard branch prefixes (e.g., `feat/*`, `hotfix/*`, `*`) to designated target branches (e.g., `staging`, `main`), ensuring consistent promotion paths across repositories.
+- **Deterministic Evaluation Order & Resequencing**: GitLab evaluates target branch rules top-down on a first-match basis, but exposes/orders them internally in reverse creation order (`ORDER BY created_at DESC, id DESC`). The reconciler detects order drift (`target_branch_rules:evaluation_order`) during `Plan` and performs atomic resequencing during `Apply` by destroying existing managed rules and recreating them in reverse sequence (`rules[N-1]` down to `rules[0]`), ensuring `rules[0]` is top-most in GitLab UI.
+- **Catch-All Shadowing Prevention**: Universal wildcards (`*`) must appear at the end of rule lists. Offline policy validation emits warnings if catch-all rules precede specific patterns to prevent lower-priority rules from shadowing higher-priority ones.
 - **Conflict Prevention & Invariant Checks**: Enforces that `source_branch_pattern` is unique per project and rejects self-targeting definitions (`source_branch_pattern == target_branch_name`).
-- **Pruning**: When `prune_unmanaged: true` is configured, automatically removes out-of-policy branch rules while preserving desired routing configurations.
+- **Pruning**: When `prune: true` is configured, automatically removes out-of-policy unmanaged branch rules.
 
 ### 8. Pipeline Retention Reconciler (`pipeline_retention`)
 - **Unit Conversion**: Translates human-friendly `retention_days` into GitLab's native `ci_delete_pipelines_in_seconds` (`days * 86400`).

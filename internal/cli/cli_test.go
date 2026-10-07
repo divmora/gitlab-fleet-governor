@@ -156,6 +156,24 @@ targets:
 	invalidFile := filepath.Join(tempDir, "invalid.yaml")
 	require.NoError(t, os.WriteFile(invalidFile, []byte(invalidYAML), 0600))
 
+	warningYAML := `
+settings:
+  concurrency: 5
+  dry_run: true
+targets:
+  group_selector:
+    group_ids_include: [100]
+policies:
+  target_branch_rules:
+    rules:
+      - name: "*"
+        target_branch: "main"
+      - name: "feature/*"
+        target_branch: "develop"
+`
+	warningFile := filepath.Join(tempDir, "warning.yaml")
+	require.NoError(t, os.WriteFile(warningFile, []byte(warningYAML), 0600))
+
 	t.Run("Valid Config Standard Output", func(t *testing.T) {
 		stdout, _, err := executeCommand(ctx, "validate", "-c", validFile)
 		require.NoError(t, err)
@@ -178,6 +196,27 @@ targets:
 		assert.True(t, out.Valid)
 		assert.Equal(t, "VALID", out.Status)
 		assert.Empty(t, out.Errors)
+	})
+
+	t.Run("Warning Config Standard Output", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "validate", "-c", warningFile)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "WARNING")
+		assert.Contains(t, stdout, "universal catch-all '*' is placed before subsequent pattern 'feature/*'")
+	})
+
+	t.Run("Warning Config JSON Output", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "validate", "-c", warningFile, "--json")
+		require.NoError(t, err)
+
+		var out ValidateJSONOutput
+		err = json.Unmarshal([]byte(stdout), &out)
+		require.NoError(t, err)
+		assert.True(t, out.Valid)
+		assert.Equal(t, "VALID", out.Status)
+		assert.Empty(t, out.Errors)
+		require.Len(t, out.Warnings, 1)
+		assert.Equal(t, "policies.target_branch_rules.rules[0].name", out.Warnings[0].Field)
 	})
 
 	t.Run("Invalid Config Error Reporting", func(t *testing.T) {

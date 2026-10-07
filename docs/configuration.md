@@ -321,7 +321,15 @@ policies:
         target_branch: "main"
       - name: "release/*"
         target_branch: "production"
+      - name: "*"
+        target_branch: "main" # Universal catch-all must be placed at the end
 ```
+
+#### Deterministic Evaluation Order & Shadowing Guardrails
+- **Evaluation Order**: GitLab evaluates target branch rules top-down on a first-match basis. The declared sequence in YAML (`rules[0]`, `rules[1]`, ...) defines the exact evaluation priority (`rules[0]` matches first).
+- **Universal Catch-All (`*`)**: Always place universal catch-alls or general fallback patterns at the very end of the `rules` array. Defining `*` before specific patterns triggers a validator lint warning because earlier catch-alls shadow all subsequent rules.
+- **Order Drift Remediation**: GitLab stores target branch rules in reverse creation order (`ORDER BY created_at DESC, id DESC`). Fleet Governor detects order drift (`target_branch_rules:evaluation_order`) and automatically resequences existing rules by destroying and recreating them in reverse sequence (`rules[N-1]` down to `rules[0]`), ensuring `rules[0]` appears top-most in GitLab UI.
+
 
 ### 12. `repository_files`
 

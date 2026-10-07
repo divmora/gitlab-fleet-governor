@@ -250,6 +250,15 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
               errors.push({ path: `policies.target_branch_rules.rules[${idx}].source_branch_pattern`, message: `Duplicate source_branch_pattern '${pat}' in target_branch_rules.`, severity: 'error' });
             }
             seenPatterns.add(pat);
+
+            if (pat === '*' && idx < p.target_branch_rules.rules.length - 1) {
+              const nextPat = p.target_branch_rules.rules[idx + 1]?.source_branch_pattern || 'subsequent rule';
+              warnings.push({
+                path: `policies.target_branch_rules.rules[${idx}].source_branch_pattern`,
+                message: `Universal catch-all pattern '*' is placed before '${nextPat}'. Target branch rules are evaluated in top-to-bottom order, so this wildcard will shadow subsequent rules.`,
+                severity: 'warning',
+              });
+            }
           }
         });
       }

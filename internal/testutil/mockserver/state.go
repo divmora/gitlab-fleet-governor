@@ -3,6 +3,7 @@ package mockserver
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -101,6 +102,7 @@ type MockTargetBranchRule struct {
 	Name         string    `json:"name"`
 	TargetBranch string    `json:"targetBranch"`
 	CreatedAt    time.Time `json:"createdAt"`
+	Seq          int       `json:"seq,omitempty"`
 }
 
 // NewState creates a new, empty in-memory state store.
@@ -429,6 +431,9 @@ func (s *State) GetTargetBranchRules(idOrPath any) ([]MockTargetBranchRule, bool
 	for _, r := range rulesMap {
 		res = append(res, r)
 	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Seq > res[j].Seq
+	})
 	return res, true
 }
 
@@ -444,7 +449,8 @@ func (s *State) AddTargetBranchRule(idOrPath any, name, targetBranch string) (*M
 		s.targetBranchRules[id] = make(map[string]MockTargetBranchRule)
 	}
 
-	ruleID := fmt.Sprintf("gid://gitlab/Projects::TargetBranchRule/%d", s.nextTargetRuleID)
+	seq := s.nextTargetRuleID
+	ruleID := fmt.Sprintf("gid://gitlab/Projects::TargetBranchRule/%d", seq)
 	s.nextTargetRuleID++
 
 	rule := MockTargetBranchRule{
@@ -452,6 +458,7 @@ func (s *State) AddTargetBranchRule(idOrPath any, name, targetBranch string) (*M
 		Name:         name,
 		TargetBranch: targetBranch,
 		CreatedAt:    time.Now(),
+		Seq:          seq,
 	}
 	s.targetBranchRules[id][ruleID] = rule
 	return &rule, true

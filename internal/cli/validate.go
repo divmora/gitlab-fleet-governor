@@ -19,12 +19,13 @@ type validateFlags struct {
 
 // ValidateJSONOutput represents structured JSON validation output.
 type ValidateJSONOutput struct {
-	Status   string                   `json:"status"`
-	Valid    bool                     `json:"valid"`
-	Source   string                   `json:"source"`
-	Targets  *TargetSummaryJSON       `json:"targets,omitempty"`
-	Policies *PolicySummaryJSON       `json:"policies,omitempty"`
-	Errors   []config.ValidationError `json:"errors,omitempty"`
+	Status   string                     `json:"status"`
+	Valid    bool                       `json:"valid"`
+	Source   string                     `json:"source"`
+	Targets  *TargetSummaryJSON         `json:"targets,omitempty"`
+	Policies *PolicySummaryJSON         `json:"policies,omitempty"`
+	Errors   []config.ValidationError   `json:"errors,omitempty"`
+	Warnings []config.ValidationWarning `json:"warnings,omitempty"`
 }
 
 // TargetSummaryJSON summarizes the discovered target rules.
@@ -47,6 +48,7 @@ type PolicySummaryJSON struct {
 	Compliance            bool `json:"compliance"`
 	Webhooks              int  `json:"webhooks"`
 	Members               int  `json:"members"`
+	TargetBranchRules     int  `json:"target_branch_rules"`
 }
 
 func newValidateCmd() *cobra.Command {
@@ -87,32 +89,41 @@ func executeValidate(cmd *cobra.Command, flags validateFlags) error {
 
 	rawBytes, sourceDesc, loadErr := loader.LoadRaw(ctx, globalFlags.ConfigPath)
 	if loadErr != nil {
-		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, loadErr)
+		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, loadErr, nil)
 	}
 
 	expanded, expErr := config.ExpandEnv(string(rawBytes))
 	if expErr != nil {
-		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, expErr)
+		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, expErr, nil)
 	}
 
 	var cfg config.PolicyConfig
 	if unmarshalErr := config.UnmarshalStrict([]byte(expanded), &cfg); unmarshalErr != nil {
-		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, unmarshalErr)
+		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, unmarshalErr, nil)
 	}
 
 	cfg.SetDefaults()
 
-	valErr := cfg.Validate()
+	valErr, warnings := cfg.ValidateWithWarnings()
 	if valErr != nil {
-		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, valErr)
+		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, valErr, warnings)
 	}
 
 	// Validation Succeeded
 	if flags.JSON {
-		return outputJSONValidationResult(cmd.OutOrStdout(), sourceDesc, &cfg)
+		return outputJSONValidationResult(cmd.OutOrStdout(), sourceDesc, &cfg, warnings)
 	}
 
 	if !flags.Quiet {
+		if len(warnings) > 0 {
+			for _, w := range warnings {
+				if globalFlags.NoColor {
+					fmt.Fprintf(cmd.OutOrStdout(), "WARNING: %s: %s\n", w.Field, w.Message)
+				} else {
+					fmt.Fprintf(cmd.OutOrStdout(), "\033[33m⚠ WARNING: %s: %s\033[0m\n", w.Field, w.Message)
+				}
+			}
+		}
 		if globalFlags.NoColor {
 			fmt.Fprintf(cmd.OutOrStdout(), "SUCCESS: Configuration in '%s' is valid.\n", sourceDesc)
 		} else {
@@ -123,7 +134,7 @@ func executeValidate(cmd *cobra.Command, flags validateFlags) error {
 	return nil
 }
 
-func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.PolicyConfig) error {
+func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.PolicyConfig, warnings []config.ValidationWarning) error {
 	targetSummary := &TargetSummaryJSON{
 		HasProjectSelectors: cfg.Targets.ProjectSelector != nil,
 	}
@@ -151,6 +162,14 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 	if cfg.Policies.Members != nil {
 		policySummary.Members = len(cfg.Policies.Members.AllowedMembers)
 	}
+	if cfg.Policies.TargetBranchRules != nil {
+		policySummary.TargetBranchRules = len(cfg.Policies.TargetBranchRules.Rules)
+	}
+
+	warnOutput := warnings
+	if warnOutput == nil {
+		warnOutput = []config.ValidationWarning{}
+	}
 
 	res := ValidateJSONOutput{
 		Status:   "VALID",
@@ -159,13 +178,14 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 		Targets:  targetSummary,
 		Policies: policySummary,
 		Errors:   []config.ValidationError{},
+		Warnings: warnOutput,
 	}
 	data, _ := json.MarshalIndent(res, "", "  ")
 	fmt.Fprintln(out, string(data))
 	return nil
 }
 
-func handleValidateError(out io.Writer, flags validateFlags, source string, err error) error {
+func handleValidateError(out io.Writer, flags validateFlags, source string, err error, warnings []config.ValidationWarning) error {
 	if flags.JSON {
 		var valErrors []config.ValidationError
 		if ve, ok := err.(config.ValidationErrors); ok {
@@ -174,11 +194,17 @@ func handleValidateError(out io.Writer, flags validateFlags, source string, err 
 			valErrors = []config.ValidationError{{Field: "syntax", Message: err.Error()}}
 		}
 
+		warnOutput := warnings
+		if warnOutput == nil {
+			warnOutput = []config.ValidationWarning{}
+		}
+
 		resp := ValidateJSONOutput{
-			Status: "INVALID",
-			Valid:  false,
-			Source: source,
-			Errors: valErrors,
+			Status:   "INVALID",
+			Valid:    false,
+			Source:   source,
+			Errors:   valErrors,
+			Warnings: warnOutput,
 		}
 		data, _ := json.MarshalIndent(resp, "", "  ")
 		fmt.Fprintln(out, string(data))
@@ -186,6 +212,15 @@ func handleValidateError(out io.Writer, flags validateFlags, source string, err 
 	}
 
 	if !flags.Quiet {
+		if len(warnings) > 0 {
+			for _, w := range warnings {
+				if os.Getenv("NO_COLOR") != "" {
+					fmt.Fprintf(out, "WARNING: %s: %s\n", w.Field, w.Message)
+				} else {
+					fmt.Fprintf(out, "\033[33m⚠ WARNING: %s: %s\033[0m\n", w.Field, w.Message)
+				}
+			}
+		}
 		if os.Getenv("NO_COLOR") != "" {
 			fmt.Fprintf(out, "FAILED: Configuration validation error in '%s':\n%v\n", source, err)
 		} else {

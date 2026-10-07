@@ -21,6 +21,13 @@ type ValidationError struct {
 	Value   interface{} `json:"value,omitempty"`
 }
 
+// ValidationWarning represents an advisory lint warning that does not halt execution.
+type ValidationWarning struct {
+	Field   string      `json:"field"`
+	Message string      `json:"message"`
+	Value   interface{} `json:"value,omitempty"`
+}
+
 // ValidationErrors is a slice of ValidationError implementing error.
 type ValidationErrors []ValidationError
 
@@ -45,24 +52,36 @@ func (v ValidationErrors) Errors() []ValidationError {
 	return v
 }
 
-// Validate performs comprehensive semantic validation on PolicyConfig.
-func Validate(cfg *PolicyConfig) error {
+// ValidateWithWarnings performs comprehensive semantic validation and returns errors and non-fatal warnings.
+func ValidateWithWarnings(cfg *PolicyConfig) (error, []ValidationWarning) {
 	if cfg == nil {
 		return ValidationErrors{
 			{Field: "config", Message: "policy config cannot be nil"},
-		}
+		}, nil
 	}
 
 	var errs ValidationErrors
+	var warns []ValidationWarning
 
 	validateSettings(&cfg.Settings, "settings", &errs)
 	validateTargets(&cfg.Targets, "targets", &errs)
-	validatePolicies(&cfg.Policies, "policies", &errs)
+	validatePolicies(&cfg.Policies, "policies", &errs, &warns)
 
 	if len(errs) > 0 {
-		return errs
+		return errs, warns
 	}
-	return nil
+	return nil, warns
+}
+
+// ValidateWithWarnings invokes ValidateWithWarnings on the receiver PolicyConfig.
+func (p *PolicyConfig) ValidateWithWarnings() (error, []ValidationWarning) {
+	return ValidateWithWarnings(p)
+}
+
+// Validate performs comprehensive semantic validation on PolicyConfig.
+func Validate(cfg *PolicyConfig) error {
+	err, _ := ValidateWithWarnings(cfg)
+	return err
 }
 
 // Validate invokes Validate on the receiver PolicyConfig.
@@ -305,7 +324,7 @@ func validateProjectSelector(p *ProjectSelector, prefix string, errs *Validation
 	}
 }
 
-func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) {
+func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, warns *[]ValidationWarning) {
 	if p == nil {
 		return
 	}
@@ -367,7 +386,7 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors) 
 	}
 
 	if p.TargetBranchRules != nil {
-		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs)
+		validateTargetBranchRules(p.TargetBranchRules, prefix+".target_branch_rules", errs, warns)
 	}
 
 	if len(p.RepositoryFiles) > 0 {
@@ -434,7 +453,7 @@ func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *
 	}
 }
 
-func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors) {
+func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *ValidationErrors, warns *[]ValidationWarning) {
 	seenNames := make(map[string]bool)
 	for i, rule := range t.Rules {
 		rulePrefix := fmt.Sprintf("%s.rules[%d]", prefix, i)
@@ -455,6 +474,19 @@ func validateTargetBranchRules(t *TargetBranchRulesConfig, prefix string, errs *
 				})
 			}
 			seenNames[name] = true
+
+			// Catch-all shadowing check: if universal wildcard '*' is placed before subsequent rules,
+			// emit a lint warning because declared order is evaluation order in GitLab.
+			if name == "*" && i < len(t.Rules)-1 {
+				nextPattern := strings.TrimSpace(t.Rules[i+1].Name)
+				if warns != nil {
+					*warns = append(*warns, ValidationWarning{
+						Field:   rulePrefix + ".name",
+						Message: fmt.Sprintf("universal catch-all '*' is placed before subsequent pattern '%s'; target branch rules are evaluated in top-to-bottom order and earlier wildcards will shadow subsequent rules", nextPattern),
+						Value:   name,
+					})
+				}
+			}
 		}
 
 		if targetBranch == "" {

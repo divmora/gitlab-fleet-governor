@@ -856,3 +856,43 @@ func TestValidate_SemanticErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateWithWarnings_TargetBranchRules(t *testing.T) {
+	t.Run("Wildcard Before Specific Rule Emits Warning", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				TargetBranchRules: &config.TargetBranchRulesConfig{
+					Rules: []config.TargetBranchRuleConfig{
+						{Name: "*", TargetBranch: "main"},
+						{Name: "feature/*", TargetBranch: "develop"},
+					},
+				},
+			},
+		}
+
+		err, warns := config.ValidateWithWarnings(cfg)
+		require.NoError(t, err)
+		require.Len(t, warns, 1)
+		assert.Equal(t, "policies.target_branch_rules.rules[0].name", warns[0].Field)
+		assert.Contains(t, warns[0].Message, "universal catch-all '*' is placed before subsequent pattern 'feature/*'")
+	})
+
+	t.Run("Wildcard At End Emits No Warning", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				TargetBranchRules: &config.TargetBranchRulesConfig{
+					Rules: []config.TargetBranchRuleConfig{
+						{Name: "feature/*", TargetBranch: "develop"},
+						{Name: "*", TargetBranch: "main"},
+					},
+				},
+			},
+		}
+
+		err, warns := config.ValidateWithWarnings(cfg)
+		require.NoError(t, err)
+		assert.Empty(t, warns)
+	})
+}
