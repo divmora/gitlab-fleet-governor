@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.15.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.14.0...v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **license:** remove DIVMORA_FINGERPRINT and add license fingerprint subcommand ([c1bb339](https://github.com/divmora/gitlab-fleet-governor/commit/c1bb339385945e8bbd69bcdf56a0170bd3b4c2bd))
+
 ## [0.14.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.13.0...v0.14.0) (2026-10-07)
 
 
