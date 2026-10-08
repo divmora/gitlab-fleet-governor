@@ -158,6 +158,9 @@ gitlab-fleet-governor license status --json
 
 # Headless compliance check for automated CI pipelines (exit code 0 if compliant)
 gitlab-fleet-governor license check
+
+# Inspect local machine and environment fingerprint for node-locked licensing
+gitlab-fleet-governor license fingerprint
 ```
 
 ### Multi-Product `license-cli` Utility

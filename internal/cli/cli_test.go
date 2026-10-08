@@ -457,6 +457,7 @@ func TestLicenseCommand(t *testing.T) {
 		assert.Contains(t, stdout, "license")
 		assert.Contains(t, stdout, "status")
 		assert.Contains(t, stdout, "check")
+		assert.Contains(t, stdout, "fingerprint")
 	})
 
 	t.Run("License Status Without License (Free Tier)", func(t *testing.T) {
@@ -556,5 +557,49 @@ func TestLicenseCommand(t *testing.T) {
 		stdoutCheck, _, err := executeCommand(ctx, "license", "check")
 		require.NoError(t, err)
 		assert.Contains(t, stdoutCheck, "converted to Apache License 2.0")
+	})
+
+	t.Run("License Fingerprint Default Output", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "fingerprint")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Machine Fingerprint")
+		assert.Contains(t, stdout, "Primary ID")
+		assert.Contains(t, stdout, "Platform")
+		assert.Contains(t, stdout, "Canonical Digest")
+	})
+
+	t.Run("License Fingerprint JSON Output", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "fingerprint", "--json")
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"primary": "fp:`)
+		assert.Contains(t, stdout, `"platform":`)
+		assert.Contains(t, stdout, `"canonical_digest":`)
+
+		var parsed map[string]interface{}
+		err = json.Unmarshal([]byte(stdout), &parsed)
+		require.NoError(t, err)
+		assert.NotEmpty(t, parsed["primary"])
+		assert.NotEmpty(t, parsed["platform"])
+	})
+
+	t.Run("License Fingerprint Quiet Flag", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "fingerprint", "-q")
+		require.NoError(t, err)
+		trimmed := strings.TrimSpace(stdout)
+		assert.True(t, strings.HasPrefix(trimmed, "fp:"), "expected fp: prefix in quiet output")
+		assert.NotContains(t, trimmed, "\n", "quiet mode should output a single line")
+	})
+
+	t.Run("License Fingerprint Platform Flag Host", func(t *testing.T) {
+		stdout, _, err := executeCommand(ctx, "license", "fingerprint", "--platform=host", "-q")
+		require.NoError(t, err)
+		trimmed := strings.TrimSpace(stdout)
+		assert.True(t, strings.HasPrefix(trimmed, "fp:host:"))
+	})
+
+	t.Run("License Fingerprint Invalid Platform", func(t *testing.T) {
+		_, _, err := executeCommand(ctx, "license", "fingerprint", "--platform=invalid-platform")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown platform")
 	})
 }

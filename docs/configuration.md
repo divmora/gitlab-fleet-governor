@@ -467,6 +467,12 @@ go install github.com/divmora/license-go/cmd/license-cli@v1.3.1
 
   # Headless compliance check for automated scripts and CI/CD pipelines
   gitlab-fleet-governor license check
+
+  # Resolve machine and environment fingerprint for node-locked licensing
+  gitlab-fleet-governor license fingerprint
+
+  # Output only the primary fingerprint ID (useful for license provisioning and scripts)
+  gitlab-fleet-governor license fingerprint -q
   ```
 
 

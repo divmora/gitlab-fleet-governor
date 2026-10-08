@@ -1172,3 +1172,64 @@ func TestCRL_RevocationAndResolution(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestVerify_AutoFingerprint_NodeLocking(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signTestToken := func(claims liblicense.Claims) string {
+		payloadJSON, err := json.Marshal(claims)
+		require.NoError(t, err)
+
+		tempToken := liblicense.EncodeToken(payloadJSON, nil)
+		dotIdx := len(tempToken) - 1
+		signedData := []byte(tempToken[:dotIdx])
+
+		sig := ed25519.Sign(priv, signedData)
+		return liblicense.EncodeToken(payloadJSON, sig)
+	}
+
+	hostFP, err := liblicense.ResolveHostFingerprint()
+	require.NoError(t, err)
+	require.NotNil(t, hostFP)
+
+	t.Run("Valid node-locked license matching host succeeds", func(t *testing.T) {
+		claims := liblicense.Claims{
+			ID:          "lic_test_nodelocked_valid",
+			Product:     "gitlab-fleet-governor",
+			Plan:        "enterprise",
+			Fingerprint: hostFP.Primary,
+			Customer:    liblicense.Customer{Name: "NodeLock Corp"},
+			IssuedAt:    time.Now().UTC(),
+			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		}
+		token := signTestToken(claims)
+
+		status, err := license.ParseAndVerify(token, pub)
+		require.NoError(t, err)
+		require.NotNil(t, status)
+		assert.True(t, status.Valid)
+	})
+
+	t.Run("Mismatched node-locked license fails and cannot be bypassed via DIVMORA_FINGERPRINT", func(t *testing.T) {
+		mismatchedFP := "fp:host:0000000000000000"
+		claims := liblicense.Claims{
+			ID:          "lic_test_nodelocked_invalid",
+			Product:     "gitlab-fleet-governor",
+			Plan:        "enterprise",
+			Fingerprint: mismatchedFP,
+			Customer:    liblicense.Customer{Name: "NodeLock Corp"},
+			IssuedAt:    time.Now().UTC(),
+			ExpiresAt:   time.Now().UTC().Add(365 * 24 * time.Hour),
+		}
+		token := signTestToken(claims)
+
+		// Set DIVMORA_FINGERPRINT to spoof the expected fingerprint: must still fail because env var is removed
+		t.Setenv("DIVMORA_FINGERPRINT", mismatchedFP)
+
+		status, err := license.ParseAndVerify(token, pub)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrFingerprintMismatch)
+		assert.False(t, status.Valid)
+	})
+}

@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -38,9 +37,7 @@ func ParseAndVerifyAt(token string, pubKey ed25519.PublicKey, evalTime time.Time
 	var validatorOpts []liblicense.ValidatorOption
 	validatorOpts = append(validatorOpts, liblicense.WithProduct("gitlab-fleet-governor"))
 	validatorOpts = append(validatorOpts, liblicense.WithTierFeatures(DefaultTierFeatures))
-	if fp := strings.TrimSpace(os.Getenv("DIVMORA_FINGERPRINT")); fp != "" {
-		validatorOpts = append(validatorOpts, liblicense.WithExpectedFingerprint(fp))
-	}
+	validatorOpts = append(validatorOpts, liblicense.WithAutoFingerprint(true))
 
 	// 1. Software Version Enforcement:
 	// Only enforce version constraints if the binary has an authoritative release version.

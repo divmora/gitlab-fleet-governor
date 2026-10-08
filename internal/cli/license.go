@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
 
 	liblicense "github.com/divmora/license-go/pkg/license"
 	"github.com/spf13/cobra"
@@ -27,6 +30,7 @@ requests, and status cards), install the official license-cli:
 
 	cmd.AddCommand(newLicenseStatusCmd())
 	cmd.AddCommand(newLicenseCheckCmd())
+	cmd.AddCommand(newLicenseFingerprintCmd())
 
 	return cmd
 }
@@ -197,6 +201,89 @@ func newLicenseCheckCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	return cmd
+}
+
+func newLicenseFingerprintCmd() *cobra.Command {
+	var (
+		platform   string
+		jsonOutput bool
+		quiet      bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "fingerprint",
+		Short: "Display the machine and environment fingerprint for node-locked licensing",
+		Long: `Resolve and display the deterministic hardware and cloud identity attributes
+for this node (Host, AWS EC2, AWS Lambda, or Kubernetes).
+
+This fingerprint can be provided to your Divmora license administrator to issue
+a node-locked commercial license token bound to this specific environment.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var resolver liblicense.FingerprintResolver
+			switch strings.ToLower(platform) {
+			case "auto", "":
+				resolver = liblicense.NewDefaultCompositeResolver()
+			case "host":
+				resolver = liblicense.NewHostResolver()
+			case "aws", "aws-ec2", "ec2":
+				resolver = liblicense.NewAWSEC2Resolver()
+			case "lambda", "aws-lambda":
+				resolver = liblicense.NewAWSLambdaResolver()
+			case "k8s", "kubernetes":
+				resolver = liblicense.NewKubernetesResolver()
+			default:
+				return fmt.Errorf("unknown platform %q; valid values are: auto, host, aws, lambda, k8s", platform)
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+			defer cancel()
+
+			fp, err := resolver.Resolve(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to resolve machine fingerprint: %w", err)
+			}
+
+			if quiet {
+				fmt.Fprintln(cmd.OutOrStdout(), fp.Primary)
+				return nil
+			}
+
+			if jsonOutput {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(fp)
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+			fmt.Fprintln(cmd.OutOrStdout(), "GitLab Fleet Governor Machine Fingerprint")
+			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+			fmt.Fprintf(cmd.OutOrStdout(), "Primary ID       : %s\n", fp.Primary)
+			fmt.Fprintf(cmd.OutOrStdout(), "Platform         : %s\n", fp.Platform)
+			fmt.Fprintf(cmd.OutOrStdout(), "Short Digest     : %s\n", fp.ShortDigest)
+			fmt.Fprintf(cmd.OutOrStdout(), "Canonical Digest : %s\n", fp.CanonicalDigest)
+			fmt.Fprintf(cmd.OutOrStdout(), "Resolved At      : %s\n", fp.ResolvedAt.UTC().Format(time.RFC3339))
+
+			if len(fp.Components) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "\nHardware & System Attributes:")
+				var keys []string
+				for k := range fp.Components {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				for _, k := range keys {
+					fmt.Fprintf(cmd.OutOrStdout(), "  • %-18s: %s\n", k, fp.Components[k])
+				}
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "================================================================================")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&platform, "platform", "auto", "Target platform resolver: auto, host, aws, lambda, k8s")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output machine fingerprint in structured JSON format")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Output only the primary fingerprint ID (ideal for scripts)")
 
 	return cmd
 }
