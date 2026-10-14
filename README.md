@@ -380,7 +380,7 @@ make docker-build
 Contributions are welcome!
 - **[ROADMAP.md](ROADMAP.md)**: Living product roadmap tracking planned capabilities and architectural initiatives.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)**: Local developer setup, make targets, and PR workflow.
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**: Community participation standards.
+- **[Code of Conduct](https://github.com/divmora/.github/blob/main/CODE_OF_CONDUCT.md)**: Community participation standards.
 - **[SECURITY.md](SECURITY.md)**: Vulnerability disclosure policy and reporting process.
 
 ---

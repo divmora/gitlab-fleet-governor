@@ -4,6 +4,12 @@ Thank you for your interest in contributing to **GitLab Fleet Governor**! We wel
 
 ---
 
+## Code of Conduct
+
+All contributors, maintainers, and community participants are expected to adhere to the [DIVMORA Contributor Covenant Code of Conduct](https://github.com/divmora/.github/blob/main/CODE_OF_CONDUCT.md).
+
+---
+
 ## Development Prerequisites
 
 - **Go**: Version 1.26 or higher.
