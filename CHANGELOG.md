@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.16.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.15.0...v0.16.0) (2026-10-14)
+
+
+### Features
+
+* **governance:** add protected tags reconciler and compliance audit module ([#53](https://github.com/divmora/gitlab-fleet-governor/issues/53)) ([febcf7d](https://github.com/divmora/gitlab-fleet-governor/commit/febcf7d34f549c992d14bcde1f697d1224a75abe))
+
 ## [0.15.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.14.0...v0.15.0) (2026-10-08)
 
 
