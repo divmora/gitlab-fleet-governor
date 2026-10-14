@@ -12,6 +12,7 @@ type GitLabClient interface {
 	Projects() ProjectsService
 	Groups() GroupsService
 	ProtectedBranches() ProtectedBranchesService
+	ProtectedTags() ProtectedTagsService
 	PushRules() PushRulesService
 	ApprovalRules() ApprovalRulesService
 	Variables() VariablesService
@@ -62,6 +63,14 @@ type ProtectedBranchesService interface {
 	ProtectRepositoryBranches(pid any, opt *gitlab.ProtectRepositoryBranchesOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
 	UnprotectRepositoryBranches(pid any, branch string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 	UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error)
+}
+
+// ProtectedTagsService abstracts project tag protection rules.
+type ProtectedTagsService interface {
+	ListProtectedTags(pid any, opt *gitlab.ListProtectedTagsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedTag, *gitlab.Response, error)
+	GetProtectedTag(pid any, tag string, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedTag, *gitlab.Response, error)
+	ProtectRepositoryTags(pid any, opt *gitlab.ProtectRepositoryTagsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedTag, *gitlab.Response, error)
+	UnprotectRepositoryTags(pid any, tag string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 }
 
 // ProtectedEnvironmentsService abstracts project protected environments.

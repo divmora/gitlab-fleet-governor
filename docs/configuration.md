@@ -194,8 +194,32 @@ policies:
 > [!TIP]
 > **Backward Compatibility**: `protected_environments` also accepts a direct list of environment rules without the `prune` wrapper (e.g. `protected_environments: [{ name: "production", ... }]`).
 
+### 4. `protected_tags`
 
-### 4. `approval_rules`
+Declaratively govern tag creation rules on release tags and Git version patterns across the fleet. Supports wildcard matching (`v*`, `release-*`), granular `allowed_to_create` tiers (No Access: 0, Developer: 30, Maintainer: 40, Owner: 50, Admin: 60), automatic username and group path resolution, and pruning unmanaged protected tags:
+
+```yaml
+policies:
+  protected_tags:
+    prune: true # Optional: unprotect tags not declared in policy
+    rules:
+      - name: "v*"
+        allowed_to_create:
+          - access_level: 40 # 40=Maintainer
+      - name: "release-*"
+        allowed_to_create:
+          - access_level: 40
+          - group_path: "release-managers" # Resolves group path to group ID
+      - name: "*-hotfix"
+        allowed_to_create:
+          - access_level: 40
+          - username: "release-bot" # Resolves username to user ID
+```
+
+> [!TIP]
+> **Backward Compatibility**: `protected_tags` also accepts a direct list of tag rules without the `prune` wrapper (e.g. `protected_tags: [{ name: "v*", allowed_to_create: [{ access_level: 40 }] }]`).
+
+### 5. `approval_rules`
 
 ```yaml
 policies:

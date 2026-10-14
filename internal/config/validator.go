@@ -337,6 +337,26 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 		validateProtectedBranch(&p.ProtectedBranches[i], fmt.Sprintf("%s.protected_branches[%d]", prefix, i), errs)
 	}
 
+	if p.ProtectedTags != nil {
+		seenTags := make(map[string]bool)
+		for i := range p.ProtectedTags.Rules {
+			pt := &p.ProtectedTags.Rules[i]
+			ptPrefix := fmt.Sprintf("%s.protected_tags[%d]", prefix, i)
+			validateProtectedTag(pt, ptPrefix, errs)
+			normName := strings.TrimSpace(pt.Name)
+			if normName != "" {
+				if seenTags[normName] {
+					*errs = append(*errs, ValidationError{
+						Field:   ptPrefix + ".name",
+						Message: fmt.Sprintf("duplicate protected tag rule for pattern '%s'", normName),
+						Value:   normName,
+					})
+				}
+				seenTags[normName] = true
+			}
+		}
+	}
+
 	if p.ProtectedEnvironments != nil {
 		seenEnvs := make(map[string]bool)
 		for i := range p.ProtectedEnvironments.Rules {
@@ -562,6 +582,50 @@ func validateBranchAccessList(list []BranchAccessDescription, prefix string, err
 				Field:   fmt.Sprintf("%s[%d].deploy_key_id", prefix, i),
 				Message: "deploy_key_id must be non-negative",
 				Value:   access.DeployKeyID,
+			})
+		}
+	}
+}
+
+func validateProtectedTag(t *ProtectedTagRuleConfig, prefix string, errs *ValidationErrors) {
+	if strings.TrimSpace(t.Name) == "" {
+		*errs = append(*errs, ValidationError{
+			Field:   prefix + ".name",
+			Message: "protected tag name cannot be empty",
+		})
+	}
+
+	if len(t.AllowedToCreate) == 0 {
+		*errs = append(*errs, ValidationError{
+			Field:   prefix + ".allowed_to_create",
+			Message: "at least one allowed_to_create entry is required",
+		})
+	}
+
+	validateTagAccessList(t.AllowedToCreate, prefix+".allowed_to_create", errs)
+}
+
+func validateTagAccessList(list []TagAccessDescription, prefix string, errs *ValidationErrors) {
+	for i, access := range list {
+		if access.AccessLevel < 0 || access.AccessLevel > 60 || (access.AccessLevel != 0 && access.AccessLevel != 30 && access.AccessLevel != 40 && access.AccessLevel != 50 && access.AccessLevel != 60) {
+			*errs = append(*errs, ValidationError{
+				Field:   fmt.Sprintf("%s[%d].access_level", prefix, i),
+				Message: fmt.Sprintf("invalid access level %d (must be 0, 30, 40, 50, or 60)", access.AccessLevel),
+				Value:   access.AccessLevel,
+			})
+		}
+		if access.UserID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   fmt.Sprintf("%s[%d].user_id", prefix, i),
+				Message: "user_id must be non-negative",
+				Value:   access.UserID,
+			})
+		}
+		if access.GroupID < 0 {
+			*errs = append(*errs, ValidationError{
+				Field:   fmt.Sprintf("%s[%d].group_id", prefix, i),
+				Message: "group_id must be non-negative",
+				Value:   access.GroupID,
 			})
 		}
 	}

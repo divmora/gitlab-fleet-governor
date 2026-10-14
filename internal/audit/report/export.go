@@ -227,6 +227,27 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 		}
 	}
 
+	for _, f := range report.ProtectedTagFindings {
+		row := []string{
+			"Protected Tags",
+			strconv.Itoa(f.ProjectID),
+			f.ProjectName,
+			f.ProjectPath,
+			f.ProjectStatus,
+			f.ProjectWebURL,
+			f.TagNamePattern,
+			f.CreateAccessLevelsSummary,
+			"N/A",
+			string(f.Severity),
+			strings.Join(f.Violations, "; "),
+			f.Details,
+			f.Remediation,
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -261,6 +282,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Bot / Service Account Violations | %d |\n", report.Summary.BotUserViolations))
 	sb.WriteString(fmt.Sprintf("| Pipeline Retention Violations | %d |\n", report.Summary.PipelineRetentionViolations))
 	sb.WriteString(fmt.Sprintf("| Repository File Violations | %d |\n", report.Summary.RepositoryFileViolations))
+	sb.WriteString(fmt.Sprintf("| Protected Tag Violations | %d |\n", report.Summary.ProtectedTagViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
 	// Commercial Licensing & Statutory Attestation Section
@@ -394,9 +416,26 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("\n")
 	}
 
+	// Protected Tags Section
+	if len(report.ProtectedTagFindings) > 0 {
+		sb.WriteString("## 7. Protected Tags Compliance Audit (`protected_tags`)\n\n")
+		sb.WriteString("| Project | State | Tag Pattern | Protected? | Create Access | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|:---:|---|:---:|---|---|\n")
+		for _, f := range report.ProtectedTagFindings {
+			isProt := "No"
+			if f.IsProtected {
+				isProt = "Yes"
+			}
+			badge := formatBadge(f.Severity)
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s |\n",
+				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.TagNamePattern), isProt, escapeMD(f.CreateAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
 	// User Directory Section
 	if len(report.UserDirectory) > 0 {
-		sb.WriteString("## 7. Fleet User Directory\n\n")
+		sb.WriteString("## 8. Fleet User Directory\n\n")
 		sb.WriteString("| ID | Username | Full Name | Account Type | State | Projects Access |\n")
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
@@ -464,6 +503,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <div class="stat-card"><div>Bot / Token Violations</div><div class="stat-val">` + strconv.Itoa(report.Summary.BotUserViolations) + `</div></div>
   <div class="stat-card"><div>Retention Violations</div><div class="stat-val ` + dangerClass(report.Summary.PipelineRetentionViolations) + `">` + strconv.Itoa(report.Summary.PipelineRetentionViolations) + `</div></div>
   <div class="stat-card"><div>File Violations</div><div class="stat-val ` + dangerClass(report.Summary.RepositoryFileViolations) + `">` + strconv.Itoa(report.Summary.RepositoryFileViolations) + `</div></div>
+  <div class="stat-card"><div>Tag Violations</div><div class="stat-val ` + dangerClass(report.Summary.ProtectedTagViolations) + `">` + strconv.Itoa(report.Summary.ProtectedTagViolations) + `</div></div>
 </div>
 `)
 
@@ -659,6 +699,32 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`</tbody></table>`)
 	}
 
+	if len(report.ProtectedTagFindings) > 0 {
+		sb.WriteString(`<h2>Protected Tags Compliance Audit</h2>
+<table>
+  <thead>
+    <tr><th>Project</th><th>State</th><th>Tag Pattern</th><th>Protected?</th><th>Create Access</th><th>Status</th><th>Details</th><th>Remediation</th></tr>
+  </thead>
+  <tbody>`)
+		for _, f := range report.ProtectedTagFindings {
+			isProt := "No"
+			if f.IsProtected {
+				isProt = "Yes"
+			}
+			sb.WriteString(fmt.Sprintf(`<tr>
+  <td><a href="%s" target="_blank">%s</a></td>
+  <td>%s</td>
+  <td><code>%s</code></td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, html.EscapeString(f.TagNamePattern), isProt, html.EscapeString(f.CreateAccessLevelsSummary), htmlBadge(f.Severity), f.Details, f.Remediation))
+		}
+		sb.WriteString(`</tbody></table>`)
+	}
+
 	sb.WriteString(`</div></body></html>`)
 	_, err := io.WriteString(out, sb.String())
 	return err
@@ -691,6 +757,8 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		report.Summary.PipelineRetentionViolations))
 	sb.WriteString(fmt.Sprintf("Repository Files: File & CODEOWNERS Violations: %d\n",
 		report.Summary.RepositoryFileViolations))
+	sb.WriteString(fmt.Sprintf("Protected Tags : Protected Tag Violations: %d\n",
+		report.Summary.ProtectedTagViolations))
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
 		sb.WriteString(fmt.Sprintf("Licensing      : %s (Tier: %s) | Status: %s | Licensed To: %s\n", att.LicenseModel, att.Tier, att.Status, att.LicensedTo))
@@ -820,6 +888,26 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				truncate(f.ProjectPath, 27),
 				truncate(f.FilePath, 19),
 				truncate(f.TargetBranch, 11),
+				f.Severity,
+				truncate(f.Details, 40),
+			))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.ProtectedTagFindings) > 0 {
+		sb.WriteString("[PROTECTED TAGS FINDINGS]\n")
+		sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n", "PROJECT", "TAG PATTERN", "PROTECTED?", "STATUS", "DETAILS"))
+		sb.WriteString(strings.Repeat("-", 105) + "\n")
+		for _, f := range report.ProtectedTagFindings {
+			isProt := "No"
+			if f.IsProtected {
+				isProt = "Yes"
+			}
+			sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n",
+				truncate(f.ProjectPath, 27),
+				truncate(f.TagNamePattern, 19),
+				truncate(isProt, 11),
 				f.Severity,
 				truncate(f.Details, 40),
 			))

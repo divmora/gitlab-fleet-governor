@@ -407,6 +407,9 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.ProtectedEnvironments != nil && (len(cfg.Policies.ProtectedEnvironments.Rules) > 0 || (cfg.Policies.ProtectedEnvironments.Prune != nil && *cfg.Policies.ProtectedEnvironments.Prune)) {
 		requiredFeatures = append(requiredFeatures, "governance.protected_environments")
 	}
+	if cfg.Policies.ProtectedTags != nil && (len(cfg.Policies.ProtectedTags.Rules) > 0 || (cfg.Policies.ProtectedTags.Prune != nil && *cfg.Policies.ProtectedTags.Prune)) {
+		requiredFeatures = append(requiredFeatures, "governance.protected_tags")
+	}
 	if cfg.Policies.ApprovalRules != nil {
 		requiredFeatures = append(requiredFeatures, "governance.approval_rules")
 	}

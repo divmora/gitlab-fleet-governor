@@ -51,6 +51,19 @@ export const PRESETS: Record<string, { name: string; icon: string; description: 
             code_owner_approval_required: true,
           },
         ],
+        protected_tags: {
+          prune: true,
+          rules: [
+            {
+              name: 'v*',
+              allowed_to_create: [{ access_level: 40 }],
+            },
+            {
+              name: 'release/*',
+              allowed_to_create: [{ access_level: 40 }],
+            },
+          ],
+        },
         protected_environments: [
           {
             name: 'production',

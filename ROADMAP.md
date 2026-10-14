@@ -24,10 +24,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 - [ ] **Standard CI/CD Component Catalog & Template Baseline**
   - Enforce mandatory `.gitlab-ci.yml` template inclusion or compliance pipeline execution across repositories matching specific compliance tier selectors.
 
-- [ ] **Protected Tags Reconciler (`protected_tags`)**
-  - Declaratively enforce tag protection tiers (`v*`, `release-*`, `production-*`) across fleet repositories.
-  - Configure creation and update access levels (`allowed_to_create`) to prevent unauthorized tag overwrites or deletion of release artifacts.
-
 - [ ] **Container & Package Registry Cleanup Policy Reconciler**
   - Enforce automated tag expiration and retention rules on project container registries (`cadence`, `keep_n`, `older_than`, `name_regex_delete`, `name_regex_keep`).
   - Purge orphaned or untagged container images and manage package registry retention to eliminate storage waste and control cloud hosting costs.
@@ -78,12 +74,6 @@ This document serves as the **living product roadmap** for GitLab Fleet Governor
 ---
 
 ## 5. Compliance, Audit Trails & Standards
-
-- [ ] **Protected Tags Compliance Audit & Multi-Sheet Report (`audit.protected_tags`)**
-  - Extend the compliance audit engine (`gitlab-fleet-governor audit`) to inspect and evaluate protected tag configurations across all fleet repositories (`GET /projects/:id/protected_tags`).
-  - Flag missing protection on release patterns (`v*`, `release-*`), unauthorized creation access levels (`allowed_to_create`), and permissive wildcard definitions that expose release artifacts to supply-chain tampering or deletion.
-  - Add a dedicated **Protected Tags** worksheet in the multi-tab Excelize compliance workbook with severity color coding, alongside findings export in JSON, Markdown, HTML, and terminal Table reports.
-  - Incorporate protected tag posture and violation metrics into the Executive Summary compliance scorecard.
 
 - [ ] **SARIF & CycloneDX Compliance Export**
   - Add `--report-format sarif` to output non-compliance findings (e.g., over-privileged maintainers, missing branch protections, unmasked secrets) in OASIS SARIF format for ingestion into GitLab Security Dashboards and GitHub Advanced Security.

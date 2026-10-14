@@ -251,6 +251,9 @@ type PoliciesConfig struct {
 	// ProtectedBranches configures branch protections on projects.
 	ProtectedBranches []ProtectedBranchRuleConfig `yaml:"protected_branches,omitempty" json:"protected_branches,omitempty"`
 
+	// ProtectedTags configures repository tag protection rules and pruning.
+	ProtectedTags *ProtectedTagsConfig `yaml:"protected_tags,omitempty" json:"protected_tags,omitempty"`
+
 	// ProtectedEnvironments configures environment deployment protections on projects.
 	ProtectedEnvironments *ProtectedEnvironmentsConfig `yaml:"protected_environments,omitempty" json:"protected_environments,omitempty"`
 
@@ -423,7 +426,69 @@ type BranchAccessDescription struct {
 }
 
 // ============================================================================
-// 6a. Protected Environments Configuration
+// 6a. Protected Tags Configuration
+// ============================================================================
+
+// ProtectedTagsConfig encapsulates repository tag protection rules and pruning.
+type ProtectedTagsConfig struct {
+	// Prune deletes unmanaged protected tags not declared in policy when true.
+	Prune *bool `yaml:"prune,omitempty" json:"prune,omitempty"`
+
+	// Rules lists individual protected tag configurations.
+	Rules []ProtectedTagRuleConfig `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
+// UnmarshalYAML supports both list syntax and mapping syntax with prune: true.
+func (c *ProtectedTagsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var rules []ProtectedTagRuleConfig
+	if err := unmarshal(&rules); err == nil {
+		c.Rules = rules
+		return nil
+	}
+
+	type plain ProtectedTagsConfig
+	return unmarshal((*plain)(c))
+}
+
+// UnmarshalJSON supports both JSON array and object format.
+func (c *ProtectedTagsConfig) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return json.Unmarshal(trimmed, &c.Rules)
+	}
+	type plain ProtectedTagsConfig
+	return json.Unmarshal(trimmed, (*plain)(c))
+}
+
+// ProtectedTagRuleConfig defines tag protection parameters for a tag pattern.
+type ProtectedTagRuleConfig struct {
+	// Name is the tag name or wildcard pattern (e.g. "v*", "release-*", "production-*"). Required.
+	Name string `yaml:"name" json:"name"`
+
+	// AllowedToCreate defines permissions allowed to create matching tags.
+	AllowedToCreate []TagAccessDescription `yaml:"allowed_to_create,omitempty" json:"allowed_to_create,omitempty"`
+}
+
+// TagAccessDescription specifies role level, user, or group tag creation permissions.
+type TagAccessDescription struct {
+	// AccessLevel is the GitLab numeric access level: 0 (No Access), 30 (Developer), 40 (Maintainer), 60 (Admin).
+	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
+
+	// UserID specifies explicit user ID granted access.
+	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+
+	// GroupID specifies explicit group ID granted access.
+	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+
+	// Username specifies username (dynamically resolved to UserID).
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+
+	// GroupPath specifies group path (dynamically resolved to GroupID).
+	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
+}
+
+// ============================================================================
+// 6b. Protected Environments Configuration
 // ============================================================================
 
 // ProtectedEnvironmentsConfig encapsulates project protected environment policies and pruning.

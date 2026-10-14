@@ -214,6 +214,14 @@ func (s *MockGitLabServer) Seed() {
 		CodeOwnerApprovalRequired: true,
 	})
 
+	// 5b. Protected Tags
+	s.state.ProtectTag(p1.ID, &gitlab.ProtectedTag{
+		Name: "v*",
+		CreateAccessLevels: []*gitlab.TagAccessDescription{
+			{AccessLevel: gitlab.MaintainerPermissions, AccessLevelDescription: "Maintainers"},
+		},
+	})
+
 	// 6. MR Approvals & Rules
 	s.state.SetProjectApprovals(p1.ID, &gitlab.ProjectApprovals{
 		ApprovalsBeforeMerge: 2,

@@ -38,6 +38,7 @@ type State struct {
 
 	// Protected Branches: projectID -> branchName -> *gitlab.ProtectedBranch
 	protectedBranches map[int]map[string]*gitlab.ProtectedBranch
+	protectedTags     map[int]map[string]*gitlab.ProtectedTag
 
 	// Protected Environments: projectID -> envName -> *gitlab.ProtectedEnvironment
 	protectedEnvironments map[int]map[string]*gitlab.ProtectedEnvironment
@@ -138,6 +139,7 @@ func (s *State) Reset() {
 	s.groupPushRules = make(map[int]*gitlab.GroupPushRules)
 
 	s.protectedBranches = make(map[int]map[string]*gitlab.ProtectedBranch)
+	s.protectedTags = make(map[int]map[string]*gitlab.ProtectedTag)
 	s.protectedEnvironments = make(map[int]map[string]*gitlab.ProtectedEnvironment)
 	s.environments = make(map[int]map[int]*gitlab.Environment)
 	s.nextEnvironmentID = 1
@@ -798,6 +800,88 @@ func (s *State) GetProtectedBranch(idOrPath any, branch string) (*gitlab.Protect
 		return nil, false
 	}
 	return cloneProtectedBranch(b), true
+}
+
+// ----------------------------------------------------------------------------
+// Protected Tags Operations
+// ----------------------------------------------------------------------------
+
+func cloneProtectedTag(t *gitlab.ProtectedTag) *gitlab.ProtectedTag {
+	if t == nil {
+		return nil
+	}
+	cp := *t
+	if t.CreateAccessLevels != nil {
+		cp.CreateAccessLevels = make([]*gitlab.TagAccessDescription, len(t.CreateAccessLevels))
+		for i, a := range t.CreateAccessLevels {
+			if a != nil {
+				acp := *a
+				cp.CreateAccessLevels[i] = &acp
+			}
+		}
+	}
+	return &cp
+}
+
+func (s *State) ListProtectedTags(idOrPath any) []*gitlab.ProtectedTag {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil
+	}
+	tags := s.protectedTags[id]
+	res := make([]*gitlab.ProtectedTag, 0, len(tags))
+	for _, t := range tags {
+		res = append(res, cloneProtectedTag(t))
+	}
+	return res
+}
+
+func (s *State) ProtectTag(idOrPath any, t *gitlab.ProtectedTag) (*gitlab.ProtectedTag, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok {
+		return nil, false
+	}
+	if s.protectedTags[id] == nil {
+		s.protectedTags[id] = make(map[string]*gitlab.ProtectedTag)
+	}
+	s.protectedTags[id][t.Name] = t
+	return cloneProtectedTag(t), true
+}
+
+func (s *State) UnprotectTag(idOrPath any, tag string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.protectedTags[id] == nil {
+		return false
+	}
+	_, found := s.protectedTags[id][tag]
+	if found {
+		delete(s.protectedTags[id], tag)
+	}
+	return found
+}
+
+func (s *State) GetProtectedTag(idOrPath any, tag string) (*gitlab.ProtectedTag, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.protectedTags[id] == nil {
+		return nil, false
+	}
+	t, found := s.protectedTags[id][tag]
+	if !found {
+		return nil, false
+	}
+	return cloneProtectedTag(t), true
 }
 
 // ----------------------------------------------------------------------------

@@ -25,6 +25,15 @@ export const RECONCILER_DEFAULTS: Record<string, any> = {
       code_owner_approval_required: true,
     },
   ],
+  protected_tags: {
+    prune: true,
+    rules: [
+      {
+        name: 'v*',
+        allowed_to_create: [{ access_level: 40 }],
+      },
+    ],
+  },
   repository_files: [
     {
       path: 'CODEOWNERS',

@@ -81,7 +81,19 @@ policies:
       allow_force_push: false
       code_owner_approval_required: true
 
-  # 3. Protected Environments Deployment Gates
+  # 3. Protected Tags
+  protected_tags:
+    prune: true
+    rules:
+      - name: "v*"
+        allowed_to_create:
+          - access_level: 40 # Maintainers only
+      - name: "release-*"
+        allowed_to_create:
+          - access_level: 40
+          - group_path: "enterprise-fleet/security-reviewers"
+
+  # 4. Protected Environments Deployment Gates
   protected_environments:
     prune: true
     rules:

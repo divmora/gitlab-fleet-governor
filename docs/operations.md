@@ -1,6 +1,6 @@
 # Operations Suite
 
-GitLab Fleet Governor implements an ordered suite of 13 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
+GitLab Fleet Governor implements an ordered suite of 14 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
 
 ---
 
@@ -13,6 +13,7 @@ Operations execute sequentially per targeted project/group in the following dete
 | 10 | `push_rules` | Project & Group | `GET/POST/PUT /projects/:id/push_rule`, `GET/POST/PUT /groups/:id/push_rule` |
 | 15 | `repository_files` | Project | `GET/POST/PUT /projects/:id/repository/files/:file_path`, `POST /projects/:id/merge_requests` |
 | 20 | `protected_branches` | Project | `GET/POST/PATCH/DELETE /projects/:id/protected_branches/:name` |
+| 22 | `protected_tags` | Project | `GET/POST/DELETE /projects/:id/protected_tags/:name` |
 | 25 | `protected_environments` | Project | `GET/POST/PUT/DELETE /projects/:id/protected_environments/:name` |
 | 30 | `approval_rules` | Project | `GET/PUT /projects/:id/approvals`, `GET/POST/PUT/DELETE /projects/:id/approval_rules` |
 | 40 | `project_settings` | Project | `GET/PUT /projects/:id` |
@@ -44,7 +45,14 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Upsert Mechanics**: If the branch protection does not exist, it issues `POST /projects/:id/protected_branches`. If it exists but drift is detected in access levels or force push settings, it executes `PATCH` or recreates the protection atomically.
 - **Access Level Normalization**: Translates role names (`No Access`, `Developer`, `Maintainer`, `Admin`) into integer access levels (`0`, `30`, `40`, `60`).
 
-### 4. Protected Environments Reconciler (`protected_environments`)
+### 4. Protected Tags Reconciler (`protected_tags`)
+- **Tag Protection Baselines**: Enforces tag creation constraints on release versions and Git tag patterns (`v*`, `release-*`).
+- **Update Semantics via Atomic Re-creation**: Because GitLab's Protected Tags REST API does not provide a `PUT` or `PATCH` endpoint, updates to existing protections are applied atomically by invoking `DELETE /projects/:id/protected_tags/:name` followed by `POST /projects/:id/protected_tags`.
+- **Dynamic Identity Resolution**: Automatically resolves human usernames (`username: "release-bot"`) and group paths (`group_path: "release-managers"`) to numeric IDs with in-memory memoization.
+- **Unmanaged Tag Protection Pruning**: When `prune: true` is configured, detects unmanaged protected tags present in GitLab that are omitted from desired configuration and deletes them via `DELETE /projects/:id/protected_tags/:name`.
+- **Access Level Normalization**: Supports access level integers (`0` No Access, `30` Developer, `40` Maintainer, `50` Owner, `60` Admin) as well as explicit user/group permissions.
+
+### 5. Protected Environments Reconciler (`protected_environments`)
 - **Deployment Gates & Approvals**: Declaratively configures protected environments (`name`, `required_approval_count`, `deploy_access_levels`, `approval_rules`, `approval_groups`, `approval_users`).
 - **Dynamic Username & Group Path Resolution**: Automatically resolves usernames (`username: "alice"`) and group paths (`group_path: "security/appsec"`) to GitLab IDs with in-memory memoization to avoid redundant API queries.
 - **Wildcard Environment Expansion**: Supports glob pattern matching (e.g. `dr-*`, `prod-*`). Queries the project's actual environments via `GET /projects/:id/environments` and expands concrete protected environment configurations for each matching environment.
@@ -53,16 +61,16 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Access Level Normalization**: Supports role-based access tiers (Developer: 30, Maintainer: 40, Admin: 60) as well as explicit user and group IDs.
 
 
-### 5. MR Approval Rules Reconciler (`approval_rules`)
+### 6. MR Approval Rules Reconciler (`approval_rules`)
 - **General Settings**: Reconciles author approval bans, committer approval bans, approver list overrides, and approval retention on new commits.
 - **Named Rule Resolution**: Automatically resolves approver usernames (`@alice`, `@bob`) to numeric GitLab user IDs and group paths (`security/appsec`) to group IDs with an in-memory cache to prevent redundant API queries.
 - **Pruning**: When `prune: true` is configured, removes unmanaged legacy approval rules while preserving protected rules.
 
-### 6. Project Settings Reconciler (`project_settings`)
+### 7. Project Settings Reconciler (`project_settings`)
 - **Workflow Standardization**: Enforces squash options (`always`, `never`, `default_on`, `default_off`), merge strategies (`merge`, `rebase_merge`, `ff`), discussion resolution requirements, and artifact expiration overrides.
 - **Container Expiration Policies**: Configures automated container registry cleanup cadence, retention counts, and regex preservation rules.
 
-### 7. Target Branch Rules Reconciler (`target_branch_rules`)
+### 8. Target Branch Rules Reconciler (`target_branch_rules`)
 - **GraphQL ID Specification**: GitLab's Target Branch Rules API is exclusively exposed via GraphQL. Mutations target `ProjectID!` (`gid://gitlab/Project/:id`) using `projectTargetBranchRuleCreate` and `projectTargetBranchRuleDestroy`.
 - **Merge Request Workflow Routing**: Maps wildcard branch prefixes (e.g., `feat/*`, `hotfix/*`, `*`) to designated target branches (e.g., `staging`, `main`), ensuring consistent promotion paths across repositories.
 - **Deterministic Evaluation Order & Resequencing**: GitLab evaluates target branch rules top-down on a first-match basis, but exposes/orders them internally in reverse creation order (`ORDER BY created_at DESC, id DESC`). The reconciler detects order drift (`target_branch_rules:evaluation_order`) during `Plan` and performs atomic resequencing during `Apply` by destroying existing managed rules and recreating them in reverse sequence (`rules[N-1]` down to `rules[0]`), ensuring `rules[0]` is top-most in GitLab UI.
@@ -70,25 +78,25 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Conflict Prevention & Invariant Checks**: Enforces that `source_branch_pattern` is unique per project and rejects self-targeting definitions (`source_branch_pattern == target_branch_name`).
 - **Pruning**: When `prune: true` is configured, automatically removes out-of-policy unmanaged branch rules.
 
-### 8. Pipeline Retention Reconciler (`pipeline_retention`)
+### 9. Pipeline Retention Reconciler (`pipeline_retention`)
 - **Unit Conversion**: Translates human-friendly `retention_days` into GitLab's native `ci_delete_pipelines_in_seconds` (`days * 86400`).
 - **Idempotency**: Avoids updating project settings if the retention seconds already match the target duration.
 
-### 9. CI/CD Variables Reconciler (`variables`)
+### 10. CI/CD Variables Reconciler (`variables`)
 - **Composite Key Identification**: Uses the composite key `(key, environment_scope)` to accurately track scoped variables.
 - **Secret Protection**: Compares values, masked flags, protected flags, and raw expansion flags. Automatically prunes untracked managed variables when drift deletion is enabled.
 
-### 10. Runners Reconciler (`runners`)
+### 11. Runners Reconciler (`runners`)
 - **Fleet Governance**: Governs shared runners enabled/disabled, group runner inheritance, maintenance pause states, locked status, and runner tag lists.
 
-### 11. Compliance Framework Reconciler (`compliance`)
+### 12. Compliance Framework Reconciler (`compliance`)
 - **Framework Labeling**: Resolves compliance framework names (e.g. `SOC2`, `PCI-DSS`) to framework IDs and associates them with targeted repositories.
 
-### 12. Webhooks Reconciler (`webhooks`)
+### 13. Webhooks Reconciler (`webhooks`)
 - **URL Matching**: Identifies existing webhooks by URL endpoint.
 - **Event Trigger Matrix**: Updates trigger flags (`push_events`, `merge_requests_events`, `pipeline_events`), SSL verification, and secret HMAC tokens.
 
-### 13. Members Audit Reconciler (`members`)
+### 14. Members Audit Reconciler (`members`)
 - **Over-Privileged Detection**: Identifies and reports users whose role exceeds `max_access_level` (e.g. unexpected Maintainer/Owner grants).
 - **Expiration Date Enforcement**: Verifies that every direct project member has an `expires_at` date configured within `max_expiration_days`.
 - **Inherited Maintainer Deduplication**: Identifies redundant direct project permissions where group inheritance already provides sufficient access.
@@ -97,7 +105,7 @@ Operations execute sequentially per targeted project/group in the following dete
 
 ## Fleet Compliance & Security Audit Suite
 
-In addition to the 13 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
+In addition to the 14 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
 
 ```bash
 gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx
@@ -132,17 +140,27 @@ The audit framework executes read-only inspections in parallel across all target
   - **Content Drift or Missing Segments**: `HIGH` finding when content differs from policy or missing required substrings from `ensure_contains`.
   - **Compliant File**: `PASS` finding when existing file content matches policy after line ending normalization.
 
+#### 6. Protected Tags Posture (`protected_tags`)
+- **Release Protection Baselines**: Inspects protected tags across projects; flags missing protections on standard release patterns (`v*`, `release-*`). Projects with zero protected tags receive a `CRITICAL` finding.
+- **Permissive Access**: Projects allowing all Developers (`access_level: 30`) to create release tags receive a `MEDIUM` finding.
+- **Direct User Grants**: Direct individual user tag creation permissions bypass group/role tiers and are flagged as `HIGH` findings.
+- **Wildcard Shadowing**: Broad catch-all wildcards (`*`) covering all tags are flagged as `LOW` findings with guidance to replace with targeted patterns.
+
 ---
 
 ## Executive Report Generation & Distribution
 
 ### Multi-Sheet Excel Workbooks (`.xlsx`)
-When exported to `.xlsx` (default when `-o file.xlsx` is specified), GitLab Fleet Governor uses `excelize` to produce an executive workbook containing five distinct sheets:
+When exported to `.xlsx` (default when `-o file.xlsx` is specified), GitLab Fleet Governor uses `excelize` to produce an executive workbook containing dedicated sheets:
 1. **Executive Summary**: KPI metrics cards (Projects Scanned, Total Findings, Critical, High, Medium, Low, Passing Counts), overall compliance health score badge, and module breakdown tables.
 2. **User Access**: Detailed direct membership audit with Project ID, Project Name, Project URL, Username, Role, Expiration Status, and Severity Badges. Contiguous rows for the same project are visually merged with clickable GitLab hyperlinks.
-3. **Protected Branch Access**: Branch names, push access levels, merge access levels, force push status, code owner requirement, and severity findings.
-4. **Protected Environments Access**: Environment names, deploy access tiers, approval thresholds, direct user deploy permissions, and findings.
-5. **Repository Files**: File paths, target branches, drift status, missing line segments, and severity findings.
+3. **Bots & Service Accounts**: Audit of automated bot, service account, and project access tokens across repositories.
+4. **Protected Branch Access**: Branch names, push access levels, merge access levels, force push status, code owner requirement, and severity findings.
+5. **Protected Environments Access**: Environment names, deploy access tiers, approval thresholds, direct user deploy permissions, and findings.
+6. **Pipeline Retention**: Pipeline cleanup policy status, stale pipeline accumulation counts, oldest pipeline age, and severity findings.
+7. **Repository Files**: File paths, target branches, drift status, missing line segments, and severity findings.
+8. **Protected Tags**: Tag patterns, protection status, create access levels, direct user/group create grants, and severity findings.
+9. **User Directory**: Fleet-wide directory of discovered user identities, access counts, and account types.
 
 ### Multi-Format Exporters
 Reports can be exported to multiple formats via `--format` or file extension detection:

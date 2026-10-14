@@ -111,6 +111,24 @@ export interface ProtectedEnvironmentsWrapper {
   rules: ProtectedEnvironmentConfig[];
 }
 
+export interface TagAccessRule {
+  access_level?: number;
+  user_id?: number;
+  group_id?: number;
+  username?: string;
+  group_path?: string;
+}
+
+export interface ProtectedTagConfig {
+  name: string;
+  allowed_to_create: TagAccessRule[];
+}
+
+export interface ProtectedTagsWrapper {
+  prune?: boolean;
+  rules: ProtectedTagConfig[];
+}
+
 export interface ApprovalRuleItem {
   name: string;
   approvals_required: number;
@@ -214,6 +232,7 @@ export interface PolicyModules {
   push_rules?: PushRulesConfig;
   repository_files?: RepositoryFileItem[];
   protected_branches?: ProtectedBranchConfig[];
+  protected_tags?: ProtectedTagConfig[] | ProtectedTagsWrapper;
   protected_environments?: ProtectedEnvironmentConfig[] | ProtectedEnvironmentsWrapper;
   approval_rules?: ApprovalRulesConfig;
   target_branch_rules?: TargetBranchRulesConfig;

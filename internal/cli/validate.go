@@ -39,6 +39,7 @@ type TargetSummaryJSON struct {
 type PolicySummaryJSON struct {
 	PushRules             bool `json:"push_rules"`
 	ProtectedBranches     int  `json:"protected_branches"`
+	ProtectedTags         int  `json:"protected_tags"`
 	ProtectedEnvironments int  `json:"protected_environments"`
 	ApprovalRules         int  `json:"approval_rules"`
 	ProjectSettings       bool `json:"project_settings"`
@@ -151,6 +152,9 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 		Variables:         len(cfg.Policies.Variables),
 		Compliance:        cfg.Policies.Compliance != nil,
 		Webhooks:          len(cfg.Policies.Webhooks),
+	}
+	if cfg.Policies.ProtectedTags != nil {
+		policySummary.ProtectedTags = len(cfg.Policies.ProtectedTags.Rules)
 	}
 	if cfg.Policies.ProtectedEnvironments != nil {
 		policySummary.ProtectedEnvironments = len(cfg.Policies.ProtectedEnvironments.Rules)

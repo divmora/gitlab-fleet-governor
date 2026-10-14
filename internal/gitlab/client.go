@@ -28,6 +28,7 @@ type Client struct {
 	projects              ProjectsService
 	groups                GroupsService
 	protectedBranches     ProtectedBranchesService
+	protectedTags         ProtectedTagsService
 	pushRules             PushRulesService
 	approvalRules         ApprovalRulesService
 	variables             VariablesService
@@ -120,6 +121,11 @@ func WithGroupsService(s GroupsService) ClientOption {
 // WithProtectedBranchesService overrides the default ProtectedBranchesService.
 func WithProtectedBranchesService(s ProtectedBranchesService) ClientOption {
 	return func(c *Client) { c.protectedBranches = s }
+}
+
+// WithProtectedTagsService overrides the default ProtectedTagsService.
+func WithProtectedTagsService(s ProtectedTagsService) ClientOption {
+	return func(c *Client) { c.protectedTags = s }
 }
 
 // WithPushRulesService overrides the default PushRulesService.
@@ -255,6 +261,9 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.protectedBranches == nil {
 		c.protectedBranches = &defaultProtectedBranchesService{client: rawClient}
 	}
+	if c.protectedTags == nil {
+		c.protectedTags = &defaultProtectedTagsService{client: rawClient}
+	}
 	if c.pushRules == nil {
 		c.pushRules = &defaultPushRulesService{client: rawClient}
 	}
@@ -358,6 +367,7 @@ func NewClientFromConfig(cfg *config.GitLabSettingsConfig, lookup ...EnvLookupFu
 func (c *Client) Projects() ProjectsService                           { return c.projects }
 func (c *Client) Groups() GroupsService                               { return c.groups }
 func (c *Client) ProtectedBranches() ProtectedBranchesService         { return c.protectedBranches }
+func (c *Client) ProtectedTags() ProtectedTagsService                 { return c.protectedTags }
 func (c *Client) PushRules() PushRulesService                         { return c.pushRules }
 func (c *Client) ApprovalRules() ApprovalRulesService                 { return c.approvalRules }
 func (c *Client) Variables() VariablesService                         { return c.variables }
@@ -470,6 +480,21 @@ func (s *defaultProtectedBranchesService) UnprotectRepositoryBranches(pid any, b
 }
 func (s *defaultProtectedBranchesService) UpdateProtectedBranch(pid any, branch string, opt *gitlab.UpdateProtectedBranchOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedBranch, *gitlab.Response, error) {
 	return s.client.ProtectedBranches.UpdateProtectedBranch(pid, branch, opt, options...)
+}
+
+type defaultProtectedTagsService struct{ client *gitlab.Client }
+
+func (s *defaultProtectedTagsService) ListProtectedTags(pid any, opt *gitlab.ListProtectedTagsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProtectedTag, *gitlab.Response, error) {
+	return s.client.ProtectedTags.ListProtectedTags(pid, opt, options...)
+}
+func (s *defaultProtectedTagsService) GetProtectedTag(pid any, tag string, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedTag, *gitlab.Response, error) {
+	return s.client.ProtectedTags.GetProtectedTag(pid, tag, options...)
+}
+func (s *defaultProtectedTagsService) ProtectRepositoryTags(pid any, opt *gitlab.ProtectRepositoryTagsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProtectedTag, *gitlab.Response, error) {
+	return s.client.ProtectedTags.ProtectRepositoryTags(pid, opt, options...)
+}
+func (s *defaultProtectedTagsService) UnprotectRepositoryTags(pid any, tag string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
+	return s.client.ProtectedTags.UnprotectRepositoryTags(pid, tag, options...)
 }
 
 type defaultProtectedEnvironmentsService struct{ client *gitlab.Client }

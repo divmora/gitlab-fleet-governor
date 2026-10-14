@@ -49,6 +49,11 @@ type RepositoryFilesModuleAuditor interface {
 	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject, cfg *config.PolicyConfig) ([]RepositoryFileFinding, error)
 }
 
+// ProtectedTagsModuleAuditor defines project audit for protected tags.
+type ProtectedTagsModuleAuditor interface {
+	AuditProject(ctx context.Context, client gl.GitLabClient, project *discovery.TargetProject) ([]ProtectedTagFinding, error)
+}
+
 // Auditor coordinates fleet discovery and parallel module audits.
 type Auditor struct {
 	client        gl.GitLabClient
@@ -63,6 +68,7 @@ type Auditor struct {
 	protectedEnvAud      ProtectedEnvironmentsModuleAuditor
 	pipelineRetentionAud PipelineRetentionModuleAuditor
 	repositoryFilesAud   RepositoryFilesModuleAuditor
+	protectedTagAud      ProtectedTagsModuleAuditor
 
 	licenseKey       string
 	licenseFile      string
@@ -188,6 +194,15 @@ func WithPipelineRetentionAuditor(aud PipelineRetentionModuleAuditor) AuditorOpt
 	}
 }
 
+// WithProtectedTagsAuditor allows injecting a custom protected tags auditor.
+func WithProtectedTagsAuditor(aud ProtectedTagsModuleAuditor) AuditorOption {
+	return func(a *Auditor) {
+		if aud != nil {
+			a.protectedTagAud = aud
+		}
+	}
+}
+
 // NewAuditor constructs an initialized Auditor instance.
 func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error) {
 	if client == nil {
@@ -241,6 +256,12 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 
 	if a.repositoryFilesAud == nil {
 		a.repositoryFilesAud = NewRepositoryFilesAuditor()
+	}
+
+	if a.protectedTagAud == nil {
+		a.protectedTagAud = NewProtectedTagsAuditor(reg)
+	} else if setter, ok := a.protectedTagAud.(interface{ SetUserRegistry(*UserRegistry) }); ok {
+		setter.SetUserRegistry(reg)
 	}
 
 	return a, nil
@@ -384,6 +405,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		ProtectedEnvFindings:      make([]ProtectedEnvironmentFinding, 0),
 		PipelineRetentionFindings: make([]PipelineRetentionFinding, 0),
 		RepositoryFileFindings:    make([]RepositoryFileFinding, 0),
+		ProtectedTagFindings:      make([]ProtectedTagFinding, 0),
 	}
 
 	// Register user registry on modules
@@ -417,7 +439,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			uFindings, bFindings, eFindings, rFindings, fFindings, err := a.auditSingleProject(ctx, p)
+			uFindings, bFindings, eFindings, rFindings, fFindings, tFindings, err := a.auditSingleProject(ctx, p)
 			if err != nil {
 				slog.Warn("Encountered warning or error auditing project", "project", p.PathWithNamespace, "error", err)
 				mu.Lock()
@@ -444,6 +466,9 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			}
 			if len(fFindings) > 0 {
 				report.RepositoryFileFindings = append(report.RepositoryFileFindings, fFindings...)
+			}
+			if len(tFindings) > 0 {
+				report.ProtectedTagFindings = append(report.ProtectedTagFindings, tFindings...)
 			}
 			mu.Unlock()
 		}(proj)
@@ -479,6 +504,7 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 	[]ProtectedEnvironmentFinding,
 	[]PipelineRetentionFinding,
 	[]RepositoryFileFinding,
+	[]ProtectedTagFinding,
 	error,
 ) {
 	var uFindings []UserAccessFinding
@@ -486,6 +512,7 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 	var eFindings []ProtectedEnvironmentFinding
 	var rFindings []PipelineRetentionFinding
 	var fFindings []RepositoryFileFinding
+	var tFindings []ProtectedTagFinding
 	var errs []error
 
 	// User Access Module
@@ -538,11 +565,21 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 		}
 	}
 
+	// Protected Tags Module
+	if a.isModuleActive(string(ModuleProtectedTags)) && a.protectedTagAud != nil {
+		findings, err := a.protectedTagAud.AuditProject(ctx, a.client, p)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("protected_tags: %w", err))
+		} else {
+			tFindings = findings
+		}
+	}
+
 	var combinedErr error
 	if len(errs) > 0 {
 		combinedErr = errors.Join(errs...)
 	}
-	return uFindings, bFindings, eFindings, rFindings, fFindings, combinedErr
+	return uFindings, bFindings, eFindings, rFindings, fFindings, tFindings, combinedErr
 }
 
 func (a *Auditor) isModuleActive(mod string) bool {

@@ -392,6 +392,12 @@ func TestAuditCommand(t *testing.T) {
 			Name:                  "production",
 			RequiredApprovalCount: 1,
 		})
+		server.State().ProtectTag(proj.ID, &gitlab.ProtectedTag{
+			Name: "v*",
+			CreateAccessLevels: []*gitlab.TagAccessDescription{
+				{AccessLevel: gitlab.MaintainerPermissions},
+			},
+		})
 
 		configYAML := fmt.Sprintf(`
 settings:

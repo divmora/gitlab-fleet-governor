@@ -34,6 +34,16 @@ export const ReconcilerCheatSheet: React.FC = () => {
     allowed_to_merge: [{ access_level: 40 }]`,
     },
     {
+      name: 'protected_tags',
+      scope: 'Project',
+      desc: 'Tag protections, release/version wildcard matching (v*, release/*), unmanaged tag pruning, and create access tiers (0, 30, 40).',
+      yamlSnippet: `protected_tags:
+  prune: true
+  rules:
+    - name: "v*"
+      allowed_to_create: [{ access_level: 40 }] # Maintainers only`,
+    },
+    {
       name: 'protected_environments',
       scope: 'Project',
       desc: 'Environment deployment protections, required approval counts, and approver rules.',
@@ -142,10 +152,10 @@ export const ReconcilerCheatSheet: React.FC = () => {
           <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
             <Shield className="w-5 h-5" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">11 Core Governance Reconcilers</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">14 Core Governance Reconcilers</h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-          Detailed specification of all 11 reconcilers implemented by the GitLab Fleet Governor engine.
+          Detailed specification of all 14 reconcilers implemented by the GitLab Fleet Governor engine.
         </p>
       </div>
 

@@ -107,6 +107,11 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
         return Array.isArray(data) ? `${data.length} file(s)` : 'active';
       case 'protected_branches':
         return Array.isArray(data) ? `${data.length} branch(es)` : 'active';
+      case 'protected_tags': {
+        if (Array.isArray(data)) return `${data.length} tag(s)`;
+        if (data?.rules && Array.isArray(data.rules)) return `${data.rules.length} tag(s)${data.prune ? ' [prune]' : ''}`;
+        return 'active';
+      }
       case 'protected_environments': {
         if (Array.isArray(data)) return `${data.length} env(s)`;
         if (data?.rules && Array.isArray(data.rules)) return `${data.rules.length} env(s)${data.prune ? ' [prune]' : ''}`;
@@ -146,6 +151,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       label: 'Protected Branches',
       icon: '🛡️',
       data: config?.policies?.protected_branches,
+    },
+    {
+      key: 'protected_tags',
+      label: 'Protected Tags',
+      icon: '🔖',
+      data: config?.policies?.protected_tags,
     },
     {
       key: 'protected_environments',

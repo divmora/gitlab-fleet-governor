@@ -193,6 +193,34 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
       });
     }
 
+    // Protected Tags
+    const ptRules = Array.isArray(p.protected_tags)
+      ? p.protected_tags
+      : (p.protected_tags && typeof p.protected_tags === 'object' && Array.isArray(p.protected_tags.rules))
+        ? p.protected_tags.rules
+        : null;
+
+    if (ptRules) {
+      ptRules.forEach((pt: any, idx: number) => {
+        const prefix = Array.isArray(p.protected_tags)
+          ? `policies.protected_tags[${idx}]`
+          : `policies.protected_tags.rules[${idx}]`;
+
+        if (!pt.name || !pt.name.trim()) {
+          errors.push({ path: `${prefix}.name`, message: "Protected tag 'name' is required.", severity: 'error' });
+        }
+        if (!pt.allowed_to_create || !Array.isArray(pt.allowed_to_create) || pt.allowed_to_create.length === 0) {
+          errors.push({ path: `${prefix}.allowed_to_create`, message: "At least one 'allowed_to_create' entry is required.", severity: 'error' });
+        } else {
+          pt.allowed_to_create.forEach((rule: any, rIdx: number) => {
+            if (rule.access_level !== undefined && !VALID_ACCESS_LEVELS.includes(rule.access_level)) {
+              errors.push({ path: `${prefix}.allowed_to_create[${rIdx}].access_level`, message: `Invalid access_level '${rule.access_level}'. Allowed: 0, 5, 10, 20, 30, 40, 50, 60.`, severity: 'error' });
+            }
+          });
+        }
+      });
+    }
+
     // Protected Environments
     const peRules = Array.isArray(p.protected_environments)
       ? p.protected_environments

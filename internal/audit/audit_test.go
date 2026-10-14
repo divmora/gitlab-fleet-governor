@@ -256,6 +256,12 @@ func TestAuditorCoordinator(t *testing.T) {
 			{AccessLevel: gogitlab.MaintainerPermissions},
 		},
 	})
+	server.State().ProtectTag(targetProj.ID, &gogitlab.ProtectedTag{
+		Name: "v*",
+		CreateAccessLevels: []*gogitlab.TagAccessDescription{
+			{AccessLevel: gogitlab.MaintainerPermissions},
+		},
+	})
 
 	auditor, err := audit.NewAuditor(client,
 		audit.WithAuditorConcurrency(5),
@@ -276,6 +282,8 @@ func TestAuditorCoordinator(t *testing.T) {
 	assert.Len(t, report.UserAccessFindings, 1)
 	assert.Len(t, report.ProtectedBranchFindings, 1)
 	assert.Len(t, report.ProtectedEnvFindings, 1)
+	assert.Len(t, report.ProtectedTagFindings, 1)
+	assert.Equal(t, audit.SeverityPass, report.ProtectedTagFindings[0].Severity)
 
 	// User has no expiration -> 1 violation in summary
 	assert.Equal(t, 1, report.Summary.TotalViolations)
@@ -489,4 +497,106 @@ func TestAuditor_MarkedForDeletionProject(t *testing.T) {
 	f := report.UserAccessFindings[0]
 	assert.Equal(t, "Pending Deletion", f.ProjectStatus)
 	assert.Contains(t, f.Details, "[PENDING DELETION]")
+}
+
+func TestProtectedTagsAuditor(t *testing.T) {
+	t.Run("Zero Protected Tags Configured", func(t *testing.T) {
+		server, client, targetProj := setupMockGitLab(t)
+		_ = server
+
+		auditor := audit.NewProtectedTagsAuditor()
+		assert.Equal(t, "protected_tags", auditor.Name())
+
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj)
+		require.NoError(t, err)
+		require.Len(t, findings, 1)
+
+		assert.Equal(t, "(none)", findings[0].TagNamePattern)
+		assert.False(t, findings[0].IsProtected)
+		assert.Equal(t, audit.SeverityCritical, findings[0].Severity)
+		assert.Contains(t, findings[0].Details, "zero protected tags configured")
+		assert.Contains(t, findings[0].Remediation, "create_access_level=40")
+	})
+
+	t.Run("Compliant Protected Release Tag", func(t *testing.T) {
+		server, client, targetProj := setupMockGitLab(t)
+
+		server.State().ProtectTag(targetProj.ID, &gogitlab.ProtectedTag{
+			Name: "v*",
+			CreateAccessLevels: []*gogitlab.TagAccessDescription{
+				{
+					AccessLevel:            gogitlab.MaintainerPermissions,
+					AccessLevelDescription: "Maintainers",
+				},
+			},
+		})
+
+		auditor := audit.NewProtectedTagsAuditor()
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj)
+		require.NoError(t, err)
+		require.Len(t, findings, 1)
+
+		assert.Equal(t, "v*", findings[0].TagNamePattern)
+		assert.True(t, findings[0].IsProtected)
+		assert.Equal(t, audit.SeverityPass, findings[0].Severity)
+		assert.Equal(t, "No action required", findings[0].Remediation)
+	})
+
+	t.Run("Broad Wildcard and Direct User Grants and Permissive Developer Access", func(t *testing.T) {
+		server, client, targetProj := setupMockGitLab(t)
+
+		server.State().ProtectTag(targetProj.ID, &gogitlab.ProtectedTag{
+			Name: "*",
+			CreateAccessLevels: []*gogitlab.TagAccessDescription{
+				{
+					AccessLevel:            gogitlab.DeveloperPermissions,
+					AccessLevelDescription: "Developers",
+				},
+				{
+					UserID: 42,
+				},
+			},
+		})
+
+		auditor := audit.NewProtectedTagsAuditor()
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj)
+		require.NoError(t, err)
+		require.Len(t, findings, 1)
+
+		assert.Equal(t, "*", findings[0].TagNamePattern)
+		assert.True(t, findings[0].IsProtected)
+		assert.Equal(t, audit.SeverityHigh, findings[0].Severity)
+		assert.Contains(t, findings[0].Details, "Broad wildcard protection")
+		assert.Contains(t, findings[0].Details, "Direct user tag creation access granted")
+		assert.Contains(t, findings[0].Details, "Permissive tag creation")
+	})
+
+	t.Run("Missing Release Protection When Other Tags Protected", func(t *testing.T) {
+		server, client, targetProj := setupMockGitLab(t)
+
+		server.State().ProtectTag(targetProj.ID, &gogitlab.ProtectedTag{
+			Name: "staging-*",
+			CreateAccessLevels: []*gogitlab.TagAccessDescription{
+				{
+					AccessLevel:            gogitlab.MaintainerPermissions,
+					AccessLevelDescription: "Maintainers",
+				},
+			},
+		})
+
+		auditor := audit.NewProtectedTagsAuditor()
+		findings, err := auditor.AuditProject(context.Background(), client, targetProj)
+		require.NoError(t, err)
+		require.Len(t, findings, 2)
+
+		// Finding 0: staging-* (PASS)
+		assert.Equal(t, "staging-*", findings[0].TagNamePattern)
+		assert.Equal(t, audit.SeverityPass, findings[0].Severity)
+
+		// Finding 1: synthetic v* (HIGH - missing release protection)
+		assert.Equal(t, "v*", findings[1].TagNamePattern)
+		assert.False(t, findings[1].IsProtected)
+		assert.Equal(t, audit.SeverityHigh, findings[1].Severity)
+		assert.Contains(t, findings[1].Details, "Standard release tag patterns")
+	})
 }

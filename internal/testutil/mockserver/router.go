@@ -157,6 +157,12 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 			branchName, _ = url.PathUnescape(strings.Join(parts[2:], "/"))
 		}
 		rt.handleProjectProtectedBranches(w, r, unescapedID, branchName)
+	case "protected_tags":
+		tagName := ""
+		if len(parts) > 2 {
+			tagName, _ = url.PathUnescape(strings.Join(parts[2:], "/"))
+		}
+		rt.handleProjectProtectedTags(w, r, unescapedID, tagName)
 	case "protected_environments":
 		envName := ""
 		if len(parts) > 2 {
@@ -457,6 +463,79 @@ func (rt *Router) handleProjectProtectedBranches(w http.ResponseWriter, r *http.
 			w.WriteHeader(http.StatusNoContent)
 		} else {
 			http.Error(w, `{"message":"404 Protected Branch Not Found"}`, http.StatusNotFound)
+		}
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (rt *Router) handleProjectProtectedTags(w http.ResponseWriter, r *http.Request, idOrPath, tag string) {
+	if tag == "" {
+		switch r.Method {
+		case http.MethodGet:
+			tags := rt.state.ListProtectedTags(idOrPath)
+			rt.paginate(w, r, len(tags), func(i int) any { return tags[i] })
+		case http.MethodPost:
+			var body struct {
+				Name              string                          `json:"name"`
+				CreateAccessLevel *int                            `json:"create_access_level"`
+				AllowedToCreate   []*gitlab.TagsPermissionOptions `json:"allowed_to_create"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+				return
+			}
+			pt := gitlab.ProtectedTag{
+				Name: body.Name,
+			}
+			if len(body.AllowedToCreate) > 0 {
+				pt.CreateAccessLevels = make([]*gitlab.TagAccessDescription, len(body.AllowedToCreate))
+				for i, opt := range body.AllowedToCreate {
+					desc := &gitlab.TagAccessDescription{}
+					if opt.AccessLevel != nil {
+						desc.AccessLevel = *opt.AccessLevel
+					}
+					if opt.UserID != nil {
+						desc.UserID = *opt.UserID
+					}
+					if opt.GroupID != nil {
+						desc.GroupID = *opt.GroupID
+					}
+					pt.CreateAccessLevels[i] = desc
+				}
+			} else if body.CreateAccessLevel != nil {
+				pt.CreateAccessLevels = []*gitlab.TagAccessDescription{
+					{AccessLevel: gitlab.AccessLevelValue(*body.CreateAccessLevel)},
+				}
+			}
+			saved, ok := rt.state.ProtectTag(idOrPath, &pt)
+			if !ok {
+				http.Error(w, `{"message":"404 Project Not Found"}`, http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(saved)
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		pt, ok := rt.state.GetProtectedTag(idOrPath, tag)
+		if !ok {
+			http.Error(w, `{"message":"404 Protected Tag Not Found"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(pt)
+	case http.MethodDelete:
+		if ok := rt.state.UnprotectTag(idOrPath, tag); ok {
+			w.WriteHeader(http.StatusNoContent)
+		} else {
+			http.Error(w, `{"message":"404 Protected Tag Not Found"}`, http.StatusNotFound)
 		}
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)

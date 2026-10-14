@@ -152,6 +152,36 @@ func sampleAuditReport() *audit.AuditReport {
 				Remediation:   "Synchronize file via fleet governor",
 			},
 		},
+		ProtectedTagFindings: []audit.ProtectedTagFinding{
+			{
+				ProjectID:                 101,
+				ProjectName:               "payments-api",
+				ProjectPath:               "fintech/payments-api",
+				ProjectWebURL:             "https://gitlab.example.com/fintech/payments-api",
+				ProjectStatus:             "Active",
+				TagNamePattern:            "v*",
+				IsProtected:               true,
+				CreateAccessLevelsSummary: "Maintainer (40)",
+				Severity:                  audit.SeverityPass,
+				Details:                   "Tag protection satisfies release governance baselines",
+				Remediation:               "No action required",
+			},
+			{
+				ProjectID:                 101,
+				ProjectName:               "payments-api",
+				ProjectPath:               "fintech/payments-api",
+				ProjectWebURL:             "https://gitlab.example.com/fintech/payments-api",
+				ProjectStatus:             "Active",
+				TagNamePattern:            "*",
+				IsProtected:               true,
+				CreateAccessLevelsSummary: "Developer (30)",
+				DirectUserCreateGrants:    []string{"User ID 42"},
+				Severity:                  audit.SeverityHigh,
+				Violations:                []string{"Broad wildcard protection '*'", "Direct user tag creation access granted"},
+				Details:                   "Broad wildcard protection '*'; Direct user tag creation access granted to: User ID 42",
+				Remediation:               "Replace catch-all '*' with targeted release patterns and remove individual user grants",
+			},
+		},
 	}
 	r.Summary.TotalProjectsScanned = 2
 	r.ComputeSummary()
@@ -178,6 +208,7 @@ func TestGenerateXLSX(t *testing.T) {
 	assert.Contains(t, sheetList, "Protected Branch Access")
 	assert.Contains(t, sheetList, "Protected Environments Access")
 	assert.Contains(t, sheetList, "Repository Files")
+	assert.Contains(t, sheetList, "Protected Tags")
 	assert.Contains(t, sheetList, "User Directory")
 
 	// Verify Executive Summary Content
@@ -225,6 +256,23 @@ func TestGenerateXLSX(t *testing.T) {
 	envVal, err := xlFile.GetCellValue("Protected Environments Access", "E2")
 	require.NoError(t, err)
 	assert.Equal(t, "production", envVal)
+
+	// Verify Protected Tags Content
+	tagVal, err := xlFile.GetCellValue("Protected Tags", "E2")
+	require.NoError(t, err)
+	assert.Equal(t, "v*", tagVal)
+
+	tagStatusVal, err := xlFile.GetCellValue("Protected Tags", "J2")
+	require.NoError(t, err)
+	assert.Equal(t, "PASS", tagStatusVal)
+
+	wildcardTagVal, err := xlFile.GetCellValue("Protected Tags", "E3")
+	require.NoError(t, err)
+	assert.Equal(t, "*", wildcardTagVal)
+
+	wildcardStatusVal, err := xlFile.GetCellValue("Protected Tags", "J3")
+	require.NoError(t, err)
+	assert.Equal(t, "HIGH", wildcardStatusVal)
 
 	// Verify Executive Summary Licensing Attestation Section
 	execRows, err := xlFile.GetRows("Executive Summary")
