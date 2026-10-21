@@ -13,7 +13,7 @@
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "clsx": "^2.1.1",
-    "js-yaml": "^5.4.3",
+    "js-yaml": "^5.5.0",
     "lucide-react": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
