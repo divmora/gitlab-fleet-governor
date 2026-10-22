@@ -4,8 +4,10 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -62,9 +64,11 @@ type EnforcementOptions struct {
 	RequiredFeatures []string
 }
 
+const maxLicenseFileSize = 64 * 1024 // 64 KB (license tokens are typically < 4 KB)
+
 // ResolveToken determines the active license token from flags, file paths, or environment variables.
 // If an explicit key is provided, it is returned directly.
-// If an explicit file is provided, its contents are read from disk.
+// If an explicit file is provided, its contents are read safely from disk.
 // Otherwise, it delegates to liblicense.ResolveToken to check environment variables and system paths.
 // If no license is configured anywhere, it returns ("", nil) to permit Community Tier execution.
 func ResolveToken(key, file string) (string, error) {
@@ -75,9 +79,32 @@ func ResolveToken(key, file string) (string, error) {
 
 	file = strings.TrimSpace(file)
 	if file != "" {
-		content, err := os.ReadFile(file)
+		cleanPath := filepath.Clean(file)
+		if strings.ContainsRune(cleanPath, 0) {
+			return "", errors.New("invalid license file path: contains null byte")
+		}
+
+		f, err := os.Open(cleanPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to read license file %s: %w", file, err)
+			return "", fmt.Errorf("failed to open license file %q: %w", cleanPath, err)
+		}
+		defer f.Close()
+
+		info, err := f.Stat()
+		if err != nil {
+			return "", fmt.Errorf("failed to stat license file %q: %w", cleanPath, err)
+		}
+		if !info.Mode().IsRegular() {
+			return "", fmt.Errorf("invalid license file %q: must be a regular file", cleanPath)
+		}
+
+		lr := io.LimitReader(f, maxLicenseFileSize+1)
+		content, err := io.ReadAll(lr)
+		if err != nil {
+			return "", fmt.Errorf("failed to read license file %q: %w", cleanPath, err)
+		}
+		if int64(len(content)) > maxLicenseFileSize {
+			return "", fmt.Errorf("license file %q exceeds maximum allowed size (%d bytes)", cleanPath, maxLicenseFileSize)
 		}
 		return strings.TrimSpace(string(content)), nil
 	}

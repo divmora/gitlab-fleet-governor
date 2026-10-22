@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -122,9 +125,13 @@ func getOutputWriter(cmd *cobra.Command, outputFile string) (io.Writer, func(), 
 	if outputFile == "" {
 		return cmd.OutOrStdout(), func() {}, nil
 	}
-	f, err := os.Create(outputFile)
+	cleanPath := filepath.Clean(outputFile)
+	if strings.ContainsRune(cleanPath, 0) {
+		return nil, nil, errors.New("invalid output file path: contains null byte")
+	}
+	f, err := os.OpenFile(cleanPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create output file '%s': %w", outputFile, err)
+		return nil, nil, fmt.Errorf("failed to create output file '%s': %w", cleanPath, err)
 	}
 	return f, func() { _ = f.Close() }, nil
 }

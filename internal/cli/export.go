@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -152,10 +154,15 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		return err
 	}
 
-	if err := os.WriteFile(flags.Output, yamlBytes, 0644); err != nil {
-		return fmt.Errorf("failed to write export output to file '%s': %w", flags.Output, err)
+	cleanOutput := filepath.Clean(flags.Output)
+	if strings.ContainsRune(cleanOutput, 0) {
+		return errors.New("invalid output file path: contains null byte")
 	}
 
-	slog.Info("Successfully exported baseline policy", "output", flags.Output)
+	if err := os.WriteFile(cleanOutput, yamlBytes, 0600); err != nil {
+		return fmt.Errorf("failed to write export output to file '%s': %w", cleanOutput, err)
+	}
+
+	slog.Info("Successfully exported baseline policy", "output", cleanOutput)
 	return nil
 }

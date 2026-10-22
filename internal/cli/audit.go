@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -278,9 +279,13 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	// 7. Write Report Output
 	var xlsxBytes []byte
 	if outputFile != "" {
-		f, err := os.Create(outputFile)
+		cleanOutput := filepath.Clean(outputFile)
+		if strings.ContainsRune(cleanOutput, 0) {
+			return errors.New("invalid output report file path: contains null byte")
+		}
+		f, err := os.OpenFile(cleanOutput, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
-			return fmt.Errorf("failed to create output report file '%s': %w", outputFile, err)
+			return fmt.Errorf("failed to create output report file '%s': %w", cleanOutput, err)
 		}
 		defer func() { _ = f.Close() }()
 

@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -173,7 +174,14 @@ func ResolveCRL(sources ...string) (string, error) {
 	var explicit []string
 	for _, s := range sources {
 		if trimmed := strings.TrimSpace(s); trimmed != "" {
-			explicit = append(explicit, trimmed)
+			if strings.ContainsRune(trimmed, 0) {
+				return "", errors.New("invalid CRL source: contains null byte")
+			}
+			if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") && !strings.HasPrefix(trimmed, "-----BEGIN") {
+				explicit = append(explicit, filepath.Clean(trimmed))
+			} else {
+				explicit = append(explicit, trimmed)
+			}
 		}
 	}
 

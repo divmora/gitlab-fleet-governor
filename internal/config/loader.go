@@ -149,9 +149,32 @@ func (l *Loader) readFromSource(ctx context.Context, source string) ([]byte, err
 
 	// Local filesystem path
 	cleanPath := filepath.Clean(source)
-	data, err := os.ReadFile(cleanPath)
+	if strings.ContainsRune(cleanPath, 0) {
+		return nil, errors.New("invalid configuration path: contains null byte")
+	}
+
+	f, err := os.Open(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open configuration file '%s': %w", cleanPath, err)
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat configuration file '%s': %w", cleanPath, err)
+	}
+	if !stat.Mode().IsRegular() {
+		return nil, fmt.Errorf("invalid configuration file '%s': must be a regular file", cleanPath)
+	}
+
+	const maxConfigFileSize = 10 * 1024 * 1024 // 10 MB limit for config
+	lr := io.LimitReader(f, maxConfigFileSize+1)
+	data, err := io.ReadAll(lr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration file '%s': %w", cleanPath, err)
+	}
+	if int64(len(data)) > maxConfigFileSize {
+		return nil, fmt.Errorf("configuration file '%s' exceeds maximum allowed size (%d bytes)", cleanPath, maxConfigFileSize)
 	}
 	return data, nil
 }
