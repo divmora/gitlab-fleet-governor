@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.16.1](https://github.com/divmora/gitlab-fleet-governor/compare/v0.16.0...v0.16.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **security:** harden file path handling and prevent uncontrolled path expressions ([efcd2d6](https://github.com/divmora/gitlab-fleet-governor/commit/efcd2d6d9f1cddbd4c369147d8a89ddb172a4dc6))
+
 ## [0.16.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.15.0...v0.16.0) (2026-10-14)
 
 
