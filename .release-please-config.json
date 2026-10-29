@@ -8,7 +8,9 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "extra-files": [
-        "pkg/version/version.go"
+        "pkg/version/version.go",
+        "deploy/kubernetes/cronjob-audit.yaml",
+        "deploy/kubernetes/cronjob-enforce.yaml"
       ]
     }
   }

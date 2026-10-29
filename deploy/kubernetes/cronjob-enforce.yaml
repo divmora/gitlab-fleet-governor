@@ -35,7 +35,9 @@ spec:
               type: RuntimeDefault
           containers:
             - name: governor-reconciler
-              image: ghcr.io/divmora/gitlab-fleet-governor:v1.0.0
+              # x-release-please-start-version
+              image: ghcr.io/divmora/gitlab-fleet-governor:v0.16.0
+              # x-release-please-end
               imagePullPolicy: IfNotPresent
               command:
                 - /usr/local/bin/gitlab-fleet-governor
