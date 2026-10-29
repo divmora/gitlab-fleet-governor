@@ -199,6 +199,7 @@ Resources:
     Properties:
       QueueName: !Sub gitlab-fleet-governor-dlq-${EnvironmentName}
       MessageRetentionPeriod: 1209600 # 14 days
+      KmsMasterKeyId: alias/aws/sqs
 
   # ----------------------------------------------------------------------------
   # IAM Execution Role
@@ -263,6 +264,8 @@ Resources:
         - !Ref Architecture
       MemorySize: !Ref MemorySize
       Timeout: !Ref Timeout
+      TracingConfig:
+        Mode: Active
       DeadLetterConfig:
         TargetArn: !GetAtt DeadLetterQueue.Arn
       Environment:

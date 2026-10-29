@@ -214,6 +214,9 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub gitlab-fleet-governor-cluster-${EnvironmentName}
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
       CapacityProviders:
         - FARGATE
         - FARGATE_SPOT

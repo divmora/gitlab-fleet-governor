@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: gitlab-fleet-governor-audit
-  namespace: default
+  namespace: gitlab-fleet-governor
   labels:
     app.kubernetes.io/name: gitlab-fleet-governor
     app.kubernetes.io/component: audit-engine
@@ -35,7 +35,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: governor-audit
-              image: ghcr.io/divmora/gitlab-fleet-governor:latest
+              image: ghcr.io/divmora/gitlab-fleet-governor:v1.0.0
               imagePullPolicy: IfNotPresent
               command:
                 - /usr/local/bin/gitlab-fleet-governor

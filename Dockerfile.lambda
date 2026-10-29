@@ -68,5 +68,9 @@ LABEL org.opencontainers.image.title="gitlab-fleet-governor-lambda" \
       org.opencontainers.image.vendor="divmora" \
       org.opencontainers.image.licenses="BSL-1.1"
 
+USER 10001:10001
+
+HEALTHCHECK NONE
+
 # AWS Lambda Runtime entrypoint executes bootstrap automatically
 CMD ["bootstrap"]

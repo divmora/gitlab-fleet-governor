@@ -95,5 +95,7 @@ ENV USER=appuser \
 USER 10001:10001
 WORKDIR /app
 
+HEALTHCHECK NONE
+
 ENTRYPOINT ["/usr/local/bin/gitlab-fleet-governor"]
 CMD ["--help"]

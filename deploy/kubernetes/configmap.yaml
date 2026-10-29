@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gitlab-fleet-governor-policy
-  namespace: default
+  namespace: gitlab-fleet-governor
   labels:
     app.kubernetes.io/name: gitlab-fleet-governor
     app.kubernetes.io/component: governance-engine
@@ -17,7 +17,7 @@ data:
       concurrency: 10
       gitlab:
         base_url: "${GITLAB_BASE_URL:-https://gitlab.com/api/v4}"
-        token: "${GITLAB_TOKEN}"
+        # Token is securely injected via the GITLAB_TOKEN environment variable from Secret
         rate_limit_rps: 25.0
         rate_limit_burst: 50
         max_retries: 3
