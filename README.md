@@ -51,18 +51,22 @@ Managing security baselines, branch protections, push rules, and compliance stan
 
 - 📜 **Declarative Policy-as-Code**: Author policies in interchangeable YAML or JSON with `${ENV_VAR:-default}` substitution.
 - 🌳 **Fleet-Scale Discovery**: Recursive Breadth-First Search (BFS) group hierarchy traversal with cycle detection and project filter pipelines.
-- 🛡️ **11 Complete Governance Reconcilers**:
+- 🛡️ **12 Complete Governance Reconcilers**:
   1. **Push Rules**: Author emails, branch regexes, commit message format, file size limits, secret prevention, signed commits, and DCO sign-offs.
   2. **Protected Branches**: Push/merge/unprotect access tiers, force push bans, code owner approvals.
-  3. **MR Approval Rules**: Global approval settings, named multi-approver matrices, username/group resolution.
-  4. **Project Settings**: Squash policies, merge methods, discussion resolution gates, artifact retention.
-  5. **Target Branch Rules**: MR branch workflow routing, wildcard pattern matching (*, feat/*), and unmanaged rule pruning.
-  6. **Pipeline Retention**: Automated GitLab pipeline history deletion (`retention_days` converted to `ci_delete_pipelines_in_seconds`).
-  7. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
-  8. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
-  9. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
-  10. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
-  11. **Member & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
+  3. **Branch Merges**: Automated branch promotion via Merge Requests with conflict-aware safety (merges when clean, leaves MR open on conflict).
+  4. **Protected Tags**: Tag protections, allowed create tiers, dynamic username/group resolution.
+  5. **Protected Environments**: Deployment gates, required approvals, wildcard patterns, pruning.
+  6. **MR Approval Rules**: Global approval settings, named multi-approver matrices, username/group resolution.
+  7. **Project Settings**: Squash policies, merge methods, discussion resolution gates, artifact retention.
+  8. **Target Branch Rules**: MR branch workflow routing, wildcard pattern matching (*, feat/*), and unmanaged rule pruning.
+  9. **Pipeline Retention**: Automated GitLab pipeline history deletion (`retention_days` converted to `ci_delete_pipelines_in_seconds`).
+  10. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
+  11. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
+  12. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
+  13. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
+  14. **Members & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
+  15. **Repository Files**: Declarative cross-repo file synchronization (CODEOWNERS, SECURITY.md).
 - ⚡ **High Resilience & Concurrency**: Bounded worker pool, token-bucket rate limiting, reactive 429 backoff with full jitter, keyset streaming pagination.
 - 🔍 **Fleet-Wide Compliance & Security Auditing**: Dedicated non-mutating `audit` command inspecting user access expiration hygiene, protected branch security posture, and protected environment deployment approval gates.
 - 📑 **Multi-Sheet Excel (.xlsx) & Headless SMTP Dispatch**: Generates executive workbooks with auto-filtered sheets, contiguous row merging, and semantic color badges, with optional direct TLS / STARTTLS email delivery.
@@ -131,6 +135,19 @@ gitlab-fleet-governor run -c policies/enterprise.yaml --dry-run=false
 
 # Output Markdown report to file
 gitlab-fleet-governor run -c policies/enterprise.yaml --report-format markdown --output-file report.md
+```
+
+#### `merge`
+Merges branch X into branch Y in a targeted GitLab project via Merge Request with conflict-aware safety (merges if clean, leaves MR open if conflicts exist):
+```bash
+# Preview branch merge in dry-run mode (default)
+gitlab-fleet-governor merge --project "platform/core" --source "staging" --target "main"
+
+# Live apply branch merge with auto-merge enabled
+gitlab-fleet-governor merge --project "platform/core" --source "staging" --target "main" --dry-run=false
+
+# Open MR without auto-merging
+gitlab-fleet-governor merge --project "101" --source "staging" --target "main" --auto-merge=false --dry-run=false
 ```
 
 #### `export`

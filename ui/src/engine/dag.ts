@@ -107,6 +107,8 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
         return Array.isArray(data) ? `${data.length} file(s)` : 'active';
       case 'protected_branches':
         return Array.isArray(data) ? `${data.length} branch(es)` : 'active';
+      case 'branch_merges':
+        return Array.isArray(data) ? `${data.length} merge(s)` : 'active';
       case 'protected_tags': {
         if (Array.isArray(data)) return `${data.length} tag(s)`;
         if (data?.rules && Array.isArray(data.rules)) return `${data.rules.length} tag(s)${data.prune ? ' [prune]' : ''}`;
@@ -151,6 +153,12 @@ export function buildPolicyDAG(config?: PolicyConfig): PolicyDAGGraph {
       label: 'Protected Branches',
       icon: '🛡️',
       data: config?.policies?.protected_branches,
+    },
+    {
+      key: 'branch_merges',
+      label: 'Branch Merges',
+      icon: '🔀',
+      data: config?.policies?.branch_merges,
     },
     {
       key: 'protected_tags',

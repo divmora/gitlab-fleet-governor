@@ -609,3 +609,44 @@ func TestLicenseCommand(t *testing.T) {
 		assert.Contains(t, err.Error(), "unknown platform")
 	})
 }
+
+func TestMergeCommand(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Missing Required Flags", func(t *testing.T) {
+		_, _, err := executeCommand(ctx, "merge")
+		require.Error(t, err)
+	})
+
+	t.Run("Identical Source and Target Branch", func(t *testing.T) {
+		_, _, err := executeCommand(ctx, "merge", "--project", "101", "--source", "main", "--target", "main")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "target branch cannot be identical to source branch")
+	})
+
+	t.Run("DryRun and Live Execution with Mock Server", func(t *testing.T) {
+		srv := mockserver.NewMockGitLabServer()
+		defer srv.Close()
+		srv.Seed()
+
+		srv.State().CreateBranch(101, "cli-feature", "")
+		srv.State().CreateBranch(101, "cli-target", "")
+
+		t.Setenv("GITLAB_TOKEN", "mock-token")
+		t.Setenv("GITLAB_BASE_URL", srv.URL()+"/api/v4")
+
+		// 1. Dry run simulation
+		stdout, stderr, err := executeCommand(ctx, "merge", "--project", "101", "--source", "cli-feature", "--target", "cli-target", "--dry-run")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stdout, "SIMULATION (Dry-Run)")
+
+		// 2. Live apply
+		stdout, stderr, err = executeCommand(ctx, "merge", "--project", "101", "--source", "cli-feature", "--target", "cli-target", "--dry-run=false")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Contains(t, stdout, "branch merge applied (SUCCESS)")
+
+		// Verify on mock server
+		mrs := srv.State().ListMergeRequests(101, "cli-feature", "cli-target", "merged")
+		require.Len(t, mrs, 1)
+	})
+}

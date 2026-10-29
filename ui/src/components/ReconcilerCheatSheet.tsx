@@ -34,6 +34,17 @@ export const ReconcilerCheatSheet: React.FC = () => {
     allowed_to_merge: [{ access_level: 40 }]`,
     },
     {
+      name: 'branch_merges',
+      scope: 'Project',
+      desc: 'Automated branch merges via MRs with conflict-aware safety (merges if clean, leaves open if conflict).',
+      yamlSnippet: `branch_merges:
+  - source_branch: "staging"
+    target_branch: "main"
+    title: "chore: merge staging into main"
+    auto_merge: true
+    remove_source_branch: false`,
+    },
+    {
       name: 'protected_tags',
       scope: 'Project',
       desc: 'Tag protections, release/version wildcard matching (v*, release/*), unmanaged tag pruning, and create access tiers (0, 30, 40).',
@@ -155,7 +166,7 @@ export const ReconcilerCheatSheet: React.FC = () => {
           <h2 className="text-xl font-bold text-white tracking-tight">14 Core Governance Reconcilers</h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-          Detailed specification of all 14 reconcilers implemented by the GitLab Fleet Governor engine.
+          Detailed specification of all 15 reconcilers implemented by the GitLab Fleet Governor engine.
         </p>
       </div>
 

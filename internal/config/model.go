@@ -286,6 +286,39 @@ type PoliciesConfig struct {
 
 	// RepositoryFiles configures standardized repository file synchronization policies.
 	RepositoryFiles []RepositoryFileConfig `yaml:"repository_files,omitempty" json:"repository_files,omitempty"`
+
+	// BranchMerges configures automated branch merges via merge requests with conflict-aware safety.
+	BranchMerges []BranchMergeRuleConfig `yaml:"branch_merges,omitempty" json:"branch_merges,omitempty"`
+}
+
+// BranchMergeRuleConfig defines a declarative branch merge policy using Merge Requests.
+type BranchMergeRuleConfig struct {
+	// SourceBranch specifies the branch to merge from (e.g. "staging", "feature/foo"). Required.
+	SourceBranch string `yaml:"source_branch" json:"source_branch"`
+
+	// TargetBranch specifies the branch to merge into (e.g. "main"). Required.
+	TargetBranch string `yaml:"target_branch" json:"target_branch"`
+
+	// Title specifies a custom merge request title. Optional.
+	Title string `yaml:"title,omitempty" json:"title,omitempty"`
+
+	// Description specifies a custom merge request description. Optional.
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+
+	// Labels specifies optional labels to assign to the merge request.
+	Labels []string `yaml:"labels,omitempty" json:"labels,omitempty"`
+
+	// AutoMerge indicates whether to merge the MR automatically when there are no conflicts (default: true).
+	AutoMerge *bool `yaml:"auto_merge,omitempty" json:"auto_merge,omitempty"`
+
+	// RemoveSourceBranch indicates whether to delete the source branch upon merge (default: false).
+	RemoveSourceBranch *bool `yaml:"remove_source_branch,omitempty" json:"remove_source_branch,omitempty"`
+
+	// Squash indicates whether commits should be squashed into a single commit upon merge (default: false).
+	Squash *bool `yaml:"squash,omitempty" json:"squash,omitempty"`
+
+	// MergeWhenPipelineSucceeds configures GitLab to merge as soon as CI passes (default: true).
+	MergeWhenPipelineSucceeds *bool `yaml:"merge_when_pipeline_succeeds,omitempty" json:"merge_when_pipeline_succeeds,omitempty"`
 }
 
 // RepositoryFileConfig defines a repository file synchronization policy entry.

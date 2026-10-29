@@ -193,6 +193,25 @@ export function validatePolicyContent(raw: string, format: 'yaml' | 'json'): Val
       });
     }
 
+    // Branch Merges
+    if (p.branch_merges && Array.isArray(p.branch_merges)) {
+      p.branch_merges.forEach((bm: any, idx: number) => {
+        const prefix = `policies.branch_merges[${idx}]`;
+        const src = bm.source_branch ? bm.source_branch.trim() : '';
+        const tgt = bm.target_branch ? bm.target_branch.trim() : '';
+
+        if (!src) {
+          errors.push({ path: `${prefix}.source_branch`, message: "'source_branch' is required and cannot be empty.", severity: 'error' });
+        }
+        if (!tgt) {
+          errors.push({ path: `${prefix}.target_branch`, message: "'target_branch' is required and cannot be empty.", severity: 'error' });
+        }
+        if (src && tgt && src === tgt) {
+          errors.push({ path: `${prefix}.target_branch`, message: `'target_branch' cannot be identical to 'source_branch' ('${src}').`, severity: 'error' });
+        }
+      });
+    }
+
     // Protected Tags
     const ptRules = Array.isArray(p.protected_tags)
       ? p.protected_tags

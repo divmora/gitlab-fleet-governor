@@ -749,6 +749,9 @@ type defaultMergeRequestsService struct{ client *gitlab.Client }
 func (s *defaultMergeRequestsService) ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.MergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.ListProjectMergeRequests(pid, opt, options...)
 }
+func (s *defaultMergeRequestsService) GetMergeRequest(pid any, mr int, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+	return s.client.MergeRequests.GetMergeRequest(pid, mr, opt, options...)
+}
 func (s *defaultMergeRequestsService) CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.CreateMergeRequest(pid, opt, options...)
 }

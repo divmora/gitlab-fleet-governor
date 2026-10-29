@@ -413,6 +413,9 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.ApprovalRules != nil {
 		requiredFeatures = append(requiredFeatures, "governance.approval_rules")
 	}
+	if len(cfg.Policies.BranchMerges) > 0 {
+		requiredFeatures = append(requiredFeatures, "governance.branch_merges")
+	}
 	if cfg.Policies.TargetBranchRules != nil {
 		requiredFeatures = append(requiredFeatures, "governance.target_branch_rules")
 	}

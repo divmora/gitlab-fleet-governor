@@ -50,6 +50,7 @@ type PolicySummaryJSON struct {
 	Webhooks              int  `json:"webhooks"`
 	Members               int  `json:"members"`
 	TargetBranchRules     int  `json:"target_branch_rules"`
+	BranchMerges          int  `json:"branch_merges"`
 }
 
 func newValidateCmd() *cobra.Command {
@@ -171,6 +172,7 @@ func outputJSONValidationResult(out io.Writer, sourceDesc string, cfg *config.Po
 	if cfg.Policies.TargetBranchRules != nil {
 		policySummary.TargetBranchRules = len(cfg.Policies.TargetBranchRules.Rules)
 	}
+	policySummary.BranchMerges = len(cfg.Policies.BranchMerges)
 
 	warnOutput := warnings
 	if warnOutput == nil {

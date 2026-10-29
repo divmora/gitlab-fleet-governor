@@ -906,3 +906,72 @@ func TestValidateWithWarnings_TargetBranchRules(t *testing.T) {
 		assert.Empty(t, warns)
 	})
 }
+
+func TestValidate_BranchMerges(t *testing.T) {
+	t.Run("Valid Branch Merge Rule", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				BranchMerges: []config.BranchMergeRuleConfig{
+					{
+						SourceBranch: "staging",
+						TargetBranch: "main",
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.NoError(t, err)
+	})
+
+	t.Run("Missing Source Branch", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				BranchMerges: []config.BranchMergeRuleConfig{
+					{
+						SourceBranch: "",
+						TargetBranch: "main",
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "policies.branch_merges[0].source_branch: source_branch is required")
+	})
+
+	t.Run("Missing Target Branch", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				BranchMerges: []config.BranchMergeRuleConfig{
+					{
+						SourceBranch: "staging",
+						TargetBranch: "",
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "policies.branch_merges[0].target_branch: target_branch is required")
+	})
+
+	t.Run("Identical Source and Target Branch", func(t *testing.T) {
+		cfg := &config.PolicyConfig{
+			Version: "v1",
+			Policies: config.PoliciesConfig{
+				BranchMerges: []config.BranchMergeRuleConfig{
+					{
+						SourceBranch: "main",
+						TargetBranch: "main",
+					},
+				},
+			},
+		}
+		err := config.Validate(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "target_branch cannot be identical to source_branch")
+	})
+}

@@ -228,10 +228,23 @@ export interface RepositoryFileItem {
   auto_merge?: boolean;
 }
 
+export interface BranchMergeRuleConfig {
+  source_branch: string;
+  target_branch: string;
+  title?: string;
+  description?: string;
+  labels?: string[];
+  auto_merge?: boolean;
+  remove_source_branch?: boolean;
+  squash?: boolean;
+  merge_when_pipeline_succeeds?: boolean;
+}
+
 export interface PolicyModules {
   push_rules?: PushRulesConfig;
   repository_files?: RepositoryFileItem[];
   protected_branches?: ProtectedBranchConfig[];
+  branch_merges?: BranchMergeRuleConfig[];
   protected_tags?: ProtectedTagConfig[] | ProtectedTagsWrapper;
   protected_environments?: ProtectedEnvironmentConfig[] | ProtectedEnvironmentsWrapper;
   approval_rules?: ApprovalRulesConfig;

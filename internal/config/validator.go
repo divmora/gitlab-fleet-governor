@@ -414,6 +414,38 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 	if len(p.RepositoryFiles) > 0 {
 		validateRepositoryFiles(p.RepositoryFiles, prefix+".repository_files", errs)
 	}
+
+	if len(p.BranchMerges) > 0 {
+		validateBranchMerges(p.BranchMerges, prefix+".branch_merges", errs)
+	}
+}
+
+func validateBranchMerges(merges []BranchMergeRuleConfig, prefix string, errs *ValidationErrors) {
+	for i, m := range merges {
+		mPrefix := fmt.Sprintf("%s[%d]", prefix, i)
+		src := strings.TrimSpace(m.SourceBranch)
+		tgt := strings.TrimSpace(m.TargetBranch)
+
+		if src == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   mPrefix + ".source_branch",
+				Message: "source_branch is required and cannot be empty",
+			})
+		}
+		if tgt == "" {
+			*errs = append(*errs, ValidationError{
+				Field:   mPrefix + ".target_branch",
+				Message: "target_branch is required and cannot be empty",
+			})
+		}
+		if src != "" && tgt != "" && src == tgt {
+			*errs = append(*errs, ValidationError{
+				Field:   mPrefix + ".target_branch",
+				Message: fmt.Sprintf("target_branch cannot be identical to source_branch ('%s')", src),
+				Value:   tgt,
+			})
+		}
+	}
 }
 
 func validateRepositoryFiles(files []RepositoryFileConfig, prefix string, errs *ValidationErrors) {

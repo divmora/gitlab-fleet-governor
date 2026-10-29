@@ -1464,7 +1464,25 @@ func (rt *Router) handleProjectMergeRequests(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if len(parts) >= 4 && parts[3] == "merge" && r.Method == http.MethodPut {
+			existingMR, exists := rt.state.GetMergeRequest(idOrPath, mrIID)
+			if !exists {
+				http.Error(w, `{"message":"404 MR Not Found"}`, http.StatusNotFound)
+				return
+			}
+			if existingMR.HasConflicts {
+				http.Error(w, `{"message":"405 Method Not Allowed - Branch has merge conflicts"}`, http.StatusMethodNotAllowed)
+				return
+			}
 			mr, ok := rt.state.AcceptMergeRequest(idOrPath, mrIID)
+			if !ok {
+				http.Error(w, `{"message":"400 Bad Request - Cannot accept merge request"}`, http.StatusBadRequest)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(mr)
+			return
+		}
+		if r.Method == http.MethodGet {
+			mr, ok := rt.state.GetMergeRequest(idOrPath, mrIID)
 			if !ok {
 				http.Error(w, `{"message":"404 MR Not Found"}`, http.StatusNotFound)
 				return

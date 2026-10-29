@@ -28,12 +28,13 @@ func NewOperationsRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	}
 }
 
-// NewDefaultRegistry instantiates an OperationsRegistry pre-loaded with all 14 governance reconcilers.
+// NewDefaultRegistry instantiates an OperationsRegistry pre-loaded with all 15 governance reconcilers.
 func NewDefaultRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	reg := NewOperationsRegistry(client)
 	reg.Register(NewPushRulesReconciler())
 	reg.Register(NewRepositoryFilesReconciler())
 	reg.Register(NewProtectedBranchesReconciler())
+	reg.Register(NewBranchMergesReconciler())
 	reg.Register(NewProtectedTagsReconciler())
 	reg.Register(NewProtectedEnvironmentsReconciler())
 	reg.Register(NewApprovalRulesReconciler())

@@ -103,6 +103,7 @@ func IsCommunityFeature(feature string) bool {
 	switch strings.TrimSpace(strings.ToLower(feature)) {
 	case "governance.push_rules",
 		"governance.protected_branches",
+		"governance.branch_merges",
 		"governance.project_settings",
 		"governance.members",
 		"governance.variables",

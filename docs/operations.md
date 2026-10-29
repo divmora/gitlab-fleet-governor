@@ -1,6 +1,6 @@
 # Operations Suite
 
-GitLab Fleet Governor implements an ordered suite of 14 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
+GitLab Fleet Governor implements an ordered suite of 15 declarative governance reconcilers. Each reconciler inspects the live resource state ($S_L$), compares it against the desired policy declaration ($S_D$), produces an attribute diff ($S_D \ominus S_L$), and idempotently applies mutations when dry-run is disabled.
 
 ---
 
@@ -14,6 +14,7 @@ Operations execute sequentially per targeted project/group in the following dete
 | 15 | `repository_files` | Project | `GET/POST/PUT /projects/:id/repository/files/:file_path`, `POST /projects/:id/merge_requests` |
 | 20 | `protected_branches` | Project | `GET/POST/PATCH/DELETE /projects/:id/protected_branches/:name` |
 | 22 | `protected_tags` | Project | `GET/POST/DELETE /projects/:id/protected_tags/:name` |
+| 24 | `branch_merges` | Project | `POST/GET/PUT /projects/:id/merge_requests`, `PUT /projects/:id/merge_requests/:mr_iid/merge` |
 | 25 | `protected_environments` | Project | `GET/POST/PUT/DELETE /projects/:id/protected_environments/:name` |
 | 30 | `approval_rules` | Project | `GET/PUT /projects/:id/approvals`, `GET/POST/PUT/DELETE /projects/:id/approval_rules` |
 | 40 | `project_settings` | Project | `GET/PUT /projects/:id` |
@@ -52,7 +53,13 @@ Operations execute sequentially per targeted project/group in the following dete
 - **Unmanaged Tag Protection Pruning**: When `prune: true` is configured, detects unmanaged protected tags present in GitLab that are omitted from desired configuration and deletes them via `DELETE /projects/:id/protected_tags/:name`.
 - **Access Level Normalization**: Supports access level integers (`0` No Access, `30` Developer, `40` Maintainer, `50` Owner, `60` Admin) as well as explicit user/group permissions.
 
-### 5. Protected Environments Reconciler (`protected_environments`)
+### 5. Branch Merges Reconciler (`branch_merges`)
+- **Automated Fleet Branch Promotion**: Merges branch X (source) into branch Y (target) via GitLab Merge Requests across targeted projects.
+- **Conflict-Aware Safety Guarantee**: Inspects merge conflict indicators (`has_conflicts: true`, `detailed_merge_status: "conflict"`, or `merge_status: "cannot_be_merged"`). If conflicts exist, creates or maintains the Merge Request and leaves it open for human maintainer resolution without failing the fleet scan.
+- **Automated Acceptance**: When no conflicts exist and `auto_merge: true` (default), calls `PUT /projects/:id/merge_requests/:mr_iid/merge` to accept the MR with optional `merge_when_pipeline_succeeds`, `remove_source_branch`, and `squash` flags.
+- **Duplicate Prevention**: Queries existing open Merge Requests between source and target branches to guarantee idempotency across repeated runs.
+
+### 6. Protected Environments Reconciler (`protected_environments`)
 - **Deployment Gates & Approvals**: Declaratively configures protected environments (`name`, `required_approval_count`, `deploy_access_levels`, `approval_rules`, `approval_groups`, `approval_users`).
 - **Dynamic Username & Group Path Resolution**: Automatically resolves usernames (`username: "alice"`) and group paths (`group_path: "security/appsec"`) to GitLab IDs with in-memory memoization to avoid redundant API queries.
 - **Wildcard Environment Expansion**: Supports glob pattern matching (e.g. `dr-*`, `prod-*`). Queries the project's actual environments via `GET /projects/:id/environments` and expands concrete protected environment configurations for each matching environment.

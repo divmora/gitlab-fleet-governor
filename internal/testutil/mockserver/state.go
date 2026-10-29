@@ -1552,6 +1552,9 @@ func (s *State) CreateBranch(idOrPath any, branch, ref string) (*gitlab.Branch, 
 	}
 	b := &gitlab.Branch{
 		Name: branch,
+		Commit: &gitlab.Commit{
+			ID: fmt.Sprintf("sha-%s", branch),
+		},
 	}
 	s.branches[id][branch] = b
 
@@ -1613,19 +1616,64 @@ func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, tit
 	iid := s.nextMRIID[id]
 	s.nextMRIID[id]++
 
+	hasConflicts := strings.Contains(sourceBranch, "conflict") || strings.Contains(targetBranch, "conflict")
+	detailedStatus := "mergeable"
+	if hasConflicts {
+		detailedStatus = "conflict"
+	}
+
 	mr := &gitlab.MergeRequest{
-		ID:           iid,
-		IID:          iid,
-		ProjectID:    id,
-		Title:        title,
-		SourceBranch: sourceBranch,
-		TargetBranch: targetBranch,
-		State:        "opened",
-		Labels:       labels,
+		ID:                  iid,
+		IID:                 iid,
+		ProjectID:           id,
+		Title:               title,
+		SourceBranch:        sourceBranch,
+		TargetBranch:        targetBranch,
+		State:               "opened",
+		Labels:              labels,
+		HasConflicts:        hasConflicts,
+		DetailedMergeStatus: detailedStatus,
 	}
 	s.mergeRequests[id][iid] = mr
 	cp := *mr
 	return &cp, true
+}
+
+func (s *State) GetMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.mergeRequests[id] == nil {
+		return nil, false
+	}
+	mr, found := s.mergeRequests[id][mrIID]
+	if !found {
+		return nil, false
+	}
+	cp := *mr
+	return &cp, true
+}
+
+func (s *State) SetMergeRequestConflicts(idOrPath any, mrIID int, hasConflicts bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveProjectIDLocked(idOrPath)
+	if !ok || s.mergeRequests[id] == nil {
+		return false
+	}
+	mr, found := s.mergeRequests[id][mrIID]
+	if !found {
+		return false
+	}
+	mr.HasConflicts = hasConflicts
+	if hasConflicts {
+		mr.DetailedMergeStatus = "conflict"
+	} else {
+		mr.DetailedMergeStatus = "mergeable"
+	}
+	return true
 }
 
 func (s *State) AcceptMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, bool) {
@@ -1638,6 +1686,9 @@ func (s *State) AcceptMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeReques
 	}
 	mr, found := s.mergeRequests[id][mrIID]
 	if !found {
+		return nil, false
+	}
+	if mr.HasConflicts {
 		return nil, false
 	}
 	mr.State = "merged"
