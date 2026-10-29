@@ -18,7 +18,7 @@ var ProductGenesisEpoch = time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 var (
 	// Version is the current semver release.
 	// Overridden at build time via -ldflags "-X github.com/divmora/gitlab-fleet-governor/pkg/version.Version=...".
-	Version = "0.16.0" // x-release-please-version
+	Version = "0.17.0" // x-release-please-version
 
 	// GitCommit is the git commit SHA of the build.
 	// Overridden at build time via -ldflags "-X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit=...".

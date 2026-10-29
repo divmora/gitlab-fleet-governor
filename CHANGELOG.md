@@ -7,6 +7,20 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.17.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.16.0...v0.17.0) (2026-10-29)
+
+
+### Features
+
+* add conflict-aware branch merge via merge request reconciler and CLI command ([c66132e](https://github.com/divmora/gitlab-fleet-governor/commit/c66132e0e8fc45e2973ba5e1230b0c3e6d5f8900))
+
+
+### Bug Fixes
+
+* **security:** harden file path handling and prevent uncontrolled path expressions ([efcd2d6](https://github.com/divmora/gitlab-fleet-governor/commit/efcd2d6d9f1cddbd4c369147d8a89ddb172a4dc6))
+* **security:** resolve excelize CVEs, sanitize secret template, and harden IaC manifests ([74d60ba](https://github.com/divmora/gitlab-fleet-governor/commit/74d60ba6996034780377e1c2efbce9825f4f0009))
+* **version:** annotate Version in version.go for release-please automation ([fff2e5b](https://github.com/divmora/gitlab-fleet-governor/commit/fff2e5b3a70ae88349ce4ae99d592723e83b4289))
+
 ## [0.16.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.15.0...v0.16.0) (2026-10-14)
 
 

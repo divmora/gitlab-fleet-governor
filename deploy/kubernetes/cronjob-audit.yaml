@@ -36,7 +36,7 @@ spec:
           containers:
             - name: governor-audit
               # x-release-please-start-version
-              image: ghcr.io/divmora/gitlab-fleet-governor:v0.16.0
+              image: ghcr.io/divmora/gitlab-fleet-governor:v0.17.0
               # x-release-please-end
               imagePullPolicy: IfNotPresent
               command:
