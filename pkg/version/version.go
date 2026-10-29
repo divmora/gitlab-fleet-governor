@@ -16,9 +16,9 @@ const BSLChangePeriodYears = 3
 var ProductGenesisEpoch = time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 
 var (
-	// Version is the current semver release (e.g. "0.1.0") or "dev".
+	// Version is the current semver release.
 	// Overridden at build time via -ldflags "-X github.com/divmora/gitlab-fleet-governor/pkg/version.Version=...".
-	Version = "dev"
+	Version = "0.16.0" // x-release-please-version
 
 	// GitCommit is the git commit SHA of the build.
 	// Overridden at build time via -ldflags "-X github.com/divmora/gitlab-fleet-governor/pkg/version.GitCommit=...".
