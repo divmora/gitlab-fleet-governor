@@ -9,7 +9,7 @@ require (
 	github.com/divmora/license-go v1.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
-	github.com/xuri/excelize/v2 v2.11.1-0.20261029001137-c5fd73bde8f6
+	github.com/xuri/excelize/v2 v2.11.1
 	gitlab.com/gitlab-org/api/client-go v0.123.0
 	golang.org/x/time v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
