@@ -94,7 +94,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
                 title={node.description}
                 onClick={() => onSelectNode(node.id)}
                 style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                className={`absolute w-38 p-2.5 rounded-xl border transition-all cursor-pointer select-none shadow-lg backdrop-blur-md ${
+                className={`absolute p-2.5 rounded-xl border transition-all cursor-pointer select-none shadow-lg backdrop-blur-md ${
                   isSelected
                     ? 'border-indigo-500 bg-indigo-950/90 ring-2 ring-indigo-500/50 scale-105 z-20 shadow-indigo-500/10'
                     : isActive
@@ -104,7 +104,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
               >
                 <div className="flex items-center justify-between gap-1 mb-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm flex-shrink-0">{node.icon}</span>
+                    <span className="text-sm shrink-0">{node.icon}</span>
                     <span className="font-bold text-xs text-white truncate">{node.label}</span>
                   </div>
 
@@ -117,14 +117,14 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
                         e.stopPropagation();
                         onToggleReconciler?.(node.reconcilerKey!, !isActive);
                       }}
-                      className={`w-7 h-4 flex items-center rounded-full p-0.5 transition-colors flex-shrink-0 ${
+                      className={`w-7 h-4 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
                         isActive ? 'bg-indigo-600 justify-end' : 'bg-slate-700 justify-start'
                       }`}
                     >
-                      <span className="w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform" />
+                      <span className="w-3 h-3 rounded-full bg-white shadow-xs transform transition-transform" />
                     </button>
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                   )}
                 </div>
 
@@ -134,7 +134,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
                   </span>
                   {node.badge && (
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold flex-shrink-0 ${
+                      className={`px-1.5 py-0.5 rounded-sm text-[9px] font-mono font-semibold shrink-0 ${
                         isActive
                           ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                           : 'bg-slate-800 text-slate-500'

@@ -158,7 +158,7 @@ export const ReconcilerCheatSheet: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border border-slate-800 shadow-xl">
+      <div className="p-6 rounded-2xl bg-linear-to-r from-slate-900 via-indigo-950/30 to-slate-900 border border-slate-800 shadow-xl">
         <div className="flex items-center gap-2.5 text-base font-bold text-white mb-2">
           <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
             <Shield className="w-5 h-5" />

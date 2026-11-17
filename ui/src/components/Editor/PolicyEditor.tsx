@@ -167,7 +167,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
       <div className="px-5 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3 select-none">
         {/* Left Side: Window Controls, Filename, Validation Pill */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex gap-1.5 flex-shrink-0">
+          <div className="flex gap-1.5 shrink-0">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
@@ -179,15 +179,15 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
 
           {validation.isValid ? (
             <Tooltip content="Policy configuration matches valid AST schema (0 errors)">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0 cursor-default">
-                <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0 cursor-default">
+                <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Valid</span>
               </span>
             </Tooltip>
           ) : (
             <Tooltip content={validation.errors[0]?.message || 'Schema errors detected'}>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-[140px] truncate flex-shrink-0 cursor-help">
-                <AlertCircle className="w-3 h-3 flex-shrink-0" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-[140px] truncate shrink-0 cursor-help">
+                <AlertCircle className="w-3 h-3 shrink-0" />
                 <span className="truncate">Invalid</span>
               </span>
             </Tooltip>
@@ -195,14 +195,14 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
         </div>
 
         {/* Right Side: Format Switch & Pure Icon Action Buttons with Tooltips */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Format Toggle */}
           <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800 mr-1">
             <Tooltip content="Edit in YAML syntax">
               <button
                 onClick={() => onSwitchFormat('yaml')}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  format === 'yaml' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  format === 'yaml' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 YAML
@@ -212,7 +212,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
               <button
                 onClick={() => onSwitchFormat('json')}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  format === 'json' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  format === 'json' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 JSON
@@ -225,7 +225,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
             <button
               onClick={handleCopyCode}
               aria-label="Copy code"
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-xs flex items-center justify-center cursor-pointer"
             >
               {copied ? (
                 <Check className="w-4 h-4 text-emerald-400" />
@@ -240,7 +240,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
             <button
               onClick={handleDownload}
               aria-label={`Download fleet-policy.${format}`}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white border border-slate-700/60 transition-all shadow-xs flex items-center justify-center cursor-pointer"
             >
               <Download className="w-4 h-4" />
             </button>
@@ -251,7 +251,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
             <button
               onClick={handleCopyCli}
               aria-label="Copy CLI command"
-              className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+              className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-cyan-300 hover:text-cyan-200 border border-cyan-800/40 transition-all shadow-xs flex items-center justify-center cursor-pointer"
             >
               {cliCopied ? (
                 <Check className="w-4 h-4 text-cyan-400" />
@@ -277,7 +277,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
                 key={i}
                 className={`h-[22px] transition-colors duration-150 ${
                   isHighlighted
-                    ? 'text-indigo-300 font-bold bg-indigo-500/20 -mr-3 pr-3 rounded-l border-r-2 border-indigo-400'
+                    ? 'text-indigo-300 font-bold bg-indigo-500/20 -mr-3 pr-3 rounded-l-sm border-r-2 border-indigo-400'
                     : ''
                 }`}
               >
@@ -319,7 +319,7 @@ export const PolicyEditor: React.FC<PolicyEditorProps> = ({
             value={code}
             onScroll={handleScroll}
             onChange={(e) => onChange(e.target.value, format)}
-            className="relative z-10 w-full h-full p-4 bg-transparent text-slate-200 text-xs font-mono resize-none focus:outline-none leading-[22px] overflow-y-auto whitespace-pre selection:bg-indigo-500/30 selection:text-white"
+            className="relative z-10 w-full h-full p-4 bg-transparent text-slate-200 text-xs font-mono resize-none focus:outline-hidden leading-[22px] overflow-y-auto whitespace-pre selection:bg-indigo-500/30 selection:text-white"
             spellCheck={false}
           />
         </div>
