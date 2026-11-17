@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-indigo-500 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
             <Shield className="w-5 h-5" />
           </div>
           <div>
@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setActiveTab('studio')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'studio' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              activeTab === 'studio' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -45,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setActiveTab('docs')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'docs' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              activeTab === 'docs' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setActiveTab('llm')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'llm' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              activeTab === 'llm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5 text-cyan-400" />
@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
           <select
             onChange={(e) => onSelectPreset(e.target.value)}
             defaultValue="soc2"
-            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 focus:outline-hidden focus:border-indigo-500"
           >
             {Object.entries(PRESETS).map(([k, v]) => (
               <option key={k} value={k}>

@@ -54,7 +54,7 @@ When writing policies:
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/20 shadow-xl">
+      <div className="p-6 rounded-2xl bg-linear-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/20 shadow-xl">
         <div className="flex items-center gap-2.5 text-base font-bold text-white mb-2">
           <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
             <Bot className="w-5 h-5" />
@@ -72,7 +72,7 @@ When writing policies:
           href="https://deepwiki.com/divmora/gitlab-fleet-governor"
           target="_blank"
           rel="noopener noreferrer"
-          className="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900/80 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-lg group flex flex-col justify-between"
+          className="p-5 rounded-2xl bg-linear-to-br from-indigo-950/40 to-slate-900/80 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-lg group flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -84,7 +84,7 @@ When writing policies:
             </p>
           </div>
           <div>
-            <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" className="h-5 rounded" />
+            <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" className="h-5 rounded-sm" />
           </div>
         </a>
 
