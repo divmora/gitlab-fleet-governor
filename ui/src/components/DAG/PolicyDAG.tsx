@@ -94,7 +94,7 @@ export const PolicyDAG: React.FC<PolicyDAGProps> = ({
                 title={node.description}
                 onClick={() => onSelectNode(node.id)}
                 style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                className={`absolute w-38 p-2.5 rounded-xl border transition-all cursor-pointer select-none shadow-lg backdrop-blur-md ${
+                className={`absolute p-2.5 rounded-xl border transition-all cursor-pointer select-none shadow-lg backdrop-blur-md ${
                   isSelected
                     ? 'border-indigo-500 bg-indigo-950/90 ring-2 ring-indigo-500/50 scale-105 z-20 shadow-indigo-500/10'
                     : isActive
