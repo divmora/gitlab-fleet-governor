@@ -264,6 +264,9 @@ a node-locked commercial license token bound to this specific environment.`,
 			fmt.Fprintf(cmd.OutOrStdout(), "Short Digest     : %s\n", fp.ShortDigest)
 			fmt.Fprintf(cmd.OutOrStdout(), "Canonical Digest : %s\n", fp.CanonicalDigest)
 			fmt.Fprintf(cmd.OutOrStdout(), "Resolved At      : %s\n", fp.ResolvedAt.UTC().Format(time.RFC3339))
+			for _, alt := range fp.Alternates {
+				fmt.Fprintf(cmd.OutOrStdout(), "Also Matches     : %s (%s)\n", alt.Primary, alt.Platform)
+			}
 
 			if len(fp.Components) > 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "\nHardware & System Attributes:")
