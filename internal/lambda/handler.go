@@ -100,7 +100,7 @@ func NewHandler(opts ...HandlerOption) *Handler {
 // HandleRequest is the main Lambda entry point invoked by lambda.Start.
 func (h *Handler) HandleRequest(ctx context.Context, rawEvent json.RawMessage) (resp any, err error) {
 	startTime := time.Now()
-	var eventType EventType = EventTypeUnknown
+	eventType := EventTypeUnknown
 
 	// Panic Recovery Harness for AWS Lambda
 	defer func() {

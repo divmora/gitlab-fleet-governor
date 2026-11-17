@@ -881,7 +881,7 @@ func TestValidateWithWarnings_TargetBranchRules(t *testing.T) {
 			},
 		}
 
-		err, warns := config.ValidateWithWarnings(cfg)
+		warns, err := config.ValidateWithWarnings(cfg)
 		require.NoError(t, err)
 		require.Len(t, warns, 1)
 		assert.Equal(t, "policies.target_branch_rules.rules[0].name", warns[0].Field)
@@ -901,7 +901,7 @@ func TestValidateWithWarnings_TargetBranchRules(t *testing.T) {
 			},
 		}
 
-		err, warns := config.ValidateWithWarnings(cfg)
+		warns, err := config.ValidateWithWarnings(cfg)
 		require.NoError(t, err)
 		assert.Empty(t, warns)
 	})

@@ -986,11 +986,12 @@ func (rt *Router) handleProjectPipelines(w http.ResponseWriter, r *http.Request,
 
 	// Sort pipelines
 	sortDir := strings.ToLower(q.Get("sort"))
-	if sortDir == "asc" {
+	switch sortDir {
+	case "asc":
 		sort.Slice(pipelines, func(i, j int) bool {
 			return pipelines[i].ID < pipelines[j].ID
 		})
-	} else if sortDir == "desc" {
+	case "desc":
 		sort.Slice(pipelines, func(i, j int) bool {
 			return pipelines[i].ID > pipelines[j].ID
 		})

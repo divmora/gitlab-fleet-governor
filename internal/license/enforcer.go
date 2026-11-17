@@ -211,7 +211,7 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 					"capacity", maxProjects,
 				)
 			} else {
-				return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity.",
+				return status, fmt.Errorf("FLEET CAPACITY EXCEEDED: Governing %d production projects exceeds your licensed capacity of %d projects (%s Tier). Please contact licensing@divmora.com to upgrade your fleet capacity",
 					opts.DiscoveredProjects, maxProjects, strings.ToUpper(planName))
 			}
 		}

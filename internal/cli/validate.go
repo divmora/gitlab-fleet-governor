@@ -106,7 +106,7 @@ func executeValidate(cmd *cobra.Command, flags validateFlags) error {
 
 	cfg.SetDefaults()
 
-	valErr, warnings := cfg.ValidateWithWarnings()
+	warnings, valErr := cfg.ValidateWithWarnings()
 	if valErr != nil {
 		return handleValidateError(cmd.OutOrStdout(), flags, sourceDesc, valErr, warnings)
 	}
