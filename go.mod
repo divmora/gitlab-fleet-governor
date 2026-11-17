@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.12
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
-	github.com/divmora/license-go v1.4.1
+	github.com/divmora/license-go v1.4.3
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/xuri/excelize/v2 v2.11.1-0.20261029001137-c5fd73bde8f6

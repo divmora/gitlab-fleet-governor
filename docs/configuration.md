@@ -448,6 +448,9 @@ GitLab Fleet Governor supports offline Certificate Revocation Lists (`.divcrl`) 
 
 When an active commercial license matches an entry in the resolved CRL, operations halt with an actionable `COMMERCIAL LICENSE REVOKED` error identifying the revoked license ID, revocation timestamp, reason, and CRL ID.
 
+> [!TIP]
+> For what the CRL request sends, egress proxies, internal mirrors, persistent caching and air-gapped installs, see [Network & License Connectivity](network.md).
+
 ### Managing Commercial Licenses (`license-cli`)
 
 DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/license-go` for operators, platform teams, and enterprise administrators.
@@ -457,7 +460,7 @@ DIVMORA provides the centralized `license-cli` utility from `github.com/divmora/
 Install the official multi-product CLI via Go:
 
 ```bash
-go install github.com/divmora/license-go/cmd/license-cli@v1.3.1
+go install github.com/divmora/license-go/cmd/license-cli@v1.4.3
 ```
 
 #### Operator Workflows

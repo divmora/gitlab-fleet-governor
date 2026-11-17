@@ -94,10 +94,7 @@ func WithTitle(title string) Option {
 
 // DefaultOptions returns standard sensible rendering options.
 func DefaultOptions() Options {
-	color := true
-	if os.Getenv("NO_COLOR") != "" {
-		color = false
-	}
+	color := os.Getenv("NO_COLOR") == ""
 	return Options{
 		Color:        color,
 		IndentJSON:   true,

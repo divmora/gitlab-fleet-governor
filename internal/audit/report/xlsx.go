@@ -410,11 +410,12 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 			_ = g.file.SetCellStyle(sheet, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), g.metricKeyStyle)
 			valStyle := g.dataCellStyle
 			if lr.Key == "Entitlement Status" {
-				if att.Status == "VALID_COMMERCIAL" || att.Status == "APACHE_2_CONVERTED" || att.Status == "EXEMPTED_DRY_RUN" {
+				switch att.Status {
+				case "VALID_COMMERCIAL", "APACHE_2_CONVERTED", "EXEMPTED_DRY_RUN":
 					valStyle = g.passStatusStyle
-				} else if att.Status == "OPERATING_IN_GRACE_PERIOD" {
+				case "OPERATING_IN_GRACE_PERIOD":
 					valStyle = g.warnStatusStyle
-				} else {
+				default:
 					valStyle = g.centerCellStyle
 				}
 			}

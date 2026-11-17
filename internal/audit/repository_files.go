@@ -182,9 +182,10 @@ func attachHeader(filePath, content string) string {
 	}
 
 	header := "# Enterprise policy\n# Auto-managed by gitlab-fleet-governor — do not edit manually\n"
-	if ext == ".md" || ext == ".html" {
+	switch ext {
+	case ".md", ".html":
 		header = "<!-- Auto-managed by gitlab-fleet-governor — do not edit manually -->\n"
-	} else if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".java" || ext == ".c" || ext == ".cpp" || ext == ".rs" {
+	case ".go", ".js", ".ts", ".java", ".c", ".cpp", ".rs":
 		header = "// Enterprise policy\n// Auto-managed by gitlab-fleet-governor — do not edit manually\n"
 	}
 

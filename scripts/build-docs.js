@@ -39,6 +39,7 @@ const docPages = [
   { file: 'docs/operations.md', slug: 'operations', title: '11 Governance Reconcilers', section: 'Core References' },
   { file: 'docs/lambda.md', slug: 'lambda', title: 'AWS Lambda & Serverless Triggers', section: 'Operations' },
   { file: 'docs/ci-cd.md', slug: 'ci-cd', title: 'CI/CD Pipelines & Automation', section: 'Operations' },
+  { file: 'docs/network.md', slug: 'network', title: 'Network & License Connectivity', section: 'Operations' },
   { file: 'docs/architecture.md', slug: 'architecture', title: 'Engine Architecture & Rate Limiting', section: 'Architecture & AI' },
   { file: 'docs/llms.md', slug: 'llms', title: 'LLM Integration & Prompt Library', section: 'Architecture & AI' },
 ];

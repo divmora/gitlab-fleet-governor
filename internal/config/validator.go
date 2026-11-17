@@ -53,11 +53,11 @@ func (v ValidationErrors) Errors() []ValidationError {
 }
 
 // ValidateWithWarnings performs comprehensive semantic validation and returns errors and non-fatal warnings.
-func ValidateWithWarnings(cfg *PolicyConfig) (error, []ValidationWarning) {
+func ValidateWithWarnings(cfg *PolicyConfig) ([]ValidationWarning, error) {
 	if cfg == nil {
-		return ValidationErrors{
+		return nil, ValidationErrors{
 			{Field: "config", Message: "policy config cannot be nil"},
-		}, nil
+		}
 	}
 
 	var errs ValidationErrors
@@ -68,19 +68,19 @@ func ValidateWithWarnings(cfg *PolicyConfig) (error, []ValidationWarning) {
 	validatePolicies(&cfg.Policies, "policies", &errs, &warns)
 
 	if len(errs) > 0 {
-		return errs, warns
+		return warns, errs
 	}
-	return nil, warns
+	return warns, nil
 }
 
 // ValidateWithWarnings invokes ValidateWithWarnings on the receiver PolicyConfig.
-func (p *PolicyConfig) ValidateWithWarnings() (error, []ValidationWarning) {
+func (p *PolicyConfig) ValidateWithWarnings() ([]ValidationWarning, error) {
 	return ValidateWithWarnings(p)
 }
 
 // Validate performs comprehensive semantic validation on PolicyConfig.
 func Validate(cfg *PolicyConfig) error {
-	err, _ := ValidateWithWarnings(cfg)
+	_, err := ValidateWithWarnings(cfg)
 	return err
 }
 

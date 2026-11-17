@@ -266,7 +266,7 @@ func (s *MockGitLabServer) Seed() {
 	}, &gitlab.RunnerDetails{
 		ID:          1,
 		Description: "shared-runner-01",
-		Active:      true,
+		Active:      true, //nolint:staticcheck // SA1019: the mock mirrors GitLab's legacy "active" field alongside "paused".
 		Paused:      false,
 		Locked:      false,
 		TagList:     []string{"docker", "linux"},
