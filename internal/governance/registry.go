@@ -242,7 +242,7 @@ func (r *OperationsRegistry) PlanTargetProject(ctx context.Context, target *disc
 		}
 		if target.MarkedForDeletionAt != nil {
 			iso := gogitlab.ISOTime(*target.MarkedForDeletionAt)
-			raw.MarkedForDeletionAt = &iso
+			raw.MarkedForDeletionOn = &iso
 		}
 	}
 	return r.PlanProject(ctx, raw, cfg)
@@ -262,7 +262,7 @@ func (r *OperationsRegistry) ApplyTargetProject(ctx context.Context, target *dis
 		}
 		if target.MarkedForDeletionAt != nil {
 			iso := gogitlab.ISOTime(*target.MarkedForDeletionAt)
-			raw.MarkedForDeletionAt = &iso
+			raw.MarkedForDeletionOn = &iso
 		}
 	}
 	return r.ApplyProject(ctx, raw, cfg)

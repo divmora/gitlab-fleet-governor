@@ -355,10 +355,8 @@ func (r *RepositoryFilesReconciler) Apply(ctx context.Context, client gitlab.Git
 			}
 
 			if fileCfg.AutoMerge != nil && *fileCfg.AutoMerge && mr != nil {
-				acceptOpt := &gogitlab.AcceptMergeRequestOptions{
-					MergeWhenPipelineSucceeds: gogitlab.Ptr(true),
-					ShouldRemoveSourceBranch:  gogitlab.Ptr(true),
-				}
+				acceptOpt := autoMergeAcceptOptions(true)
+				acceptOpt.ShouldRemoveSourceBranch = gogitlab.Ptr(true)
 				_, _, acceptErr := client.MergeRequests().AcceptMergeRequest(project.ID, mr.IID, acceptOpt, gogitlab.WithContext(ctx))
 				if acceptErr != nil {
 					slog.Warn("Failed to configure auto-merge on merge request", "mr", mr.IID, "project", project.PathWithNamespace, "error", acceptErr)

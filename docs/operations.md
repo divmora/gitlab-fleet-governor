@@ -56,7 +56,7 @@ Operations execute sequentially per targeted project/group in the following dete
 ### 5. Branch Merges Reconciler (`branch_merges`)
 - **Automated Fleet Branch Promotion**: Merges branch X (source) into branch Y (target) via GitLab Merge Requests across targeted projects.
 - **Conflict-Aware Safety Guarantee**: Inspects merge conflict indicators (`has_conflicts: true`, `detailed_merge_status: "conflict"`, or `merge_status: "cannot_be_merged"`). If conflicts exist, creates or maintains the Merge Request and leaves it open for human maintainer resolution without failing the fleet scan.
-- **Automated Acceptance**: When no conflicts exist and `auto_merge: true` (default), calls `PUT /projects/:id/merge_requests/:mr_iid/merge` to accept the MR with optional `merge_when_pipeline_succeeds`, `remove_source_branch`, and `squash` flags.
+- **Automated Acceptance**: When no conflicts exist and `auto_merge: true` (default), calls `PUT /projects/:id/merge_requests/:mr_iid/merge` to accept the MR with optional `merge_when_pipeline_succeeds`, `remove_source_branch`, and `squash` flags. The policy's `merge_when_pipeline_succeeds` value (default `true`) is sent as both GitLab's `auto_merge` parameter and the legacy `merge_when_pipeline_succeeds` parameter, so newer GitLab versions and older self-managed versions that predate `auto_merge` both wait for the pipeline instead of merging immediately.
 - **Duplicate Prevention**: Queries existing open Merge Requests between source and target branches to guarantee idempotency across repeated runs.
 
 ### 6. Protected Environments Reconciler (`protected_environments`)

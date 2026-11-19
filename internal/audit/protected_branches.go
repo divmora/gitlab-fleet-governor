@@ -44,7 +44,7 @@ func (a *ProtectedBranchesAuditor) AuditProject(ctx context.Context, client gl.G
 
 	// Project active/archived/inactive/pending deletion state
 	var lastAct *time.Time
-	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
+	isMarked := project.IsPendingDeletion()
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 	}

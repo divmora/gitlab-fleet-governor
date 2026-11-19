@@ -184,6 +184,7 @@ func cloneProject(p *gitlab.Project) *gitlab.Project {
 		return nil
 	}
 	cp := *p
+	//nolint:staticcheck // SA1019: the mock mirrors GitLab's legacy tag_list field.
 	if p.TagList != nil {
 		cp.TagList = append([]string(nil), p.TagList...)
 	}
@@ -1622,7 +1623,7 @@ func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, tit
 		detailedStatus = "conflict"
 	}
 
-	mr := &gitlab.MergeRequest{
+	mr := &gitlab.MergeRequest{BasicMergeRequest: gitlab.BasicMergeRequest{
 		ID:                  iid,
 		IID:                 iid,
 		ProjectID:           id,
@@ -1633,7 +1634,7 @@ func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, tit
 		Labels:              labels,
 		HasConflicts:        hasConflicts,
 		DetailedMergeStatus: detailedStatus,
-	}
+	}}
 	s.mergeRequests[id][iid] = mr
 	cp := *mr
 	return &cp, true

@@ -455,8 +455,8 @@ func inspectApprovalRules(ctx context.Context, client glclient.GitLabClient, pro
 	cfg := &config.ApprovalRulesConfig{}
 
 	if app != nil {
-		if app.ApprovalsBeforeMerge > 0 {
-			cfg.ApprovalsBeforeMerge = ptrInt(app.ApprovalsBeforeMerge)
+		if approvalsBeforeMerge := app.ApprovalsBeforeMerge; approvalsBeforeMerge > 0 { //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting; GitLab still honors it.
+			cfg.ApprovalsBeforeMerge = ptrInt(approvalsBeforeMerge)
 		}
 		if app.ResetApprovalsOnPush {
 			cfg.ResetApprovalsOnPush = ptrBool(app.ResetApprovalsOnPush)
@@ -603,8 +603,7 @@ func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, p
 		cfg.ContainerExpirationPolicy = &config.ContainerExpirationPolicyConfig{
 			Cadence:         cep.Cadence,
 			OlderThan:       cep.OlderThan,
-			NameRegex:       cep.NameRegex,
-			NameRegexDelete: cep.NameRegexDelete,
+			NameRegexDelete: containerNameRegexDelete(cep),
 			NameRegexKeep:   cep.NameRegexKeep,
 		}
 		if cep.Enabled {
@@ -1491,3 +1490,12 @@ func logWarning(opts ExportOptions, projectPath, reconciler string, err error) {
 
 func ptrBool(b bool) *bool { return &b }
 func ptrInt(i int) *int    { return &i }
+
+// containerNameRegexDelete returns the container expiration delete regex,
+// falling back to the legacy name_regex that GitLab treats as its alias.
+func containerNameRegexDelete(cep *gitlab.ContainerExpirationPolicy) string {
+	if cep.NameRegexDelete != "" {
+		return cep.NameRegexDelete
+	}
+	return cep.NameRegex //nolint:staticcheck // SA1019: legacy alias still returned by older GitLab versions.
+}

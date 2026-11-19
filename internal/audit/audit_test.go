@@ -465,7 +465,7 @@ func TestAuditor_MarkedForDeletionProject(t *testing.T) {
 	targetProj.MarkedForDeletion = true
 	targetProj.MarkedForDeletionAt = &now
 	server.State().UpdateProject(targetProj.ID, func(p *gogitlab.Project) {
-		p.MarkedForDeletionAt = &isoNow
+		p.MarkedForDeletionOn = &isoNow
 	})
 
 	server.State().AddProjectMember(targetProj.ID, &gogitlab.ProjectMember{
