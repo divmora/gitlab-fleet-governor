@@ -601,7 +601,7 @@ func (e *GovernanceEngine) executeProject(ctx context.Context, target *discovery
 		Operations:   make([]*OperationResult, 0),
 	}
 
-	if target.MarkedForDeletion || target.MarkedForDeletionAt != nil || (target.Raw != nil && target.Raw.MarkedForDeletionAt != nil) {
+	if target.IsPendingDeletion() {
 		slog.Info("Skipping reconciliation: project is marked for deletion",
 			"project", target.PathWithNamespace,
 			"id", target.ID,

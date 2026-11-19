@@ -224,7 +224,7 @@ func (s *MockGitLabServer) Seed() {
 
 	// 6. MR Approvals & Rules
 	s.state.SetProjectApprovals(p1.ID, &gitlab.ProjectApprovals{
-		ApprovalsBeforeMerge: 2,
+		ApprovalsBeforeMerge: 2, //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting.
 		ResetApprovalsOnPush: true,
 	})
 
@@ -261,7 +261,8 @@ func (s *MockGitLabServer) Seed() {
 		ID:          1,
 		Description: "shared-runner-01",
 		IsShared:    true,
-		Active:      true,
+		Active:      true, //nolint:staticcheck // SA1019: the mock mirrors GitLab's legacy field.
+		Paused:      false,
 		Online:      true,
 	}, &gitlab.RunnerDetails{
 		ID:          1,

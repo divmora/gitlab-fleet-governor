@@ -187,7 +187,7 @@ func (r *BranchMergesReconciler) Apply(ctx context.Context, client gitlab.GitLab
 		var targetMR *gogitlab.MergeRequest
 
 		if len(mrs) > 0 {
-			targetMR = mrs[0]
+			targetMR = &gogitlab.MergeRequest{BasicMergeRequest: *mrs[0]}
 			refreshedMR, _, getErr := client.MergeRequests().GetMergeRequest(project.ID, targetMR.IID, nil, gogitlab.WithContext(ctx))
 			if getErr == nil && refreshedMR != nil {
 				targetMR = refreshedMR
@@ -258,12 +258,11 @@ func (r *BranchMergesReconciler) Apply(ctx context.Context, client gitlab.GitLab
 
 		// No conflicts detected
 		if autoMerge {
-			acceptOpts := &gogitlab.AcceptMergeRequestOptions{}
+			waitForPipeline := true
 			if rule.MergeWhenPipelineSucceeds != nil {
-				acceptOpts.MergeWhenPipelineSucceeds = rule.MergeWhenPipelineSucceeds
-			} else {
-				acceptOpts.MergeWhenPipelineSucceeds = gogitlab.Ptr(true)
+				waitForPipeline = *rule.MergeWhenPipelineSucceeds
 			}
+			acceptOpts := autoMergeAcceptOptions(waitForPipeline)
 			if rule.RemoveSourceBranch != nil {
 				acceptOpts.ShouldRemoveSourceBranch = rule.RemoveSourceBranch
 			}
@@ -324,4 +323,17 @@ func (r *BranchMergesReconciler) PlanGroup(ctx context.Context, client gitlab.Gi
 // ApplyGroup returns skipped because branch merges only apply to projects.
 func (r *BranchMergesReconciler) ApplyGroup(ctx context.Context, client gitlab.GitLabClient, group *gogitlab.Group, cfg *config.PolicyConfig) (*ApplyResult, error) {
 	return NewSkippedApplyResult(r.Name(), ResourceTypeGroup, group.ID, group.FullPath, "Branch merges governance is not applicable to groups"), nil
+}
+
+// autoMergeAcceptOptions builds accept options that ask GitLab to merge once the
+// pipeline succeeds (waitForPipeline true) or to merge immediately (false).
+//
+// GitLab replaced merge_when_pipeline_succeeds with auto_merge. Both are sent:
+// newer GitLab reads auto_merge, while older versions ignore it and would merge
+// immediately without the legacy parameter.
+func autoMergeAcceptOptions(waitForPipeline bool) *gogitlab.AcceptMergeRequestOptions {
+	return &gogitlab.AcceptMergeRequestOptions{
+		AutoMerge:                 gogitlab.Ptr(waitForPipeline),
+		MergeWhenPipelineSucceeds: gogitlab.Ptr(waitForPipeline), //nolint:staticcheck // SA1019: older GitLab versions only understand this parameter.
+	}
 }

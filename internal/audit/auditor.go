@@ -333,7 +333,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	archivedCount := 0
 	pendingDeletionCount := 0
 	for _, p := range projects {
-		if p.MarkedForDeletion || p.MarkedForDeletionAt != nil || (p.Raw != nil && p.Raw.MarkedForDeletionAt != nil) {
+		if p.IsPendingDeletion() {
 			pendingDeletionCount++
 		} else if p.Archived {
 			archivedCount++

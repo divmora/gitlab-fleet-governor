@@ -66,7 +66,7 @@ func setupMockServerWithFullProject(t *testing.T) (*mockserver.MockGitLabServer,
 
 	// 4. Approval Rules & Configuration
 	server.State().SetProjectApprovals(proj.ID, &gitlab.ProjectApprovals{
-		ApprovalsBeforeMerge: 2,
+		ApprovalsBeforeMerge: 2, //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting.
 		ResetApprovalsOnPush: true,
 	})
 	server.State().AddApprovalRule(proj.ID, &gitlab.ProjectApprovalRule{
@@ -506,10 +506,10 @@ func TestExportFleetPolicy_StrategyConsensus_Omission(t *testing.T) {
 
 	// Identical MR Approvals
 	server.State().SetProjectApprovals(proj1.ID, &gitlab.ProjectApprovals{
-		ApprovalsBeforeMerge: 2,
+		ApprovalsBeforeMerge: 2, //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting.
 	})
 	server.State().SetProjectApprovals(proj2.ID, &gitlab.ProjectApprovals{
-		ApprovalsBeforeMerge: 2,
+		ApprovalsBeforeMerge: 2, //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting.
 	})
 
 	client, err := glclient.NewClientFromConfig(&config.GitLabSettingsConfig{

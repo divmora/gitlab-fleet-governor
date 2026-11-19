@@ -36,6 +36,11 @@ type TargetProject struct {
 	Raw                 *gitlab.Project `json:"-"`
 }
 
+// IsPendingDeletion reports whether GitLab has scheduled the project for deletion.
+func (t *TargetProject) IsPendingDeletion() bool {
+	return t.MarkedForDeletion || t.MarkedForDeletionAt != nil || gl.ProjectDeletionScheduledAt(t.Raw) != nil
+}
+
 // TargetGroup encapsulates a matched group and its targeting context.
 type TargetGroup struct {
 	ID       int           `json:"id"`
@@ -250,8 +255,8 @@ func (a *fleetAccumulator) AddProjectIfMatches(p *gitlab.Project, filter *Projec
 	if _, exists := a.projects[p.ID]; !exists {
 		var markedAt *time.Time
 		isMarked := false
-		if p.MarkedForDeletionAt != nil {
-			t := time.Time(*p.MarkedForDeletionAt)
+		if scheduled := gl.ProjectDeletionScheduledAt(p); scheduled != nil {
+			t := time.Time(*scheduled)
 			markedAt = &t
 			isMarked = true
 		}

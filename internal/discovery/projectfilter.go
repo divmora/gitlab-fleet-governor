@@ -8,6 +8,7 @@ import (
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
+	gl "github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 // FilterDecision indicates why a project was accepted or rejected.
@@ -159,11 +160,11 @@ func (pf *ProjectFilter) Evaluate(p *gitlab.Project) FilterResult {
 		// When archived: false (active only) is specified, exclude projects pending deletion by default
 		shouldExcludeMarked = true
 	}
-	if shouldExcludeMarked && p.MarkedForDeletionAt != nil {
+	if scheduled := gl.ProjectDeletionScheduledAt(p); shouldExcludeMarked && scheduled != nil {
 		return FilterResult{
 			Matched:  false,
 			Decision: DecisionMismatchMarkedForDeletion,
-			Reason:   fmt.Sprintf("project is marked for deletion (scheduled at %s)", p.MarkedForDeletionAt.String()),
+			Reason:   fmt.Sprintf("project is marked for deletion (scheduled at %s)", scheduled.String()),
 		}
 	}
 
@@ -330,7 +331,7 @@ func extractProjectTopics(p *gitlab.Project) []string {
 	}
 
 	add(p.Topics)
-	add(p.TagList)
+	add(gl.ProjectLegacyTagList(p))
 	return topics
 }
 

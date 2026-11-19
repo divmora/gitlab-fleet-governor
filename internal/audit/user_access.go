@@ -50,7 +50,7 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 
 	// Determine project active/archived/inactive/pending deletion status
 	var lastAct *time.Time
-	isMarked := project.MarkedForDeletion || project.MarkedForDeletionAt != nil || (project.Raw != nil && project.Raw.MarkedForDeletionAt != nil)
+	isMarked := project.IsPendingDeletion()
 	if project.Raw != nil {
 		lastAct = project.Raw.LastActivityAt
 	}

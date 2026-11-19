@@ -360,7 +360,7 @@ func TestGovernanceEngine_MarkedForDeletionProject_Skipped(t *testing.T) {
 	now := time.Now()
 	isoNow := gogitlab.ISOTime(now)
 	server.State().UpdateProject(101, func(p *gogitlab.Project) {
-		p.MarkedForDeletionAt = &isoNow
+		p.MarkedForDeletionOn = &isoNow
 	})
 
 	ctx := context.Background()

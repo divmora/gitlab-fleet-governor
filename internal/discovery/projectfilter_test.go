@@ -133,7 +133,7 @@ func TestProjectFilter_TopicsMatching(t *testing.T) {
 		pTag := &gitlab.Project{
 			ID:      2,
 			Name:    "legacy-tag",
-			TagList: []string{"production"},
+			TagList: []string{"production"}, //nolint:staticcheck // SA1019: exercises the legacy field older GitLab versions return.
 		}
 		f, err := discovery.NewProjectFilter(&config.ProjectSelector{
 			TopicsInclude: []string{"production"},
@@ -298,7 +298,7 @@ func TestProjectFilter_MarkedForDeletion(t *testing.T) {
 	isoNow := gitlab.ISOTime(now)
 
 	pActive := &gitlab.Project{ID: 1, Name: "service-active", Archived: false}
-	pMarked := &gitlab.Project{ID: 2, Name: "service-pending-del", Archived: false, MarkedForDeletionAt: &isoNow}
+	pMarked := &gitlab.Project{ID: 2, Name: "service-pending-del", Archived: false, MarkedForDeletionOn: &isoNow}
 	pArchived := &gitlab.Project{ID: 3, Name: "service-archived", Archived: true}
 
 	t.Run("Default_WhenArchivedFalse_ExcludesMarkedForDeletion", func(t *testing.T) {

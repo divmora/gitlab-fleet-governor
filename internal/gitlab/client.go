@@ -13,6 +13,7 @@ import (
 	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
+	"golang.org/x/oauth2"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 )
@@ -236,7 +237,9 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 
 	switch auth.TokenType {
 	case TokenTypeOAuth:
-		rawClient, err = gitlab.NewOAuthClient(auth.Token, sdkOptions...)
+		rawClient, err = gitlab.NewAuthSourceClient(gitlab.OAuthTokenSource{
+			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: auth.Token}),
+		}, sdkOptions...)
 	case TokenTypeJob:
 		rawClient, err = gitlab.NewJobClient(auth.Token, sdkOptions...)
 	case TokenTypePrivate:
@@ -591,7 +594,7 @@ func (s *defaultVariablesService) UpdateGroupVariable(gid any, key string, opt *
 	return s.client.GroupVariables.UpdateVariable(gid, key, opt, options...)
 }
 func (s *defaultVariablesService) RemoveGroupVariable(gid any, key string, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
-	return s.client.GroupVariables.RemoveVariable(gid, key, options...)
+	return s.client.GroupVariables.RemoveVariable(gid, key, nil, options...)
 }
 
 type defaultRunnersService struct{ client *gitlab.Client }
@@ -746,7 +749,7 @@ func (s *defaultBranchesService) CreateBranch(pid any, opt *gitlab.CreateBranchO
 
 type defaultMergeRequestsService struct{ client *gitlab.Client }
 
-func (s *defaultMergeRequestsService) ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.MergeRequest, *gitlab.Response, error) {
+func (s *defaultMergeRequestsService) ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.BasicMergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.ListProjectMergeRequests(pid, opt, options...)
 }
 func (s *defaultMergeRequestsService) GetMergeRequest(pid any, mr int, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {

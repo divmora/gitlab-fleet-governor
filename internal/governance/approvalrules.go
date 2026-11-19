@@ -253,7 +253,7 @@ func (r *ApprovalRulesReconciler) Apply(ctx context.Context, client gitlab.GitLa
 		hasSettingChange := false
 
 		if effSettings.ApprovalsBeforeMerge != nil {
-			changeOpts.ApprovalsBeforeMerge = effSettings.ApprovalsBeforeMerge
+			changeOpts.ApprovalsBeforeMerge = effSettings.ApprovalsBeforeMerge //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting; GitLab still honors it.
 			hasSettingChange = true
 		}
 		if effSettings.ResetApprovalsOnPush != nil {
@@ -446,8 +446,9 @@ func (r *ApprovalRulesReconciler) resolveGroupIDs(ctx context.Context, client gi
 func (r *ApprovalRulesReconciler) diffApprovalSettings(desired *config.ApprovalSettingsConfig, live *gogitlab.ProjectApprovals) Diff {
 	builder := NewDiffBuilder()
 
-	if desired.ApprovalsBeforeMerge != nil && live.ApprovalsBeforeMerge != *desired.ApprovalsBeforeMerge {
-		builder.AddField("approvals_before_merge", live.ApprovalsBeforeMerge, *desired.ApprovalsBeforeMerge, ActionUpdate)
+	liveApprovalsBeforeMerge := live.ApprovalsBeforeMerge //nolint:staticcheck // SA1019: approvals_before_merge is a supported policy setting; GitLab still honors it.
+	if desired.ApprovalsBeforeMerge != nil && liveApprovalsBeforeMerge != *desired.ApprovalsBeforeMerge {
+		builder.AddField("approvals_before_merge", liveApprovalsBeforeMerge, *desired.ApprovalsBeforeMerge, ActionUpdate)
 	}
 	if desired.ResetApprovalsOnPush != nil && live.ResetApprovalsOnPush != *desired.ResetApprovalsOnPush {
 		builder.AddField("reset_approvals_on_push", live.ResetApprovalsOnPush, *desired.ResetApprovalsOnPush, ActionUpdate)

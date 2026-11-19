@@ -307,7 +307,7 @@ func TestProjectFilter_TopicPermutations(t *testing.T) {
 			project: &gitlab.Project{
 				ID:      1,
 				Topics:  []string{"GOLANG", "microservice"},
-				TagList: []string{"pci-dss"},
+				TagList: []string{"pci-dss"}, //nolint:staticcheck // SA1019: exercises the legacy field older GitLab versions return.
 			},
 			wantMatch: true,
 			wantDecis: discovery.DecisionMatched,
@@ -333,7 +333,7 @@ func TestProjectFilter_TopicPermutations(t *testing.T) {
 			project: &gitlab.Project{
 				ID:      3,
 				Topics:  []string{"compliance", "COMPLIANCE"},
-				TagList: []string{"compliance", "sec"},
+				TagList: []string{"compliance", "sec"}, //nolint:staticcheck // SA1019: exercises the legacy field older GitLab versions return.
 			},
 			wantMatch: true,
 			wantDecis: discovery.DecisionMatched,
@@ -346,7 +346,7 @@ func TestProjectFilter_TopicPermutations(t *testing.T) {
 			project: &gitlab.Project{
 				ID:      4,
 				Topics:  []string{},
-				TagList: []string{},
+				TagList: []string{}, //nolint:staticcheck // SA1019: exercises the legacy field older GitLab versions return.
 			},
 			wantMatch: false,
 			wantDecis: discovery.DecisionMissingTopic,
