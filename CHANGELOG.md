@@ -7,6 +7,13 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.17.1](https://github.com/divmora/gitlab-fleet-governor/compare/v0.17.0...v0.17.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **license:** upgrade license-go to v1.4.3 and document network & CRL connectivity ([#98](https://github.com/divmora/gitlab-fleet-governor/issues/98)) ([6c6e454](https://github.com/divmora/gitlab-fleet-governor/commit/6c6e454396478bf8a4af7b7007c748399164d8c1))
+
 ## [0.17.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.16.0...v0.17.0) (2026-10-29)
 
 
