@@ -131,7 +131,7 @@ func TestChallenge_GovernanceEngine_ReentrantConcurrencyMultiGoroutine(t *testin
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10},
+				GroupIDsInclude: []int64{10},
 				Recursive:       gogitlab.Ptr(false),
 			},
 		},
@@ -201,7 +201,7 @@ func TestChallenge_SummaryMetrics_InvariantUnderMixedFailures(t *testing.T) {
 			// 30 Changed targets (successful with drift)
 			expectedChanged++
 			metrics.RecordTargetResult(&engine.TargetResult{
-				TargetID:     targetID,
+				TargetID:     int64(targetID),
 				TargetPath:   targetPath,
 				ResourceType: governance.ResourceTypeProject,
 				Success:      true,
@@ -224,7 +224,7 @@ func TestChallenge_SummaryMetrics_InvariantUnderMixedFailures(t *testing.T) {
 			// 40 Unchanged targets (successful without drift)
 			expectedUnchanged++
 			metrics.RecordTargetResult(&engine.TargetResult{
-				TargetID:     targetID,
+				TargetID:     int64(targetID),
 				TargetPath:   targetPath,
 				ResourceType: governance.ResourceTypeProject,
 				Success:      true,
@@ -259,7 +259,7 @@ func TestChallenge_SummaryMetrics_InvariantUnderMixedFailures(t *testing.T) {
 			}
 
 			metrics.RecordTargetResult(&engine.TargetResult{
-				TargetID:     targetID,
+				TargetID:     int64(targetID),
 				TargetPath:   targetPath,
 				ResourceType: governance.ResourceTypeProject,
 				Success:      false,

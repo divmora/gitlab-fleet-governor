@@ -166,7 +166,7 @@ func (r *ComplianceReconciler) calculateComplianceDiffs(ctx context.Context, cli
 
 func (r *ComplianceReconciler) resolveDesiredFrameworkID(cfg *config.ComplianceConfig) string {
 	if cfg.FrameworkID != nil {
-		return strconv.Itoa(*cfg.FrameworkID)
+		return strconv.FormatInt(*cfg.FrameworkID, 10)
 	}
 	return cfg.FrameworkName
 }

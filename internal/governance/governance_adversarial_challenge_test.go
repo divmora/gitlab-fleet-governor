@@ -59,11 +59,11 @@ func TestAdversarial_CachingResolver_Concurrency(t *testing.T) {
 	// Verify cache consistency
 	uidAlice, err := resolver.ResolveUsername(ctx, client, "alice")
 	require.NoError(t, err)
-	assert.Equal(t, 1, uidAlice)
+	assert.Equal(t, int64(1), uidAlice)
 
 	gidPlatform, err := resolver.ResolveGroupPath(ctx, client, "platform")
 	require.NoError(t, err)
-	assert.Equal(t, 10, gidPlatform)
+	assert.Equal(t, int64(10), gidPlatform)
 }
 
 // ============================================================================
@@ -259,7 +259,7 @@ func TestAdversarial_Webhooks_NormalizationAndPruning(t *testing.T) {
 		// Verify that IDs 201 and 202 are deleted, but hook 1 remains
 		remainingHooks := srv.State().ListProjectHooks(101)
 		require.Len(t, remainingHooks, 1)
-		assert.Equal(t, 1, remainingHooks[0].ID)
+		assert.Equal(t, int64(1), remainingHooks[0].ID)
 	})
 }
 

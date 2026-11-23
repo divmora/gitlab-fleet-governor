@@ -32,7 +32,7 @@ func TestValidate_ValidConfigs(t *testing.T) {
 			},
 			Targets: config.TargetSelectors{
 				GroupSelector: &config.GroupSelector{
-					GroupIDsInclude:   []int{101, 102},
+					GroupIDsInclude:   []int64{101, 102},
 					GroupPathsInclude: []string{"engineering/backend"},
 					Recursive:         boolPtr(true),
 				},
@@ -52,7 +52,7 @@ func TestValidate_ValidConfigs(t *testing.T) {
 					CommitMessageRegex: "^(feat|fix|chore): .+",
 					AuthorEmailRegex:   ".+@company\\.com$",
 					FileNameRegex:      "\\.(exe|dll)$",
-					MaxFileSize:        intPtr(25),
+					MaxFileSize:        int64Ptr(25),
 					PreventSecrets:     boolPtr(true),
 				},
 				ProtectedBranches: []config.ProtectedBranchRuleConfig{
@@ -78,9 +78,9 @@ func TestValidate_ValidConfigs(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 40},
 							},
-							RequiredApprovalCount: intPtr(2),
+							RequiredApprovalCount: int64Ptr(2),
 							ApprovalRules: []config.EnvironmentApprovalRuleConfig{
-								{AccessLevel: 40, RequiredApprovalCount: intPtr(2)},
+								{AccessLevel: 40, RequiredApprovalCount: int64Ptr(2)},
 							},
 						},
 					},
@@ -92,7 +92,7 @@ func TestValidate_ValidConfigs(t *testing.T) {
 					ContainerExpirationPolicy: &config.ContainerExpirationPolicyConfig{
 						Cadence:   "7d",
 						OlderThan: "30d",
-						KeepN:     intPtr(10),
+						KeepN:     int64Ptr(10),
 						NameRegex: ".*-release",
 					},
 				},
@@ -121,7 +121,7 @@ func TestValidate_ValidConfigs(t *testing.T) {
 					Runners: []config.RunnerConfig{
 						{
 							AccessLevel:    "ref_protected",
-							MaximumTimeout: intPtr(3600),
+							MaximumTimeout: int64Ptr(3600),
 						},
 					},
 				},
@@ -298,7 +298,7 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			cfg: &config.PolicyConfig{
 				Targets: config.TargetSelectors{
 					GroupSelector: &config.GroupSelector{
-						GroupIDsInclude: []int{-5},
+						GroupIDsInclude: []int64{-5},
 					},
 				},
 			},
@@ -367,7 +367,7 @@ func TestValidate_SemanticErrors(t *testing.T) {
 			cfg: &config.PolicyConfig{
 				Policies: config.PoliciesConfig{
 					PushRules: &config.PushRulesConfig{
-						MaxFileSize: intPtr(-10),
+						MaxFileSize: int64Ptr(-10),
 					},
 				},
 			},
@@ -461,7 +461,7 @@ func TestValidate_SemanticErrors(t *testing.T) {
 				Policies: config.PoliciesConfig{
 					ProjectSettings: &config.ProjectSettingsConfig{
 						ContainerExpirationPolicy: &config.ContainerExpirationPolicyConfig{
-							KeepN: intPtr(3),
+							KeepN: int64Ptr(3),
 						},
 					},
 				},
@@ -826,7 +826,7 @@ func TestValidate_SemanticErrors(t *testing.T) {
 						Rules: []config.ProtectedEnvironmentRuleConfig{
 							{
 								Name:                  "production",
-								RequiredApprovalCount: intPtr(-1),
+								RequiredApprovalCount: int64Ptr(-1),
 							},
 						},
 					},

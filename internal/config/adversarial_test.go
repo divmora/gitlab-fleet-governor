@@ -520,7 +520,7 @@ func TestAdversarial_Validator_EdgeCases(t *testing.T) {
 	t.Run("Multiple aggregated validation errors", func(t *testing.T) {
 		min := 100
 		max := 10
-		maxFileSize := -50
+		maxFileSize := int64(-50)
 		retentionDays := -1
 		cfg := &config.PolicyConfig{
 			Settings: config.SettingsConfig{
@@ -540,15 +540,15 @@ func TestAdversarial_Validator_EdgeCases(t *testing.T) {
 			},
 			Targets: config.TargetSelectors{
 				GroupSelector: &config.GroupSelector{
-					GroupIDsInclude:   []int{-1, 0},
+					GroupIDsInclude:   []int64{-1, 0},
 					GroupPathsInclude: []string{"/leading/slash", "trailing/slash/"},
 				},
 				ProjectSelector: &config.ProjectSelector{
 					ProjectNameRegexInclude: "[unclosed_regex",
 					Visibility:              "super_secret",
 					IDRange: &config.IDRange{
-						Min: min,
-						Max: max, // min > max
+						Min: int64(min),
+						Max: int64(max), // min > max
 					},
 				},
 			},

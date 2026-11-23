@@ -657,11 +657,11 @@ func (rt *Router) handleProjectApprovalRules(w http.ResponseWriter, r *http.Requ
 			rt.paginate(w, r, len(rules), func(i int) any { return rules[i] })
 		case http.MethodPost:
 			var body struct {
-				Name              string `json:"name"`
-				ApprovalsRequired int    `json:"approvals_required"`
-				RuleType          string `json:"rule_type"`
-				UserIDs           []int  `json:"user_ids"`
-				GroupIDs          []int  `json:"group_ids"`
+				Name              string  `json:"name"`
+				ApprovalsRequired int64   `json:"approvals_required"`
+				RuleType          string  `json:"rule_type"`
+				UserIDs           []int64 `json:"user_ids"`
+				GroupIDs          []int64 `json:"group_ids"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
@@ -702,7 +702,7 @@ func (rt *Router) handleProjectApprovalRules(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	ruleID, err := strconv.Atoi(ruleIDStr)
+	ruleID, err := strconv.ParseInt(ruleIDStr, 10, 64)
 	if err != nil {
 		http.Error(w, `{"error":"invalid rule ID"}`, http.StatusBadRequest)
 		return
@@ -721,7 +721,7 @@ func (rt *Router) handleProjectApprovalRules(w http.ResponseWriter, r *http.Requ
 			hasUsers = true
 			for _, uidRaw := range uids {
 				if uidFloat, ok := uidRaw.(float64); ok {
-					if u, found := rt.state.GetUser(int(uidFloat)); found {
+					if u, found := rt.state.GetUser(int64(uidFloat)); found {
 						updatedUsers = append(updatedUsers, &gitlab.BasicUser{
 							ID:       u.ID,
 							Username: u.Username,
@@ -749,7 +749,7 @@ func (rt *Router) handleProjectApprovalRules(w http.ResponseWriter, r *http.Requ
 				r.Name = v
 			}
 			if v, ok := body["approvals_required"].(float64); ok {
-				r.ApprovalsRequired = int(v)
+				r.ApprovalsRequired = int64(v)
 			}
 			if hasUsers {
 				r.Users = updatedUsers
@@ -860,7 +860,7 @@ func (rt *Router) handleProjectHooks(w http.ResponseWriter, r *http.Request, idO
 		return
 	}
 
-	hookID, err := strconv.Atoi(hookIDStr)
+	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
 	if err != nil {
 		http.Error(w, `{"error":"invalid hook ID"}`, http.StatusBadRequest)
 		return
@@ -1245,7 +1245,7 @@ func (rt *Router) routeRunners(w http.ResponseWriter, r *http.Request, sub strin
 		return
 	}
 
-	runnerID, err := strconv.Atoi(parts[0])
+	runnerID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		http.Error(w, `{"error":"invalid runner ID"}`, http.StatusBadRequest)
 		return
@@ -1323,7 +1323,7 @@ func (rt *Router) routeUsers(w http.ResponseWriter, r *http.Request, sub string)
 	}
 
 	parts := strings.Split(strings.TrimPrefix(sub, "/"), "/")
-	userID, err := strconv.Atoi(parts[0])
+	userID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
@@ -1459,7 +1459,7 @@ func (rt *Router) handleProjectRepositoryBranches(w http.ResponseWriter, r *http
 
 func (rt *Router) handleProjectMergeRequests(w http.ResponseWriter, r *http.Request, idOrPath, mrIIDStr string, parts []string) {
 	if mrIIDStr != "" {
-		mrIID, err := strconv.Atoi(mrIIDStr)
+		mrIID, err := strconv.ParseInt(mrIIDStr, 10, 64)
 		if err != nil {
 			http.Error(w, `{"error":"invalid mr iid"}`, http.StatusBadRequest)
 			return
@@ -1770,7 +1770,7 @@ func (rt *Router) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"data":{}}`))
 }
 
-func extractNumericID(s, prefix string) int {
+func extractNumericID(s, prefix string) int64 {
 	idx := strings.Index(s, prefix)
 	if idx == -1 {
 		return 0
@@ -1784,7 +1784,7 @@ func extractNumericID(s, prefix string) int {
 			break
 		}
 	}
-	id, _ := strconv.Atoi(numStr)
+	id, _ := strconv.ParseInt(numStr, 10, 64)
 	return id
 }
 
@@ -1818,11 +1818,11 @@ func (rt *Router) paginate(w http.ResponseWriter, r *http.Request, totalCount in
 	isKeyset := q.Get("pagination") == "keyset"
 
 	if isKeyset {
-		idAfter := 0
+		idAfter := int64(0)
 		if idStr := q.Get("id_after"); idStr != "" {
-			idAfter, _ = strconv.Atoi(idStr)
+			idAfter, _ = strconv.ParseInt(idStr, 10, 64)
 		} else if idStr := q.Get("page_token"); idStr != "" {
-			idAfter, _ = strconv.Atoi(idStr)
+			idAfter, _ = strconv.ParseInt(idStr, 10, 64)
 		}
 
 		// Find start index (first item with ID > idAfter)
@@ -1905,7 +1905,7 @@ func (rt *Router) paginate(w http.ResponseWriter, r *http.Request, totalCount in
 	_ = json.NewEncoder(w).Encode(slice)
 }
 
-func getItemID(item any) int {
+func getItemID(item any) int64 {
 	switch v := item.(type) {
 	case *gitlab.Project:
 		return v.ID

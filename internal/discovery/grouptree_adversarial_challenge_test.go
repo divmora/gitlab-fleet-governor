@@ -21,15 +21,15 @@ import (
 type mockGraphClient struct {
 	gl.GitLabClient
 	mu        sync.RWMutex
-	groups    map[int]*gitlab.Group
-	subgroups map[int][]*gitlab.Group
+	groups    map[int64]*gitlab.Group
+	subgroups map[int64][]*gitlab.Group
 	topLevels []*gitlab.Group
 }
 
 func newMockGraphClient() *mockGraphClient {
 	return &mockGraphClient{
-		groups:    make(map[int]*gitlab.Group),
-		subgroups: make(map[int][]*gitlab.Group),
+		groups:    make(map[int64]*gitlab.Group),
+		subgroups: make(map[int64][]*gitlab.Group),
 	}
 }
 
@@ -37,7 +37,7 @@ func (m *mockGraphClient) Groups() gl.GroupsService {
 	return m
 }
 
-func (m *mockGraphClient) AddGroup(id int, path, fullPath string, parentID int) *gitlab.Group {
+func (m *mockGraphClient) AddGroup(id int64, path, fullPath string, parentID int64) *gitlab.Group {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -58,7 +58,7 @@ func (m *mockGraphClient) AddGroup(id int, path, fullPath string, parentID int) 
 	return g
 }
 
-func (m *mockGraphClient) AddSubgroupLink(parentID, childID int) {
+func (m *mockGraphClient) AddSubgroupLink(parentID, childID int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -73,6 +73,10 @@ func (m *mockGraphClient) GetGroup(gid any, opt *gitlab.GetGroupOptions, options
 
 	switch v := gid.(type) {
 	case int:
+		if g, exists := m.groups[int64(v)]; exists {
+			return g, &gitlab.Response{}, nil
+		}
+	case int64:
 		if g, exists := m.groups[v]; exists {
 			return g, &gitlab.Response{}, nil
 		}
@@ -91,9 +95,11 @@ func (m *mockGraphClient) ListSubgroups(gid any, opt *gitlab.ListSubGroupsOption
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var id int
+	var id int64
 	switch v := gid.(type) {
 	case int:
+		id = int64(v)
+	case int64:
 		id = v
 	case string:
 		for _, g := range m.groups {
@@ -128,14 +134,14 @@ func TestGroupTree_AdversarialSelfLoop(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
 	assert.Less(t, elapsed, 100*time.Millisecond, "Self-loop traversal must terminate within 100ms")
 	require.Len(t, groups, 1, "Self-loop group must be visited exactly once")
-	assert.Equal(t, 1, groups[0].ID)
+	assert.Equal(t, int64(1), groups[0].ID)
 }
 
 func TestGroupTree_AdversarialThreeNodeCycle(t *testing.T) {
@@ -153,7 +159,7 @@ func TestGroupTree_AdversarialThreeNodeCycle(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -161,8 +167,8 @@ func TestGroupTree_AdversarialThreeNodeCycle(t *testing.T) {
 	assert.Less(t, elapsed, 100*time.Millisecond, "3-node cycle must terminate within 100ms")
 	require.Len(t, groups, 3)
 
-	ids := []int{groups[0].ID, groups[1].ID, groups[2].ID}
-	assert.ElementsMatch(t, []int{1, 2, 3}, ids)
+	ids := []int64{groups[0].ID, groups[1].ID, groups[2].ID}
+	assert.ElementsMatch(t, []int64{1, 2, 3}, ids)
 }
 
 func TestGroupTree_AdversarialFiveNodeCycle(t *testing.T) {
@@ -172,7 +178,7 @@ func TestGroupTree_AdversarialFiveNodeCycle(t *testing.T) {
 		if i == 1 {
 			parent = 0
 		}
-		client.AddGroup(i, fmt.Sprintf("node-%d", i), fmt.Sprintf("org/node-%d", i), parent)
+		client.AddGroup(int64(i), fmt.Sprintf("node-%d", i), fmt.Sprintf("org/node-%d", i), int64(parent))
 	}
 	client.AddSubgroupLink(5, 1) // 5 -> 1 closing the cycle
 
@@ -183,7 +189,7 @@ func TestGroupTree_AdversarialFiveNodeCycle(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -191,11 +197,11 @@ func TestGroupTree_AdversarialFiveNodeCycle(t *testing.T) {
 	assert.Less(t, elapsed, 100*time.Millisecond)
 	require.Len(t, groups, 5)
 
-	var ids []int
+	var ids []int64
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{1, 2, 3, 4, 5}, ids)
+	assert.ElementsMatch(t, []int64{1, 2, 3, 4, 5}, ids)
 }
 
 func TestGroupTree_AdversarialInterconnectedCycles(t *testing.T) {
@@ -218,7 +224,7 @@ func TestGroupTree_AdversarialInterconnectedCycles(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -226,11 +232,11 @@ func TestGroupTree_AdversarialInterconnectedCycles(t *testing.T) {
 	assert.Less(t, elapsed, 100*time.Millisecond)
 	require.Len(t, groups, 5)
 
-	var ids []int
+	var ids []int64
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{1, 2, 3, 4, 5}, ids)
+	assert.ElementsMatch(t, []int64{1, 2, 3, 4, 5}, ids)
 }
 
 func TestGroupTree_AdversarialDiamondTopology(t *testing.T) {
@@ -254,7 +260,7 @@ func TestGroupTree_AdversarialDiamondTopology(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -262,23 +268,23 @@ func TestGroupTree_AdversarialDiamondTopology(t *testing.T) {
 	assert.Less(t, elapsed, 100*time.Millisecond)
 	require.Len(t, groups, 4, "Converged node in diamond must be visited exactly once")
 
-	var ids []int
+	var ids []int64
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{1, 2, 3, 4}, ids)
+	assert.ElementsMatch(t, []int64{1, 2, 3, 4}, ids)
 }
 
 func TestGroupTree_AdversarialCompleteGraphK6(t *testing.T) {
 	// Complete graph K6: 6 nodes, each node links to all 5 other nodes
 	client := newMockGraphClient()
 	for i := 1; i <= 6; i++ {
-		client.AddGroup(i, fmt.Sprintf("k6-%d", i), fmt.Sprintf("org/k6-%d", i), 0)
+		client.AddGroup(int64(i), fmt.Sprintf("k6-%d", i), fmt.Sprintf("org/k6-%d", i), 0)
 	}
 	for i := 1; i <= 6; i++ {
 		for j := 1; j <= 6; j++ {
 			if i != j {
-				client.AddSubgroupLink(i, j)
+				client.AddSubgroupLink(int64(i), int64(j))
 			}
 		}
 	}
@@ -290,7 +296,7 @@ func TestGroupTree_AdversarialCompleteGraphK6(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -308,7 +314,7 @@ func TestGroupTree_AdversarialDeepHierarchy_60Levels(t *testing.T) {
 	client.AddGroup(1, "level-0", "org/level-0", 0)
 
 	for lvl := 1; lvl < 60; lvl++ {
-		client.AddGroup(lvl+1, fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), lvl)
+		client.AddGroup(int64(lvl+1), fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), int64(lvl))
 	}
 
 	traverser := discovery.NewBFSGroupTraverser(client)
@@ -318,7 +324,7 @@ func TestGroupTree_AdversarialDeepHierarchy_60Levels(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -329,7 +335,7 @@ func TestGroupTree_AdversarialDeepHierarchy_60Levels(t *testing.T) {
 	// Verify depth tracking correctness
 	for idx, g := range groups {
 		assert.Equal(t, idx, g.Depth, "Depth must strictly increment per level")
-		assert.Equal(t, 1, g.RootParentID, "RootParentID must point to initial seed root")
+		assert.Equal(t, int64(1), g.RootParentID, "RootParentID must point to initial seed root")
 	}
 }
 
@@ -338,7 +344,7 @@ func TestGroupTree_AdversarialDeepHierarchy_100Levels(t *testing.T) {
 	client.AddGroup(1, "level-0", "org/level-0", 0)
 
 	for lvl := 1; lvl < 100; lvl++ {
-		client.AddGroup(lvl+1, fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), lvl)
+		client.AddGroup(int64(lvl+1), fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), int64(lvl))
 	}
 
 	traverser := discovery.NewBFSGroupTraverser(client)
@@ -348,7 +354,7 @@ func TestGroupTree_AdversarialDeepHierarchy_100Levels(t *testing.T) {
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -363,7 +369,7 @@ func TestGroupTree_AdversarialDeepHierarchy_150Levels_MaxDepthCeiling(t *testing
 	client.AddGroup(1, "level-0", "org/level-0", 0)
 
 	for lvl := 1; lvl < 150; lvl++ {
-		client.AddGroup(lvl+1, fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), lvl)
+		client.AddGroup(int64(lvl+1), fmt.Sprintf("level-%d", lvl), fmt.Sprintf("org/level-%d", lvl), int64(lvl))
 	}
 
 	traverser := discovery.NewBFSGroupTraverser(client)
@@ -373,7 +379,7 @@ func TestGroupTree_AdversarialDeepHierarchy_150Levels_MaxDepthCeiling(t *testing
 
 	start := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
+		GroupIDsInclude: []int64{1},
 	})
 	elapsed := time.Since(start)
 
@@ -399,15 +405,15 @@ func TestGroupTree_AdversarialPartialExclusion_IntermediateSubgroup(t *testing.T
 
 	ctx := context.Background()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{1},
-		GroupIDsExclude: []int{2},
+		GroupIDsInclude: []int64{1},
+		GroupIDsExclude: []int64{2},
 	})
 	require.NoError(t, err)
 
 	// Groups 1 and 3 match, Group 2 is excluded
 	require.Len(t, groups, 2)
-	assert.Equal(t, 1, groups[0].ID)
-	assert.Equal(t, 3, groups[1].ID)
+	assert.Equal(t, int64(1), groups[0].ID)
+	assert.Equal(t, int64(3), groups[1].ID)
 }
 
 func TestGroupTree_AdversarialPartialExclusion_DiamondBranch(t *testing.T) {
@@ -423,17 +429,17 @@ func TestGroupTree_AdversarialPartialExclusion_DiamondBranch(t *testing.T) {
 
 	ctx := context.Background()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude:   []int{1},
+		GroupIDsInclude:   []int64{1},
 		GroupPathsExclude: []string{"org/root/left"},
 	})
 	require.NoError(t, err)
 
 	require.Len(t, groups, 3)
-	var ids []int
+	var ids []int64
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{1, 3, 4}, ids)
+	assert.ElementsMatch(t, []int64{1, 3, 4}, ids)
 }
 
 func TestGroupTree_AdversarialPartialExclusion_CaseAndSlashNormalization(t *testing.T) {
@@ -450,7 +456,7 @@ func TestGroupTree_AdversarialPartialExclusion_CaseAndSlashNormalization(t *test
 	require.NoError(t, err)
 
 	require.Len(t, groups, 1)
-	assert.Equal(t, 10, groups[0].ID)
+	assert.Equal(t, int64(10), groups[0].ID)
 }
 
 // ----------------------------------------------------------------------------
@@ -461,7 +467,7 @@ func TestGroupTree_AdversarialConcurrentTraversals(t *testing.T) {
 	client := newMockGraphClient()
 	// Build complex graph with multiple cyclic components
 	for i := 1; i <= 20; i++ {
-		client.AddGroup(i, fmt.Sprintf("node-%d", i), fmt.Sprintf("org/node-%d", i), (i-1)%5)
+		client.AddGroup(int64(i), fmt.Sprintf("node-%d", i), fmt.Sprintf("org/node-%d", i), int64((i-1)%5))
 	}
 	// Add cross-cutting cyclic edges
 	client.AddSubgroupLink(5, 1)
@@ -481,12 +487,12 @@ func TestGroupTree_AdversarialConcurrentTraversals(t *testing.T) {
 		go func(iter int) {
 			defer wg.Done()
 
-			rootID := (iter%4)*5 + 1
+			rootID := int64((iter%4)*5 + 1)
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel()
 
 			res, err := traverser.Traverse(ctx, &config.GroupSelector{
-				GroupIDsInclude: []int{rootID},
+				GroupIDsInclude: []int64{rootID},
 			})
 			if err != nil {
 				errs <- err
@@ -508,8 +514,8 @@ func TestGroupTree_AdversarialConcurrentTraversals(t *testing.T) {
 
 func TestGroupSelectorEvaluator_AdversarialConcurrentMatches(t *testing.T) {
 	sel := &config.GroupSelector{
-		GroupIDsInclude:   []int{1, 2, 3, 4, 5},
-		GroupIDsExclude:   []int{3},
+		GroupIDsInclude:   []int64{1, 2, 3, 4, 5},
+		GroupIDsExclude:   []int64{3},
 		GroupPathsInclude: []string{"org/platform", "org/infra"},
 		GroupPathsExclude: []string{"org/platform/deprecated"},
 	}

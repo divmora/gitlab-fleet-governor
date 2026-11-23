@@ -46,7 +46,7 @@ func AllModuleNames() []string {
 
 // UserInfo encapsulates metadata for an individual identity discovered across the fleet.
 type UserInfo struct {
-	ID            int      `json:"id"`
+	ID            int64    `json:"id"`
 	Username      string   `json:"username"`
 	Name          string   `json:"name"`
 	Email         string   `json:"email,omitempty"`
@@ -60,12 +60,12 @@ type UserInfo struct {
 
 // UserAccessFinding captures access-level and expiration audit observations for a member.
 type UserAccessFinding struct {
-	ProjectID      int      `json:"project_id"`
+	ProjectID      int64    `json:"project_id"`
 	ProjectName    string   `json:"project_name"`
 	ProjectPath    string   `json:"project_path"`
 	ProjectWebURL  string   `json:"project_web_url"`
 	ProjectStatus  string   `json:"project_status"` // "Active", "Archived", "Inactive (X days)"
-	UserID         int      `json:"user_id"`
+	UserID         int64    `json:"user_id"`
 	Username       string   `json:"username"`
 	Name           string   `json:"name"`
 	Email          string   `json:"email"`
@@ -85,7 +85,7 @@ type UserAccessFinding struct {
 
 // ProtectedBranchFinding captures compliance status for a project branch protection.
 type ProtectedBranchFinding struct {
-	ProjectID                 int      `json:"project_id"`
+	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
 	ProjectWebURL             string   `json:"project_web_url"`
@@ -107,14 +107,14 @@ type ProtectedBranchFinding struct {
 
 // ProtectedEnvironmentFinding captures compliance status for an environment deployment target.
 type ProtectedEnvironmentFinding struct {
-	ProjectID                 int      `json:"project_id"`
+	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
 	ProjectWebURL             string   `json:"project_web_url"`
 	ProjectStatus             string   `json:"project_status"` // "Active", "Archived", "Inactive (X days)"
 	EnvironmentName           string   `json:"environment_name"`
 	IsProduction              bool     `json:"is_production"`
-	RequiredApprovalCount     int      `json:"required_approval_count"`
+	RequiredApprovalCount     int64    `json:"required_approval_count"`
 	DeployAccessLevelsSummary string   `json:"deploy_access_levels_summary"`
 	DirectUserDeployGrants    []string `json:"direct_user_deploy_grants,omitempty"`
 	DirectGroupDeployGrants   []string `json:"direct_group_deploy_grants,omitempty"`
@@ -126,7 +126,7 @@ type ProtectedEnvironmentFinding struct {
 
 // PipelineRetentionFinding captures pipeline retention configurations and stale unpruned pipeline audit observations.
 type PipelineRetentionFinding struct {
-	ProjectID              int      `json:"project_id"`
+	ProjectID              int64    `json:"project_id"`
 	ProjectName            string   `json:"project_name"`
 	ProjectPath            string   `json:"project_path"`
 	ProjectWebURL          string   `json:"project_web_url"`
@@ -134,7 +134,7 @@ type PipelineRetentionFinding struct {
 	RetentionSeconds       int      `json:"retention_seconds"`
 	RetentionDays          int      `json:"retention_days"`
 	HasRetentionConfigured bool     `json:"has_retention_configured"`
-	OldestPipelineID       int      `json:"oldest_pipeline_id,omitempty"`
+	OldestPipelineID       int64    `json:"oldest_pipeline_id,omitempty"`
 	OldestPipelineRef      string   `json:"oldest_pipeline_ref,omitempty"`
 	OldestPipelineStatus   string   `json:"oldest_pipeline_status,omitempty"`
 	OldestPipelineCreated  string   `json:"oldest_pipeline_created,omitempty"`
@@ -148,7 +148,7 @@ type PipelineRetentionFinding struct {
 
 // RepositoryFileFinding captures compliance status for a repository file.
 type RepositoryFileFinding struct {
-	ProjectID     int      `json:"project_id"`
+	ProjectID     int64    `json:"project_id"`
 	ProjectName   string   `json:"project_name"`
 	ProjectPath   string   `json:"project_path"`
 	ProjectWebURL string   `json:"project_web_url"`
@@ -164,7 +164,7 @@ type RepositoryFileFinding struct {
 
 // ProtectedTagFinding captures compliance status for tag protections on releases and versions.
 type ProtectedTagFinding struct {
-	ProjectID                 int      `json:"project_id"`
+	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
 	ProjectWebURL             string   `json:"project_web_url"`
@@ -262,7 +262,7 @@ func (r *AuditReport) ComputeSummary() {
 	r.Summary.RepositoryFileViolations = 0
 	r.Summary.ProtectedTagViolations = 0
 
-	nonCompliantProjects := make(map[int]struct{})
+	nonCompliantProjects := make(map[int64]struct{})
 
 	// Process Human User Access findings
 	for _, f := range r.UserAccessFindings {
@@ -545,7 +545,7 @@ func NewBotClassifier(serviceAccounts []string, patterns []string) *BotClassifie
 }
 
 // IsBot checks whether a user is a bot or service account using explicit accounts, custom patterns, and standard GitLab formats.
-func (c *BotClassifier) IsBot(userID int, username, name, email string) bool {
+func (c *BotClassifier) IsBot(userID int64, username, name, email string) bool {
 	u := strings.ToLower(strings.TrimSpace(username))
 	n := strings.ToLower(strings.TrimSpace(name))
 	e := strings.ToLower(strings.TrimSpace(email))

@@ -32,17 +32,17 @@ func TestApprovalRulesReconciler(t *testing.T) {
 		// User resolution: alice (ID 1), bob (ID 2), carol (ID 3)
 		uid1, err := resolver.ResolveUsername(ctx, client, "alice")
 		require.NoError(t, err)
-		assert.Equal(t, 1, uid1)
+		assert.Equal(t, int64(1), uid1)
 
 		// Second call should hit cache
 		uid1Cached, err := resolver.ResolveUsername(ctx, client, "@alice")
 		require.NoError(t, err)
-		assert.Equal(t, 1, uid1Cached)
+		assert.Equal(t, int64(1), uid1Cached)
 
 		// Group resolution: platform (ID 10), security (ID 20)
 		gid10, err := resolver.ResolveGroupPath(ctx, client, "platform")
 		require.NoError(t, err)
-		assert.Equal(t, 10, gid10)
+		assert.Equal(t, int64(10), gid10)
 
 		// Error on invalid
 		_, err = resolver.ResolveUsername(ctx, client, "nonexistent-user-999")

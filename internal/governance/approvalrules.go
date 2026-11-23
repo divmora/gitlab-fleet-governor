@@ -3,7 +3,7 @@ package governance
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,20 +18,20 @@ import (
 // with thread-safe in-memory caching to eliminate redundant API queries.
 type CachingResolver struct {
 	mu         sync.RWMutex
-	userCache  map[string]int // username (lowercase) -> userID
-	groupCache map[string]int // groupPath (lowercase) -> groupID
+	userCache  map[string]int64 // username (lowercase) -> userID
+	groupCache map[string]int64 // groupPath (lowercase) -> groupID
 }
 
 // NewCachingResolver initializes a new CachingResolver.
 func NewCachingResolver() *CachingResolver {
 	return &CachingResolver{
-		userCache:  make(map[string]int),
-		groupCache: make(map[string]int),
+		userCache:  make(map[string]int64),
+		groupCache: make(map[string]int64),
 	}
 }
 
 // ResolveUsername looks up a username and returns its GitLab user ID.
-func (r *CachingResolver) ResolveUsername(ctx context.Context, client gitlab.GitLabClient, username string) (int, error) {
+func (r *CachingResolver) ResolveUsername(ctx context.Context, client gitlab.GitLabClient, username string) (int64, error) {
 	cleanUser := strings.TrimPrefix(strings.TrimSpace(strings.ToLower(username)), "@")
 	if cleanUser == "" {
 		return 0, fmt.Errorf("empty username provided")
@@ -64,7 +64,7 @@ func (r *CachingResolver) ResolveUsername(ctx context.Context, client gitlab.Git
 }
 
 // ResolveGroupPath looks up a group full path and returns its GitLab group ID.
-func (r *CachingResolver) ResolveGroupPath(ctx context.Context, client gitlab.GitLabClient, groupPath string) (int, error) {
+func (r *CachingResolver) ResolveGroupPath(ctx context.Context, client gitlab.GitLabClient, groupPath string) (int64, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(strings.ToLower(groupPath)), "/")
 	if cleanPath == "" {
 		return 0, fmt.Errorf("empty group path provided")
@@ -162,7 +162,7 @@ func (r *ApprovalRulesReconciler) Plan(ctx context.Context, client gitlab.GitLab
 		}
 	}
 
-	matchedLiveRuleIDs := make(map[int]bool)
+	matchedLiveRuleIDs := make(map[int64]bool)
 
 	// Evaluate desired rules
 	for _, ruleCfg := range appConfig.Rules {
@@ -314,7 +314,7 @@ func (r *ApprovalRulesReconciler) Apply(ctx context.Context, client gitlab.GitLa
 		}
 	}
 
-	matchedLiveRuleIDs := make(map[int]bool)
+	matchedLiveRuleIDs := make(map[int64]bool)
 
 	// Apply declared rules
 	for _, ruleCfg := range appConfig.Rules {
@@ -395,8 +395,8 @@ func (r *ApprovalRulesReconciler) ApplyGroup(ctx context.Context, client gitlab.
 // Internal Helpers & Diff Computations
 // ============================================================================
 
-func (r *ApprovalRulesReconciler) resolveUserIDs(ctx context.Context, client gitlab.GitLabClient, ruleCfg config.ApprovalRuleConfig) ([]int, error) {
-	idSet := make(map[int]bool)
+func (r *ApprovalRulesReconciler) resolveUserIDs(ctx context.Context, client gitlab.GitLabClient, ruleCfg config.ApprovalRuleConfig) ([]int64, error) {
+	idSet := make(map[int64]bool)
 	for _, id := range ruleCfg.UserIDs {
 		if id > 0 {
 			idSet[id] = true
@@ -411,16 +411,16 @@ func (r *ApprovalRulesReconciler) resolveUserIDs(ctx context.Context, client git
 			idSet[uid] = true
 		}
 	}
-	result := make([]int, 0, len(idSet))
+	result := make([]int64, 0, len(idSet))
 	for id := range idSet {
 		result = append(result, id)
 	}
-	sort.Ints(result)
+	slices.Sort(result)
 	return result, nil
 }
 
-func (r *ApprovalRulesReconciler) resolveGroupIDs(ctx context.Context, client gitlab.GitLabClient, ruleCfg config.ApprovalRuleConfig) ([]int, error) {
-	idSet := make(map[int]bool)
+func (r *ApprovalRulesReconciler) resolveGroupIDs(ctx context.Context, client gitlab.GitLabClient, ruleCfg config.ApprovalRuleConfig) ([]int64, error) {
+	idSet := make(map[int64]bool)
 	for _, id := range ruleCfg.GroupIDs {
 		if id > 0 {
 			idSet[id] = true
@@ -435,11 +435,11 @@ func (r *ApprovalRulesReconciler) resolveGroupIDs(ctx context.Context, client gi
 			idSet[gid] = true
 		}
 	}
-	result := make([]int, 0, len(idSet))
+	result := make([]int64, 0, len(idSet))
 	for id := range idSet {
 		result = append(result, id)
 	}
-	sort.Ints(result)
+	slices.Sort(result)
 	return result, nil
 }
 
@@ -504,7 +504,7 @@ func effectiveApprovalSettings(appConfig *config.ApprovalRulesConfig) *config.Ap
 	return res
 }
 
-func (r *ApprovalRulesReconciler) diffSingleRule(desired config.ApprovalRuleConfig, live *gogitlab.ProjectApprovalRule, desiredUserIDs, desiredGroupIDs []int) Diff {
+func (r *ApprovalRulesReconciler) diffSingleRule(desired config.ApprovalRuleConfig, live *gogitlab.ProjectApprovalRule, desiredUserIDs, desiredGroupIDs []int64) Diff {
 	builder := NewDiffBuilder()
 
 	if live.ApprovalsRequired != desired.ApprovalsRequired {
@@ -512,25 +512,25 @@ func (r *ApprovalRulesReconciler) diffSingleRule(desired config.ApprovalRuleConf
 	}
 
 	// Live user IDs
-	liveUserIDs := make([]int, 0, len(live.Users))
+	liveUserIDs := make([]int64, 0, len(live.Users))
 	for _, u := range live.Users {
 		if u != nil {
 			liveUserIDs = append(liveUserIDs, u.ID)
 		}
 	}
-	sort.Ints(liveUserIDs)
+	slices.Sort(liveUserIDs)
 	if !slicesEqual(liveUserIDs, desiredUserIDs) {
 		builder.AddField("user_ids", liveUserIDs, desiredUserIDs, ActionUpdate)
 	}
 
 	// Live group IDs
-	liveGroupIDs := make([]int, 0, len(live.Groups))
+	liveGroupIDs := make([]int64, 0, len(live.Groups))
 	for _, g := range live.Groups {
 		if g != nil {
 			liveGroupIDs = append(liveGroupIDs, g.ID)
 		}
 	}
-	sort.Ints(liveGroupIDs)
+	slices.Sort(liveGroupIDs)
 	if !slicesEqual(liveGroupIDs, desiredGroupIDs) {
 		builder.AddField("group_ids", liveGroupIDs, desiredGroupIDs, ActionUpdate)
 	}
@@ -538,7 +538,7 @@ func (r *ApprovalRulesReconciler) diffSingleRule(desired config.ApprovalRuleConf
 	return builder.Build(fmt.Sprintf("approval_rule:%s", desired.Name), ActionUpdate)
 }
 
-func slicesEqual(a, b []int) bool {
+func slicesEqual(a, b []int64) bool {
 	if len(a) != len(b) {
 		return false
 	}

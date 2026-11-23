@@ -103,7 +103,7 @@ settings:
 `,
 		DryRun:              &dryRunOverride,
 		Concurrency:         20,
-		GroupIDsInclude:     []int{101, 102},
+		GroupIDsInclude:     []int64{101, 102},
 		GroupPathsInclude:   []string{"enterprise/platform"},
 		NamespacesInclude:   []string{"enterprise"},
 		ProjectRegexInclude: "^prod-.*$",

@@ -90,7 +90,7 @@ func (r *WebhooksReconciler) Apply(ctx context.Context, client gitlab.GitLabClie
 		}
 	}
 
-	matchedHookIDs := make(map[int]bool)
+	matchedHookIDs := make(map[int64]bool)
 
 	for _, desired := range cfg.Policies.Webhooks {
 		normURL := normalizeWebhookURL(desired.URL)
@@ -194,7 +194,7 @@ func (r *WebhooksReconciler) calculateWebhooksDiffs(ctx context.Context, client 
 		}
 	}
 
-	matchedHookIDs := make(map[int]bool)
+	matchedHookIDs := make(map[int64]bool)
 
 	for _, desired := range desiredList {
 		norm := normalizeWebhookURL(desired.URL)

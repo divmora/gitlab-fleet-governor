@@ -90,17 +90,17 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		{5200, "Machine Learning Models", "ml-models", "analytics-data/ml-models", 5000},
 	}
 
-	var rootGroupIDs []int
+	var rootGroupIDs []int64
 	for _, g := range groups {
 		server.State().AddGroup(&gitlab.Group{
-			ID:       g.id,
+			ID:       int64(g.id),
 			Name:     g.name,
 			Path:     g.path,
 			FullPath: g.fullPath,
-			ParentID: g.parentID,
+			ParentID: int64(g.parentID),
 		})
 		if g.parentID == 0 {
-			rootGroupIDs = append(rootGroupIDs, g.id)
+			rootGroupIDs = append(rootGroupIDs, int64(g.id))
 		}
 	}
 
@@ -122,7 +122,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 			projectCounter++
 			pName := fmt.Sprintf("svc-core-%s-%d", g.path, i)
 			p := server.State().AddProject(&gitlab.Project{
-				ID:                pid,
+				ID:                int64(pid),
 				Name:              pName,
 				Path:              pName,
 				PathWithNamespace: fmt.Sprintf("%s/%s", g.fullPath, pName),
@@ -132,14 +132,14 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 				Topics:            []string{"tier1", "production"},
 				CreatedAt:         &now,
 			})
-			server.State().AddGroupProject(g.id, p.ID)
+			server.State().AddGroupProject(int64(g.id), p.ID)
 			activePrivateProjectIDs = append(activePrivateProjectIDs, pid)
 
 			// Seed initial unmanaged drift on each active private project:
 			// Outdated push rule or missing push rule:
 			if pid%2 == 0 {
 				server.State().SetProjectPushRule(pid, &gitlab.ProjectPushRules{
-					ID:               pid,
+					ID:               int64(pid),
 					AuthorEmailRegex: `@legacy-domain\.org$`,
 					MaxFileSize:      5,
 					PreventSecrets:   false,
@@ -166,7 +166,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 				proj.MergeMethod = "merge"
 				proj.OnlyAllowMergeIfPipelineSucceeds = false
 			})
-			server.State().SetPipelineRetention(pid, 0)
+			server.State().SetPipelineRetention(int64(pid), 0)
 
 			// Add direct member with no expiration:
 			server.State().AddProjectMember(pid, &gitlab.ProjectMember{
@@ -183,7 +183,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		pid := 20000 + i
 		pName := fmt.Sprintf("internal-tool-%d", i)
 		p := server.State().AddProject(&gitlab.Project{
-			ID:                pid,
+			ID:                int64(pid),
 			Name:              pName,
 			Path:              pName,
 			PathWithNamespace: fmt.Sprintf("cloud-infra/%s", pName),
@@ -200,7 +200,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		pid := 30000 + i
 		pName := fmt.Sprintf("public-docs-%d", i)
 		p := server.State().AddProject(&gitlab.Project{
-			ID:                pid,
+			ID:                int64(pid),
 			Name:              pName,
 			Path:              pName,
 			PathWithNamespace: fmt.Sprintf("enterprise-core/%s", pName),
@@ -217,7 +217,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		pid := 40000 + i
 		pName := fmt.Sprintf("archived-legacy-%d", i)
 		p := server.State().AddProject(&gitlab.Project{
-			ID:                pid,
+			ID:                int64(pid),
 			Name:              pName,
 			Path:              pName,
 			PathWithNamespace: fmt.Sprintf("fintech-division/%s", pName),
@@ -268,7 +268,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 				BranchNameRegex:       `^(main|release/.*|feature/.*)$`,
 				CommitMessageRegex:    `^\[(FEAT|FIX|CHORE|SEC|REFACTOR)\]`,
 				FileNameRegex:         `(id_rsa|.*\.pem|.*\.key)`,
-				MaxFileSize:           intPtr(50),
+				MaxFileSize:           int64Ptr(50),
 				PreventSecrets:        boolPtr(true),
 				DenyDeleteTag:         boolPtr(true),
 				RejectUnsignedCommits: boolPtr(true),
@@ -391,7 +391,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 
 	// Verify server state was NOT mutated during Plan
 	for _, pid := range activePrivateProjectIDs[:5] {
-		assert.Equal(t, 0, server.State().GetPipelineRetention(pid), "Pipeline retention must still be 0 in dry-run")
+		assert.Equal(t, 0, server.State().GetPipelineRetention(int64(pid)), "Pipeline retention must still be 0 in dry-run")
 	}
 
 	// ========================================================================
@@ -436,7 +436,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		// 3. Project Settings & Pipeline Retention
 		proj, found := server.State().GetProject(pid)
 		require.True(t, found)
-		assert.Equal(t, 1209600, server.State().GetPipelineRetention(pid), "Pipeline retention must be 14 days = 1209600s")
+		assert.Equal(t, 1209600, server.State().GetPipelineRetention(int64(pid)), "Pipeline retention must be 14 days = 1209600s")
 		assert.Equal(t, gitlab.FastForwardMerge, proj.MergeMethod)
 		assert.Equal(t, gitlab.SquashOptionAlways, proj.SquashOption)
 		assert.True(t, proj.OnlyAllowMergeIfPipelineSucceeds)
@@ -463,7 +463,7 @@ func TestTier4_RealWorld_EnterpriseTopology_50PlusProjects_FullDriftConvergence(
 		assert.True(t, hooks[0].EnableSSLVerification)
 
 		// 6. Compliance Framework
-		frameworks := server.State().GetComplianceFrameworks(pid)
+		frameworks := server.State().GetComplianceFrameworks(int64(pid))
 		require.NotEmpty(t, frameworks, "Project %d must have compliance framework", pid)
 		assert.Equal(t, "SOC2", frameworks[0].Name)
 	}
@@ -595,7 +595,7 @@ func TestTier4_RealWorld_CLIExecution_EndToEnd(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		pid := 500 + i
 		p := server.State().AddProject(&gitlab.Project{
-			ID:                pid,
+			ID:                int64(pid),
 			Name:              fmt.Sprintf("cli-app-%d", i),
 			Path:              fmt.Sprintf("cli-app-%d", i),
 			PathWithNamespace: fmt.Sprintf("cligroup/cli-app-%d", i),
@@ -665,6 +665,6 @@ policies:
 		assert.Equal(t, `@clicorp\.io$`, pRule.AuthorEmailRegex)
 		assert.True(t, pRule.PreventSecrets)
 
-		assert.Equal(t, 864000, server.State().GetPipelineRetention(pid), "Pipeline retention must be 10 days = 864000s")
+		assert.Equal(t, 864000, server.State().GetPipelineRetention(int64(pid)), "Pipeline retention must be 10 days = 864000s")
 	}
 }

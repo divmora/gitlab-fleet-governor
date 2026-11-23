@@ -63,7 +63,7 @@ func TestClient_InitializationAndOptions(t *testing.T) {
 	// Verify custom service injection
 	p, _, err := client.Projects().GetProject(42, nil)
 	require.NoError(t, err)
-	assert.Equal(t, 42, p.ID)
+	assert.Equal(t, int64(42), p.ID)
 	assert.True(t, customProjects.getProjectCalled)
 }
 
@@ -168,7 +168,7 @@ func TestClient_ServerTimeAttestation(t *testing.T) {
 	// Perform a request
 	proj, _, err := client.Projects().GetProject(42, nil)
 	require.NoError(t, err)
-	assert.Equal(t, 42, proj.ID)
+	assert.Equal(t, int64(42), proj.ID)
 
 	// Now ServerTime is populated with the HTTP Date header
 	assert.False(t, client.ServerTime().IsZero())

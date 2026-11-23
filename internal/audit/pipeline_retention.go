@@ -90,7 +90,7 @@ func (a *PipelineRetentionAuditor) AuditProject(ctx context.Context, client gl.G
 
 			staleCount := len(pipelines)
 			if resp != nil && resp.TotalItems > 0 {
-				staleCount = resp.TotalItems
+				staleCount = int(resp.TotalItems)
 			}
 
 			baseSev := SeverityMedium
@@ -176,7 +176,7 @@ func (a *PipelineRetentionAuditor) AuditProject(ctx context.Context, client gl.G
 
 			staleCount := len(pipelines)
 			if resp != nil && resp.TotalItems > 0 {
-				staleCount = resp.TotalItems
+				staleCount = int(resp.TotalItems)
 			}
 
 			sev := AdjustSeverityForProject(SeverityLow, isArchived, isInactive)

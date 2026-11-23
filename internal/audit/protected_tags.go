@@ -54,11 +54,10 @@ func (a *ProtectedTagsAuditor) AuditProject(ctx context.Context, client gl.GitLa
 	// 1. Fetch all protected tags
 	var allTags []*gitlab.ProtectedTag
 	if client.ProtectedTags() != nil {
-		page := 1
+		page := int64(1)
 		for {
 			opts := &gitlab.ListProtectedTagsOptions{
-				Page:    page,
-				PerPage: 100,
+				ListOptions: gitlab.ListOptions{Page: page, PerPage: 100},
 			}
 			tags, resp, err := client.ProtectedTags().ListProtectedTags(project.ID, opts, gitlab.WithContext(ctx))
 			if err != nil {

@@ -563,10 +563,10 @@ func (s *defaultApprovalRulesService) GetProjectApprovalRules(pid any, opt *gitl
 func (s *defaultApprovalRulesService) CreateProjectApprovalRule(pid any, opt *gitlab.CreateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error) {
 	return s.client.Projects.CreateProjectApprovalRule(pid, opt, options...)
 }
-func (s *defaultApprovalRulesService) UpdateProjectApprovalRule(pid any, rule int, opt *gitlab.UpdateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error) {
+func (s *defaultApprovalRulesService) UpdateProjectApprovalRule(pid any, rule int64, opt *gitlab.UpdateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error) {
 	return s.client.Projects.UpdateProjectApprovalRule(pid, rule, opt, options...)
 }
-func (s *defaultApprovalRulesService) DeleteProjectApprovalRule(pid any, rule int, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
+func (s *defaultApprovalRulesService) DeleteProjectApprovalRule(pid any, rule int64, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
 	return s.client.Projects.DeleteProjectApprovalRule(pid, rule, options...)
 }
 
@@ -619,7 +619,7 @@ type defaultComplianceService struct {
 	tokenType  TokenType
 }
 
-func (s *defaultComplianceService) GetProjectComplianceFrameworks(ctx context.Context, projectID int) ([]ComplianceFramework, error) {
+func (s *defaultComplianceService) GetProjectComplianceFrameworks(ctx context.Context, projectID int64) ([]ComplianceFramework, error) {
 	query := fmt.Sprintf(`{"query": "{ project(fullPath: \"%d\") { complianceFrameworks { nodes { id name description color default } } } }"}`, projectID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/graphql", bytes.NewBufferString(query))
 	if err != nil {
@@ -658,7 +658,7 @@ func (s *defaultComplianceService) GetProjectComplianceFrameworks(ctx context.Co
 	return res.Data.Project.ComplianceFrameworks.Nodes, nil
 }
 
-func (s *defaultComplianceService) SetProjectComplianceFramework(ctx context.Context, projectID int, frameworkID string) error {
+func (s *defaultComplianceService) SetProjectComplianceFramework(ctx context.Context, projectID int64, frameworkID string) error {
 	mutation := fmt.Sprintf(`{"query": "mutation { projectSetComplianceFramework(input: { projectId: \"gid://gitlab/Project/%d\", complianceFrameworkId: \"%s\" }) { clientMutationId errors } }"}`, projectID, frameworkID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/graphql", bytes.NewBufferString(mutation))
 	if err != nil {
@@ -684,7 +684,7 @@ func (s *defaultComplianceService) SetProjectComplianceFramework(ctx context.Con
 	return nil
 }
 
-func (s *defaultComplianceService) RemoveProjectComplianceFramework(ctx context.Context, projectID int, frameworkID string) error {
+func (s *defaultComplianceService) RemoveProjectComplianceFramework(ctx context.Context, projectID int64, frameworkID string) error {
 	mutation := fmt.Sprintf(`{"query": "mutation { projectSetComplianceFramework(input: { projectId: \"gid://gitlab/Project/%d\", complianceFrameworkId: null }) { clientMutationId errors } }"}`, projectID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/graphql", bytes.NewBufferString(mutation))
 	if err != nil {
@@ -752,13 +752,13 @@ type defaultMergeRequestsService struct{ client *gitlab.Client }
 func (s *defaultMergeRequestsService) ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.BasicMergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.ListProjectMergeRequests(pid, opt, options...)
 }
-func (s *defaultMergeRequestsService) GetMergeRequest(pid any, mr int, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+func (s *defaultMergeRequestsService) GetMergeRequest(pid any, mr int64, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.GetMergeRequest(pid, mr, opt, options...)
 }
 func (s *defaultMergeRequestsService) CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.CreateMergeRequest(pid, opt, options...)
 }
-func (s *defaultMergeRequestsService) AcceptMergeRequest(pid any, mr int, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+func (s *defaultMergeRequestsService) AcceptMergeRequest(pid any, mr int64, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
 	return s.client.MergeRequests.AcceptMergeRequest(pid, mr, opt, options...)
 }
 
@@ -770,10 +770,10 @@ func (s *defaultWebhooksService) ListProjectHooks(pid any, opt *gitlab.ListProje
 func (s *defaultWebhooksService) AddProjectHook(pid any, opt *gitlab.AddProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error) {
 	return s.client.Projects.AddProjectHook(pid, opt, options...)
 }
-func (s *defaultWebhooksService) EditProjectHook(pid any, hook int, opt *gitlab.EditProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error) {
+func (s *defaultWebhooksService) EditProjectHook(pid any, hook int64, opt *gitlab.EditProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error) {
 	return s.client.Projects.EditProjectHook(pid, hook, opt, options...)
 }
-func (s *defaultWebhooksService) DeleteProjectHook(pid any, hook int, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
+func (s *defaultWebhooksService) DeleteProjectHook(pid any, hook int64, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
 	return s.client.Projects.DeleteProjectHook(pid, hook, options...)
 }
 
@@ -800,7 +800,7 @@ func (s *defaultUsersService) CurrentUser(options ...gitlab.RequestOptionFunc) (
 func (s *defaultUsersService) ListUsers(opt *gitlab.ListUsersOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.User, *gitlab.Response, error) {
 	return s.client.Users.ListUsers(opt, options...)
 }
-func (s *defaultUsersService) GetUser(user int, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error) {
+func (s *defaultUsersService) GetUser(user int64, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error) {
 	return s.client.Users.GetUser(user, opt, options...)
 }
 

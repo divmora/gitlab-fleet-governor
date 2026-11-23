@@ -39,8 +39,8 @@ func TestChallenge_Logging_ConcurrentRace(t *testing.T) {
 		go func(gID int) {
 			defer wg.Done()
 			ctx := logging.WithTrace(context.Background(), fmt.Sprintf("trace-%d", gID))
-			ctx = logging.WithProject(ctx, 100+gID, fmt.Sprintf("group/project-%d", gID))
-			ctx = logging.WithGroup(ctx, 200+gID, fmt.Sprintf("group-%d", gID))
+			ctx = logging.WithProject(ctx, int64(100+gID), fmt.Sprintf("group/project-%d", gID))
+			ctx = logging.WithGroup(ctx, int64(200+gID), fmt.Sprintf("group-%d", gID))
 			ctx = logging.WithOperation(ctx, "push_rules")
 			ctx = logging.WithAttempt(ctx, 1)
 			ctx = logging.WithAttrs(ctx, slog.String("worker", fmt.Sprintf("w-%d", gID)))

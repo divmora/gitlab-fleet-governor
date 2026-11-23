@@ -94,7 +94,7 @@ func TestE2E_Tier2_High_Scale_Keyset_Pagination(t *testing.T) {
 	for i := 1; i <= totalScaleProjects; i++ {
 		projID := 1000 + i
 		p := h.Server.State().AddProject(&gogitlab.Project{
-			ID:                projID,
+			ID:                int64(projID),
 			Name:              fmt.Sprintf("scale-proj-%04d", i),
 			Path:              fmt.Sprintf("scale-proj-%04d", i),
 			PathWithNamespace: fmt.Sprintf("scale-group/scale-proj-%04d", i),
@@ -111,7 +111,7 @@ func TestE2E_Tier2_High_Scale_Keyset_Pagination(t *testing.T) {
 	boolTrue := true
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{largeGroup.ID},
+			GroupIDsInclude: []int64{largeGroup.ID},
 			Recursive:       &boolTrue,
 		},
 	}
@@ -125,7 +125,7 @@ func TestE2E_Tier2_High_Scale_Keyset_Pagination(t *testing.T) {
 	// Verify all individual project IDs are present without duplicates or dropped items
 	for i := 1; i <= totalScaleProjects; i++ {
 		projID := 1000 + i
-		assert.Contains(t, fleet.Projects, projID, "project ID %d should be discovered", projID)
+		assert.Contains(t, fleet.Projects, int64(projID), "project ID %d should be discovered", projID)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestE2E_Tier2_Circular_Subgroup_Cycle_Detection(t *testing.T) {
 	boolTrue := true
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{500},
+			GroupIDsInclude: []int64{500},
 			Recursive:       &boolTrue,
 		},
 	}
@@ -155,9 +155,9 @@ func TestE2E_Tier2_Circular_Subgroup_Cycle_Detection(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 3, len(fleet.Groups), "cycle detection must discover exactly 3 unique groups in the cycle")
-	assert.Contains(t, fleet.Groups, 500)
-	assert.Contains(t, fleet.Groups, 501)
-	assert.Contains(t, fleet.Groups, 502)
+	assert.Contains(t, fleet.Groups, int64(500))
+	assert.Contains(t, fleet.Groups, int64(501))
+	assert.Contains(t, fleet.Groups, int64(502))
 }
 
 // 4. HTTP 429 Rate Limit Burst Storm & Jittered Exponential Backoff
@@ -185,7 +185,7 @@ func TestE2E_Tier2_HTTP_429_Rate_Limit_Recovery(t *testing.T) {
 	fleet, err := discovery.DiscoverFleet(ctx, client, targets)
 	require.NoError(t, err, "client must automatically recover from HTTP 429 rate limit errors")
 	assert.NotEmpty(t, fleet.Projects)
-	assert.Contains(t, fleet.Projects, 101)
+	assert.Contains(t, fleet.Projects, int64(101))
 }
 
 // 5. HTTP 500/502/503/504 Transient Server Errors & Backoff Recovery

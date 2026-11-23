@@ -176,9 +176,9 @@ func (r *ProtectedBranchesReconciler) ApplyGroup(ctx context.Context, client git
 // Internal Helpers & Diff Computations
 // ============================================================================
 
-func (r *ProtectedBranchesReconciler) fetchAllLiveProtectedBranches(ctx context.Context, client gitlab.GitLabClient, projectID int) ([]*gogitlab.ProtectedBranch, error) {
+func (r *ProtectedBranchesReconciler) fetchAllLiveProtectedBranches(ctx context.Context, client gitlab.GitLabClient, projectID int64) ([]*gogitlab.ProtectedBranch, error) {
 	var all []*gogitlab.ProtectedBranch
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gogitlab.ListProtectedBranchesOptions{
 			ListOptions: gogitlab.ListOptions{

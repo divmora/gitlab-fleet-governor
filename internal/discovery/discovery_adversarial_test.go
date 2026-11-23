@@ -23,7 +23,7 @@ func TestDiscoverFleet_AdversarialHighVolumeStreaming(t *testing.T) {
 	// Seed 20 groups and 10 projects per group = 200 projects
 	for gID := 1; gID <= 20; gID++ {
 		g := srv.State().AddGroup(&gitlab.Group{
-			ID:       gID,
+			ID:       int64(gID),
 			Name:     fmt.Sprintf("Group-%d", gID),
 			Path:     fmt.Sprintf("group-%d", gID),
 			FullPath: fmt.Sprintf("org/group-%d", gID),
@@ -31,7 +31,7 @@ func TestDiscoverFleet_AdversarialHighVolumeStreaming(t *testing.T) {
 		for pID := 1; pID <= 10; pID++ {
 			globalPID := gID*100 + pID
 			p := srv.State().AddProject(&gitlab.Project{
-				ID:                globalPID,
+				ID:                int64(globalPID),
 				Name:              fmt.Sprintf("project-%d", globalPID),
 				Path:              fmt.Sprintf("project-%d", globalPID),
 				PathWithNamespace: fmt.Sprintf("org/group-%d/project-%d", gID, globalPID),
@@ -67,7 +67,7 @@ func TestDiscoverFleet_AdversarialHighVolumeStreaming(t *testing.T) {
 
 	// Confirm all projects have correct parent group
 	for _, p := range fleet.Projects {
-		assert.Contains(t, []int{1, 2, 3}, p.ParentGroupID)
+		assert.Contains(t, []int64{1, 2, 3}, p.ParentGroupID)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestDiscoverFleet_AdversarialCircularSubgroupsWithProjects(t *testing.T) {
 	recursiveTrue := true
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{500},
+			GroupIDsInclude: []int64{500},
 			Recursive:       &recursiveTrue,
 		},
 	}
@@ -123,10 +123,10 @@ func TestDiscoverFleet_AdversarialCircularSubgroupsWithProjects(t *testing.T) {
 
 	// Must discover exactly 3 groups and 3 projects with zero duplicates
 	assert.Len(t, fleet.Groups, 3)
-	assert.ElementsMatch(t, []int{500, 501, 502}, fleet.GroupIDs())
+	assert.ElementsMatch(t, []int64{500, 501, 502}, fleet.GroupIDs())
 
 	assert.Len(t, fleet.Projects, 3)
-	assert.ElementsMatch(t, []int{5001, 5011, 5021}, fleet.ProjectIDs())
+	assert.ElementsMatch(t, []int64{5001, 5011, 5021}, fleet.ProjectIDs())
 }
 
 func TestDiscoverFleet_AdversarialSubgroupExclusionFiltering(t *testing.T) {
@@ -155,7 +155,7 @@ func TestDiscoverFleet_AdversarialSubgroupExclusionFiltering(t *testing.T) {
 	recursiveTrue := true
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude:   []int{100},
+			GroupIDsInclude:   []int64{100},
 			GroupPathsExclude: []string{"company/excluded"},
 			Recursive:         &recursiveTrue,
 		},
@@ -165,14 +165,14 @@ func TestDiscoverFleet_AdversarialSubgroupExclusionFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, fleet.Groups, 2)
-	assert.Contains(t, fleet.Groups, 100)
-	assert.Contains(t, fleet.Groups, 102)
-	assert.NotContains(t, fleet.Groups, 101)
+	assert.Contains(t, fleet.Groups, int64(100))
+	assert.Contains(t, fleet.Groups, int64(102))
+	assert.NotContains(t, fleet.Groups, int64(101))
 
 	// Since 101 is excluded from matched groups, its projects should not be scanned in group-scoped discovery
-	assert.Contains(t, fleet.Projects, 1)
-	assert.Contains(t, fleet.Projects, 3)
-	assert.NotContains(t, fleet.Projects, 2)
+	assert.Contains(t, fleet.Projects, int64(1))
+	assert.Contains(t, fleet.Projects, int64(3))
+	assert.NotContains(t, fleet.Projects, int64(2))
 }
 
 func TestDiscoverFleet_AdversarialFaultInjection(t *testing.T) {
@@ -257,6 +257,6 @@ func TestDiscoverFleet_AdversarialNamespaceBoundaryAndCasing(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, fleet.Projects, 1)
-	assert.Contains(t, fleet.Projects, 1)
-	assert.NotContains(t, fleet.Projects, 2)
+	assert.Contains(t, fleet.Projects, int64(1))
+	assert.NotContains(t, fleet.Projects, int64(2))
 }

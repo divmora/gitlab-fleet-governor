@@ -213,19 +213,19 @@ func TestProtectedEnvironmentsAuditor(t *testing.T) {
 
 	prod := findingMap["production"]
 	assert.True(t, prod.IsProduction)
-	assert.Equal(t, 0, prod.RequiredApprovalCount)
+	assert.Equal(t, int64(0), prod.RequiredApprovalCount)
 	assert.Equal(t, audit.SeverityCritical, prod.Severity)
 	assert.Contains(t, prod.DirectUserDeployGrants, "User ID 42")
 
 	staging := findingMap["staging"]
 	assert.False(t, staging.IsProduction)
-	assert.Equal(t, 1, staging.RequiredApprovalCount)
+	assert.Equal(t, int64(1), staging.RequiredApprovalCount)
 	assert.Equal(t, audit.SeverityPass, staging.Severity)
 	assert.Empty(t, staging.Violations)
 
 	unprotected := findingMap["prod-customer-facing"]
 	assert.True(t, unprotected.IsProduction)
-	assert.Equal(t, 0, unprotected.RequiredApprovalCount)
+	assert.Equal(t, int64(0), unprotected.RequiredApprovalCount)
 	assert.Equal(t, audit.SeverityCritical, unprotected.Severity)
 	assert.Equal(t, "Unprotected", unprotected.DeployAccessLevelsSummary)
 	assert.Contains(t, unprotected.Details, "completely unprotected")

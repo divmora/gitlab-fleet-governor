@@ -31,7 +31,7 @@ const (
 type ExportOptions struct {
 	Client                    glclient.GitLabClient
 	Config                    *config.PolicyConfig
-	ProjectID                 int
+	ProjectID                 int64
 	IncludeSecretsPlaceholder bool
 	SkipReconcilers           map[string]bool
 	FromProject               string
@@ -41,7 +41,7 @@ type ExportOptions struct {
 
 // ProjectPolicyExport holds the inspected policy configuration for a single project.
 type ProjectPolicyExport struct {
-	ProjectID   int
+	ProjectID   int64
 	ProjectPath string
 	Policies    config.PoliciesConfig
 }
@@ -323,7 +323,7 @@ func inspectProject(ctx context.Context, client glclient.GitLabClient, proj *dis
 // Individual Reconciler Inspection Functions
 // ----------------------------------------------------------------------------
 
-func inspectPushRules(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.PushRulesConfig, error) {
+func inspectPushRules(ctx context.Context, client glclient.GitLabClient, projectID int64) (*config.PushRulesConfig, error) {
 	rule, resp, err := client.PushRules().GetProjectPushRule(projectID, gitlab.WithContext(ctx))
 	if isNotFound(err, resp) || rule == nil {
 		return nil, nil
@@ -368,9 +368,9 @@ func inspectPushRules(ctx context.Context, client glclient.GitLabClient, project
 	return cfg, nil
 }
 
-func inspectProtectedBranches(ctx context.Context, client glclient.GitLabClient, projectID int) ([]config.ProtectedBranchRuleConfig, error) {
+func inspectProtectedBranches(ctx context.Context, client glclient.GitLabClient, projectID int64) ([]config.ProtectedBranchRuleConfig, error) {
 	var rules []config.ProtectedBranchRuleConfig
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProtectedBranchesOptions{
 			ListOptions: gitlab.ListOptions{
@@ -433,7 +433,7 @@ func liveAccessToBranchDescriptions(levels []*gitlab.BranchAccessDescription) []
 	return res
 }
 
-func inspectApprovalRules(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.ApprovalRulesConfig, error) {
+func inspectApprovalRules(ctx context.Context, client glclient.GitLabClient, projectID int64) (*config.ApprovalRulesConfig, error) {
 	app, resp, err := client.ApprovalRules().GetApprovalConfiguration(projectID, gitlab.WithContext(ctx))
 	if isNotFound(err, resp) {
 		app = nil
@@ -555,7 +555,7 @@ func isApprovalRulesEmpty(cfg *config.ApprovalRulesConfig) bool {
 		len(cfg.Rules) == 0
 }
 
-func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, projectID int, proj *gitlab.Project) (*config.ProjectSettingsConfig, error) {
+func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, projectID int64, proj *gitlab.Project) (*config.ProjectSettingsConfig, error) {
 	if proj == nil {
 		p, resp, err := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
 		if isNotFound(err, resp) || p == nil {
@@ -617,7 +617,7 @@ func inspectProjectSettings(ctx context.Context, client glclient.GitLabClient, p
 	return cfg, nil
 }
 
-func inspectPipelineRetention(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.PipelineRetentionConfig, error) {
+func inspectPipelineRetention(ctx context.Context, client glclient.GitLabClient, projectID int64) (*config.PipelineRetentionConfig, error) {
 	seconds, resp, err := client.Projects().GetProjectPipelineRetention(projectID, gitlab.WithContext(ctx))
 	if isNotFound(err, resp) || seconds <= 0 {
 		return nil, nil
@@ -636,13 +636,12 @@ func inspectPipelineRetention(ctx context.Context, client glclient.GitLabClient,
 	}, nil
 }
 
-func inspectVariables(ctx context.Context, client glclient.GitLabClient, projectID int, includePlaceholder bool) ([]config.VariableConfig, error) {
+func inspectVariables(ctx context.Context, client glclient.GitLabClient, projectID int64, includePlaceholder bool) ([]config.VariableConfig, error) {
 	var allVars []*gitlab.ProjectVariable
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProjectVariablesOptions{
-			Page:    page,
-			PerPage: 100,
+			ListOptions: gitlab.ListOptions{Page: page, PerPage: 100},
 		}
 		vars, resp, err := client.Variables().ListProjectVariables(projectID, opts, gitlab.WithContext(ctx))
 		if isNotFound(err, resp) {
@@ -698,14 +697,14 @@ func isSecretVariable(key string) bool {
 		strings.Contains(upper, "CREDENTIAL")
 }
 
-func inspectRunners(ctx context.Context, client glclient.GitLabClient, projectID int, proj *gitlab.Project) (*config.RunnersConfig, error) {
+func inspectRunners(ctx context.Context, client glclient.GitLabClient, projectID int64, proj *gitlab.Project) (*config.RunnersConfig, error) {
 	if proj == nil {
 		p, _, _ := client.Projects().GetProject(projectID, nil, gitlab.WithContext(ctx))
 		proj = p
 	}
 
 	var allRunners []*gitlab.Runner
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProjectRunnersOptions{
 			ListOptions: gitlab.ListOptions{
@@ -791,7 +790,7 @@ func isRunnersEmpty(cfg *config.RunnersConfig) bool {
 		len(cfg.Runners) == 0
 }
 
-func inspectCompliance(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.ComplianceConfig, error) {
+func inspectCompliance(ctx context.Context, client glclient.GitLabClient, projectID int64) (*config.ComplianceConfig, error) {
 	frameworks, err := client.Compliance().GetProjectComplianceFrameworks(ctx, projectID)
 	if err != nil || len(frameworks) == 0 {
 		return nil, nil
@@ -803,13 +802,12 @@ func inspectCompliance(ctx context.Context, client glclient.GitLabClient, projec
 	}, nil
 }
 
-func inspectWebhooks(ctx context.Context, client glclient.GitLabClient, projectID int) ([]config.WebhookConfig, error) {
+func inspectWebhooks(ctx context.Context, client glclient.GitLabClient, projectID int64) ([]config.WebhookConfig, error) {
 	var allHooks []*gitlab.ProjectHook
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProjectHooksOptions{
-			Page:    page,
-			PerPage: 100,
+			ListOptions: gitlab.ListOptions{Page: page, PerPage: 100},
 		}
 		hooks, resp, err := client.Webhooks().ListProjectHooks(projectID, opts, gitlab.WithContext(ctx))
 		if isNotFound(err, resp) {
@@ -862,9 +860,9 @@ func inspectWebhooks(ctx context.Context, client glclient.GitLabClient, projectI
 	return res, nil
 }
 
-func inspectMembers(ctx context.Context, client glclient.GitLabClient, projectID int) (*config.MembersConfig, error) {
+func inspectMembers(ctx context.Context, client glclient.GitLabClient, projectID int64) (*config.MembersConfig, error) {
 	var allMembers []*gitlab.ProjectMember
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProjectMembersOptions{
 			ListOptions: gitlab.ListOptions{
@@ -1488,8 +1486,8 @@ func logWarning(opts ExportOptions, projectPath, reconciler string, err error) {
 	}
 }
 
-func ptrBool(b bool) *bool { return &b }
-func ptrInt(i int) *int    { return &i }
+func ptrBool(b bool) *bool  { return &b }
+func ptrInt(i int64) *int64 { return &i }
 
 // containerNameRegexDelete returns the container expiration delete regex,
 // falling back to the legacy name_regex that GitLab treats as its alias.

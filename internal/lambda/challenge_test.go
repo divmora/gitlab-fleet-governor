@@ -332,8 +332,8 @@ func TestChallenge_Lambda_DirectPayloadOverrides(t *testing.T) {
 	assert.Equal(t, "json", capturedCfg.Settings.LogFormat)
 
 	require.NotNil(t, capturedCfg.Targets.GroupSelector)
-	assert.Equal(t, []int{10, 20}, capturedCfg.Targets.GroupSelector.GroupIDsInclude)
-	assert.Equal(t, []int{30}, capturedCfg.Targets.GroupSelector.GroupIDsExclude)
+	assert.Equal(t, []int64{10, 20}, capturedCfg.Targets.GroupSelector.GroupIDsInclude)
+	assert.Equal(t, []int64{30}, capturedCfg.Targets.GroupSelector.GroupIDsExclude)
 	assert.Equal(t, []string{"sec/*"}, capturedCfg.Targets.GroupSelector.GroupPathsInclude)
 	assert.Equal(t, []string{"legacy/*"}, capturedCfg.Targets.GroupSelector.GroupPathsExclude)
 

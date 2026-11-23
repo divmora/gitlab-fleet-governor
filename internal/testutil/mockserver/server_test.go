@@ -39,7 +39,7 @@ func TestMockGitLabServer_EndpointsComprehensive(t *testing.T) {
 		p2, resp, err := client.Projects.GetProject("platform/fleet-governor", nil)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Equal(t, 101, p2.ID)
+		assert.Equal(t, int64(101), p2.ID)
 	})
 
 	t.Run("Projects.EditProject", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestMockGitLabServer_EndpointsComprehensive(t *testing.T) {
 		// Create approval rule
 		newRule, resp, err := client.Projects.CreateProjectApprovalRule(101, &gitlab.CreateProjectLevelRuleOptions{
 			Name:              gitlab.Ptr("Architecture Review"),
-			ApprovalsRequired: gitlab.Ptr(2),
+			ApprovalsRequired: gitlab.Ptr(int64(2)),
 		})
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -154,14 +154,14 @@ func TestMockGitLabServer_EndpointsComprehensive(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Len(t, subgroups, 1)
-		assert.Equal(t, 11, subgroups[0].ID)
+		assert.Equal(t, int64(11), subgroups[0].ID)
 
 		// Group projects of 10
 		gProjects, resp, err := client.Groups.ListGroupProjects(10, nil)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Len(t, gProjects, 1)
-		assert.Equal(t, 101, gProjects[0].ID)
+		assert.Equal(t, int64(101), gProjects[0].ID)
 	})
 
 	t.Run("Runners", func(t *testing.T) {
@@ -205,7 +205,7 @@ func TestMockGitLabServer_EndpointsComprehensive(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Len(t, users, 1)
-		assert.Equal(t, 2, users[0].ID)
+		assert.Equal(t, int64(2), users[0].ID)
 
 		user, resp, err := client.Users.GetUser(1, gitlab.GetUsersOptions{})
 		require.NoError(t, err)
@@ -262,7 +262,7 @@ func TestMockGitLabServer_KeysetPagination(t *testing.T) {
 	// Add 5 projects
 	for i := 1; i <= 5; i++ {
 		srv.State().AddProject(&gitlab.Project{
-			ID:   i,
+			ID:   int64(i),
 			Name: "proj",
 		})
 	}
@@ -282,8 +282,8 @@ func TestMockGitLabServer_KeysetPagination(t *testing.T) {
 	projects, resp, err := client.Projects.ListProjects(opt)
 	require.NoError(t, err)
 	assert.Len(t, projects, 2)
-	assert.Equal(t, 1, projects[0].ID)
-	assert.Equal(t, 2, projects[1].ID)
+	assert.Equal(t, int64(1), projects[0].ID)
+	assert.Equal(t, int64(2), projects[1].ID)
 	assert.Contains(t, resp.Header.Get("Link"), `rel="next"`)
 }
 
@@ -299,19 +299,19 @@ func TestMockGitLabServer_CircularSubgroups(t *testing.T) {
 	subs500, _, err := client.Groups.ListSubGroups(500, nil)
 	require.NoError(t, err)
 	require.Len(t, subs500, 1)
-	assert.Equal(t, 501, subs500[0].ID)
+	assert.Equal(t, int64(501), subs500[0].ID)
 
 	// 501 has subgroup 502
 	subs501, _, err := client.Groups.ListSubGroups(501, nil)
 	require.NoError(t, err)
 	require.Len(t, subs501, 1)
-	assert.Equal(t, 502, subs501[0].ID)
+	assert.Equal(t, int64(502), subs501[0].ID)
 
 	// 502 has subgroup 500 (cycle!)
 	subs502, _, err := client.Groups.ListSubGroups(502, nil)
 	require.NoError(t, err)
 	require.Len(t, subs502, 1)
-	assert.Equal(t, 500, subs502[0].ID)
+	assert.Equal(t, int64(500), subs502[0].ID)
 }
 
 func TestMockGitLabServer_RateLimitHeaders(t *testing.T) {

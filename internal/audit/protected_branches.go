@@ -52,7 +52,7 @@ func (a *ProtectedBranchesAuditor) AuditProject(ctx context.Context, client gl.G
 
 	// 1. Fetch all protected branches
 	var allBranches []*gitlab.ProtectedBranch
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProtectedBranchesOptions{
 			ListOptions: gitlab.ListOptions{

@@ -125,17 +125,17 @@ func TestAdversarial_CircularSubgroupStructure(t *testing.T) {
 	subgroups500, _, err := client.Groups.ListSubGroups(500, &gitlab.ListSubGroupsOptions{})
 	require.NoError(t, err)
 	require.Len(t, subgroups500, 1)
-	assert.Equal(t, 501, subgroups500[0].ID)
+	assert.Equal(t, int64(501), subgroups500[0].ID)
 
 	// Fetch subgroups of 501
 	subgroups501, _, err := client.Groups.ListSubGroups(501, &gitlab.ListSubGroupsOptions{})
 	require.NoError(t, err)
 	require.Len(t, subgroups501, 1)
-	assert.Equal(t, 502, subgroups501[0].ID)
+	assert.Equal(t, int64(502), subgroups501[0].ID)
 
 	// Fetch subgroups of 502 (artificially points back to 500)
 	subgroups502, _, err := client.Groups.ListSubGroups(502, &gitlab.ListSubGroupsOptions{})
 	require.NoError(t, err)
 	require.Len(t, subgroups502, 1)
-	assert.Equal(t, 500, subgroups502[0].ID)
+	assert.Equal(t, int64(500), subgroups502[0].ID)
 }

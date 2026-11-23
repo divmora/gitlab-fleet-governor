@@ -163,7 +163,7 @@ type OpMetric struct {
 
 // TargetReport encapsulates the governance results for a single project or group.
 type TargetReport struct {
-	ID           int               `json:"id"`
+	ID           int64             `json:"id"`
 	Path         string            `json:"path"`
 	ResourceType string            `json:"resource_type"` // "project" or "group"
 	Status       string            `json:"status"`        // "CHANGED", "UNCHANGED", "FAILED", "SKIPPED"
@@ -177,7 +177,7 @@ type TargetReport struct {
 type OperationReport struct {
 	Name         string        `json:"name"`
 	ResourceType string        `json:"resource_type"`
-	ResourceID   int           `json:"resource_id"`
+	ResourceID   int64         `json:"resource_id"`
 	ResourcePath string        `json:"resource_path"`
 	Action       string        `json:"action"` // "CREATE", "UPDATE", "DELETE", "NOOP", "AUDIT", "SKIPPED"
 	Status       string        `json:"status"` // "SUCCESS", "FAILED", "NOOP", "SKIPPED"

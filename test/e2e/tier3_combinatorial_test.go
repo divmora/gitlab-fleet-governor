@@ -26,8 +26,9 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/testutil/mockserver"
 )
 
-func boolPtr(b bool) *bool { return &b }
-func intPtr(i int) *int    { return &i }
+func boolPtr(b bool) *bool    { return &b }
+func intPtr(i int) *int       { return &i }
+func int64Ptr(i int64) *int64 { return &i }
 
 // mockS3Client implements config.S3ClientAPI for testing S3 config loading.
 type mockS3Client struct {
@@ -252,8 +253,8 @@ func TestTier3_Combinatorial_MultiGroupBFS_ProjectFilter_FullGovernanceStack_Dry
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{100},
-				GroupIDsExclude: []int{200},
+				GroupIDsInclude: []int64{100},
+				GroupIDsExclude: []int64{200},
 				Recursive:       boolPtr(true),
 			},
 			ProjectSelector: &config.ProjectSelector{
@@ -270,7 +271,7 @@ func TestTier3_Combinatorial_MultiGroupBFS_ProjectFilter_FullGovernanceStack_Dry
 				BranchNameRegex:       `^(main|release/.*|feat/.*)$`,
 				CommitMessageRegex:    `^\[(FEAT|FIX|CHORE|SEC)\]`,
 				FileNameRegex:         `(id_rsa|.*\.pem)`,
-				MaxFileSize:           intPtr(25),
+				MaxFileSize:           int64Ptr(25),
 				PreventSecrets:        boolPtr(true),
 				DenyDeleteTag:         boolPtr(true),
 				RejectUnsignedCommits: boolPtr(true),
@@ -710,12 +711,12 @@ func TestTier3_Combinatorial_ConcurrentFleetScan_TokenBucketRateLimiter_WithBack
 	now := time.Now()
 
 	// 1. Seed 20 projects across 4 groups
-	var groupIDs []int
+	var groupIDs []int64
 	for gIdx := 1; gIdx <= 4; gIdx++ {
 		gid := gIdx * 10
-		groupIDs = append(groupIDs, gid)
+		groupIDs = append(groupIDs, int64(gid))
 		g := server.State().AddGroup(&gitlab.Group{
-			ID:       gid,
+			ID:       int64(gid),
 			Name:     fmt.Sprintf("Group-%d", gid),
 			Path:     fmt.Sprintf("group-%d", gid),
 			FullPath: fmt.Sprintf("group-%d", gid),
@@ -724,7 +725,7 @@ func TestTier3_Combinatorial_ConcurrentFleetScan_TokenBucketRateLimiter_WithBack
 		for pIdx := 1; pIdx <= 5; pIdx++ {
 			pid := gid*100 + pIdx
 			p := server.State().AddProject(&gitlab.Project{
-				ID:                pid,
+				ID:                int64(pid),
 				Name:              fmt.Sprintf("service-%d", pid),
 				Path:              fmt.Sprintf("service-%d", pid),
 				PathWithNamespace: fmt.Sprintf("group-%d/service-%d", gid, pid),
@@ -839,12 +840,12 @@ func TestTier3_Combinatorial_ConcurrentFleetScan_TokenBucketRateLimiter_WithBack
 	// 8. Verify all 20 projects successfully converged in mock server
 	for _, gid := range groupIDs {
 		for pIdx := 1; pIdx <= 5; pIdx++ {
-			pid := gid*100 + pIdx
+			pid := gid*100 + int64(pIdx)
 			pRule, found := server.State().GetProjectPushRule(pid)
 			require.True(t, found, "Push rule must be set for project %d", pid)
 			assert.Equal(t, `@resilient\.corp$`, pRule.AuthorEmailRegex)
 
-			assert.Equal(t, 1814400, server.State().GetPipelineRetention(pid))
+			assert.Equal(t, 1814400, server.State().GetPipelineRetention(int64(pid)))
 		}
 	}
 

@@ -18,7 +18,7 @@ import (
 
 type exportFlags struct {
 	GroupPath                 string
-	ProjectID                 int
+	ProjectID                 int64
 	Recursive                 bool
 	Output                    string
 	IncludeSecretsPlaceholder bool
@@ -56,7 +56,7 @@ and emits a normalized declarative policy.yaml baseline that can be used for fle
 	}
 
 	cmd.Flags().StringVar(&flags.GroupPath, "group-path", "", "Full path of the group to export")
-	cmd.Flags().IntVar(&flags.ProjectID, "project-id", 0, "ID of a single project to export")
+	cmd.Flags().Int64Var(&flags.ProjectID, "project-id", 0, "ID of a single project to export")
 	cmd.Flags().BoolVar(&flags.Recursive, "recursive", true, "Include all subgroups when exporting a group")
 	cmd.Flags().StringVar(&flags.Output, "output", "", "Output file path, - for stdout")
 	cmd.Flags().BoolVar(&flags.IncludeSecretsPlaceholder, "include-secrets-placeholder", true, "Replace masked variable values with ${VAR:-PLACEHOLDER}")

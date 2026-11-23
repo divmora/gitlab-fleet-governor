@@ -83,7 +83,7 @@ func (r *VariablesReconciler) Plan(ctx context.Context, client gitlab.GitLabClie
 	}
 
 	liveVars, _, err := client.Variables().ListProjectVariables(project.ID, &gogitlab.ListProjectVariablesOptions{
-		PerPage: 100,
+		ListOptions: gogitlab.ListOptions{PerPage: 100},
 	}, gogitlab.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list project variables for project %d: %w", project.ID, err)
@@ -179,7 +179,7 @@ func (r *VariablesReconciler) Apply(ctx context.Context, client gitlab.GitLabCli
 	}
 
 	liveVars, _, err := client.Variables().ListProjectVariables(project.ID, &gogitlab.ListProjectVariablesOptions{
-		PerPage: 100,
+		ListOptions: gogitlab.ListOptions{PerPage: 100},
 	}, gogitlab.WithContext(ctx))
 	if err != nil {
 		applyErr := fmt.Errorf("failed to list project variables: %w", err)
@@ -297,7 +297,7 @@ func (r *VariablesReconciler) PlanGroup(ctx context.Context, client gitlab.GitLa
 	}
 
 	liveVars, _, err := client.Variables().ListGroupVariables(group.ID, &gogitlab.ListGroupVariablesOptions{
-		PerPage: 100,
+		ListOptions: gogitlab.ListOptions{PerPage: 100},
 	}, gogitlab.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list group variables for group %d: %w", group.ID, err)
@@ -390,7 +390,7 @@ func (r *VariablesReconciler) ApplyGroup(ctx context.Context, client gitlab.GitL
 	}
 
 	liveVars, _, err := client.Variables().ListGroupVariables(group.ID, &gogitlab.ListGroupVariablesOptions{
-		PerPage: 100,
+		ListOptions: gogitlab.ListOptions{PerPage: 100},
 	}, gogitlab.WithContext(ctx))
 	if err != nil {
 		applyErr := fmt.Errorf("failed to list group variables: %w", err)

@@ -19,6 +19,10 @@ func intPtr(i int) *int {
 	return &i
 }
 
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
 func TestModel_Interchangeability(t *testing.T) {
 	yamlData := []byte(`
 version: "v1"
@@ -212,7 +216,7 @@ policies:
 	require.NotNil(t, explicitCfg.Policies.PushRules.PreventSecrets)
 	assert.False(t, *explicitCfg.Policies.PushRules.PreventSecrets)
 	require.NotNil(t, explicitCfg.Policies.PushRules.MaxFileSize)
-	assert.Equal(t, 0, *explicitCfg.Policies.PushRules.MaxFileSize)
+	assert.Equal(t, int64(0), *explicitCfg.Policies.PushRules.MaxFileSize)
 
 	// 2. Omitted values remain nil
 	omittedData := []byte(`

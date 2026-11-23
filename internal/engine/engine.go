@@ -31,7 +31,7 @@ var (
 type OperationResult struct {
 	OperationName string                  `json:"operation_name"`
 	ResourceType  governance.ResourceType `json:"resource_type"`
-	ResourceID    int                     `json:"resource_id"`
+	ResourceID    int64                   `json:"resource_id"`
 	ResourcePath  string                  `json:"resource_path"`
 	Action        governance.ActionType   `json:"action"`
 	Status        governance.StatusType   `json:"status"`
@@ -100,7 +100,7 @@ func OperationResultFromApply(ar *governance.ApplyResult) *OperationResult {
 
 // TargetResult aggregates all operation outcomes for a single project or group.
 type TargetResult struct {
-	TargetID     int                     `json:"target_id"`
+	TargetID     int64                   `json:"target_id"`
 	TargetPath   string                  `json:"target_path"`
 	TargetName   string                  `json:"target_name"`
 	ResourceType governance.ResourceType `json:"resource_type"`
@@ -145,7 +145,7 @@ func (tr *TargetResult) Diffs() []governance.Diff {
 
 // ProjectChange records summarized changes on a single project.
 type ProjectChange struct {
-	ProjectID   int                   `json:"project_id"`
+	ProjectID   int64                 `json:"project_id"`
 	ProjectPath string                `json:"project_path"`
 	Action      governance.ActionType `json:"action"`
 	Operations  []string              `json:"operations"`

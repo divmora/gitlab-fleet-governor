@@ -149,7 +149,7 @@ func (r *MembersReconciler) auditProjectMembers(ctx context.Context, client gitl
 		return nil, nil, fmt.Errorf("failed to list all project members for %d: %w", project.ID, err)
 	}
 
-	directMap := make(map[int]*gogitlab.ProjectMember)
+	directMap := make(map[int64]*gogitlab.ProjectMember)
 	for _, m := range directMembers {
 		if m != nil {
 			directMap[m.ID] = m

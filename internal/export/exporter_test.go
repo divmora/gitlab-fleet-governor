@@ -545,7 +545,7 @@ func TestExportFleetPolicy_StrategyConsensus_Omission(t *testing.T) {
 	assert.Nil(t, parsedCfg.Policies.PushRules, "divergent push rules should be omitted under consensus strategy")
 	require.NotNil(t, parsedCfg.Policies.ApprovalRules, "consensus approval rules should be preserved")
 	require.NotNil(t, parsedCfg.Policies.ApprovalRules.ApprovalsBeforeMerge)
-	assert.Equal(t, 2, *parsedCfg.Policies.ApprovalRules.ApprovalsBeforeMerge)
+	assert.Equal(t, int64(2), *parsedCfg.Policies.ApprovalRules.ApprovalsBeforeMerge)
 	assert.Contains(t, errBuf.String(), "omitted under consensus strategy")
 }
 

@@ -246,13 +246,12 @@ func (r *ProtectedTagsReconciler) ApplyGroup(ctx context.Context, client gitlab.
 	return NewNoopApplyResult(r.Name(), ResourceTypeGroup, group.ID, group.FullPath), nil
 }
 
-func (r *ProtectedTagsReconciler) fetchAllLiveProtectedTags(ctx context.Context, client gitlab.GitLabClient, projectID int) ([]*gogitlab.ProtectedTag, error) {
+func (r *ProtectedTagsReconciler) fetchAllLiveProtectedTags(ctx context.Context, client gitlab.GitLabClient, projectID int64) ([]*gogitlab.ProtectedTag, error) {
 	var all []*gogitlab.ProtectedTag
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gogitlab.ListProtectedTagsOptions{
-			Page:    page,
-			PerPage: 100,
+			ListOptions: gogitlab.ListOptions{Page: page, PerPage: 100},
 		}
 		tags, resp, err := client.ProtectedTags().ListProtectedTags(projectID, opts, gogitlab.WithContext(ctx))
 		if err != nil {

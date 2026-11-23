@@ -211,7 +211,7 @@ func CompareBoolPtr(field string, live bool, desired *bool) *FieldDiff {
 }
 
 // CompareIntPtr evaluates differences when desired is an optional *int.
-func CompareIntPtr(field string, live int, desired *int) *FieldDiff {
+func CompareIntPtr(field string, live int64, desired *int64) *FieldDiff {
 	if desired == nil {
 		return nil
 	}

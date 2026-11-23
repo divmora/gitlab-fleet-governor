@@ -440,13 +440,13 @@ Please inspect the attached Excel workbook (%s) for detailed repository findings
 
 // GroupRoutingRule maps group hierarchy paths or numeric IDs to recipient email lists.
 type GroupRoutingRule struct {
-	GroupID    int      `yaml:"group_id" json:"group_id"`
+	GroupID    int64    `yaml:"group_id" json:"group_id"`
 	GroupPath  string   `yaml:"group_path" json:"group_path"`
 	Recipients []string `yaml:"recipients" json:"recipients"`
 }
 
 // ResolveGroupRecipients finds matching recipients for a given project path or group ID.
-func ResolveGroupRecipients(rules []GroupRoutingRule, groupID int, projectPath string) []string {
+func ResolveGroupRecipients(rules []GroupRoutingRule, groupID int64, projectPath string) []string {
 	var recipients []string
 	seen := make(map[string]struct{})
 

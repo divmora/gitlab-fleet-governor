@@ -48,7 +48,7 @@ func WithTrace(ctx context.Context, traceID string) context.Context {
 }
 
 // WithProject attaches GitLab project ID and project path to the context.
-func WithProject(ctx context.Context, id int, path string) context.Context {
+func WithProject(ctx context.Context, id int64, path string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -57,7 +57,7 @@ func WithProject(ctx context.Context, id int, path string) context.Context {
 }
 
 // WithGroup attaches GitLab group ID and group full path to the context.
-func WithGroup(ctx context.Context, id int, fullPath string) context.Context {
+func WithGroup(ctx context.Context, id int64, fullPath string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -115,14 +115,14 @@ func (h *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 		if traceID, ok := ctx.Value(keyTraceID).(string); ok && traceID != "" {
 			r.AddAttrs(slog.String("trace_id", traceID))
 		}
-		if projectID, ok := ctx.Value(keyProjectID).(int); ok && projectID > 0 {
-			r.AddAttrs(slog.Int("project_id", projectID))
+		if projectID, ok := ctx.Value(keyProjectID).(int64); ok && projectID > 0 {
+			r.AddAttrs(slog.Int64("project_id", projectID))
 		}
 		if projectPath, ok := ctx.Value(keyProjectPath).(string); ok && projectPath != "" {
 			r.AddAttrs(slog.String("project_path", projectPath))
 		}
-		if groupID, ok := ctx.Value(keyGroupID).(int); ok && groupID > 0 {
-			r.AddAttrs(slog.Int("group_id", groupID))
+		if groupID, ok := ctx.Value(keyGroupID).(int64); ok && groupID > 0 {
+			r.AddAttrs(slog.Int64("group_id", groupID))
 		}
 		if groupPath, ok := ctx.Value(keyGroupPath).(string); ok && groupPath != "" {
 			r.AddAttrs(slog.String("group_path", groupPath))

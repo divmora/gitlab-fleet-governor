@@ -104,7 +104,7 @@ policies:
 
 		peProd, found := h.Server.State().GetProtectedEnvironment(projectID, "production")
 		assert.True(t, found)
-		assert.Equal(t, 0, peProd.RequiredApprovalCount, "production required approvals should not change in dry-run")
+		assert.Equal(t, int64(0), peProd.RequiredApprovalCount, "production required approvals should not change in dry-run")
 
 		_, foundEast := h.Server.State().GetProtectedEnvironment(projectID, "dr-east-1")
 		assert.False(t, foundEast, "dr-east-1 should not be created in dry-run")
@@ -121,22 +121,22 @@ policies:
 		// 2. Verify production was updated with required_approval_count = 2 and security group rule
 		peProd, foundProd := h.Server.State().GetProtectedEnvironment(projectID, "production")
 		require.True(t, foundProd, "production protected environment must exist")
-		assert.Equal(t, 2, peProd.RequiredApprovalCount)
+		assert.Equal(t, int64(2), peProd.RequiredApprovalCount)
 		require.NotEmpty(t, peProd.ApprovalRules)
-		assert.Equal(t, 20, peProd.ApprovalRules[0].GroupID, "security group (ID 20) should have been resolved")
+		assert.Equal(t, int64(20), peProd.ApprovalRules[0].GroupID, "security group (ID 20) should have been resolved")
 
 		// 3. Verify wildcard expansion for dr-east-1 and dr-west-1
 		peEast, foundEast := h.Server.State().GetProtectedEnvironment(projectID, "dr-east-1")
 		require.True(t, foundEast, "dr-east-1 should have been created via wildcard expansion")
-		assert.Equal(t, 1, peEast.RequiredApprovalCount)
+		assert.Equal(t, int64(1), peEast.RequiredApprovalCount)
 		require.NotEmpty(t, peEast.DeployAccessLevels)
-		assert.Equal(t, 1, peEast.DeployAccessLevels[0].UserID, "alice (ID 1) should have been resolved")
+		assert.Equal(t, int64(1), peEast.DeployAccessLevels[0].UserID, "alice (ID 1) should have been resolved")
 
 		peWest, foundWest := h.Server.State().GetProtectedEnvironment(projectID, "dr-west-1")
 		require.True(t, foundWest, "dr-west-1 should have been created via wildcard expansion")
-		assert.Equal(t, 1, peWest.RequiredApprovalCount)
+		assert.Equal(t, int64(1), peWest.RequiredApprovalCount)
 		require.NotEmpty(t, peWest.DeployAccessLevels)
-		assert.Equal(t, 1, peWest.DeployAccessLevels[0].UserID, "alice (ID 1) should have been resolved")
+		assert.Equal(t, int64(1), peWest.DeployAccessLevels[0].UserID, "alice (ID 1) should have been resolved")
 	})
 
 	t.Run("Audit Detection of Unprotected Staging", func(t *testing.T) {

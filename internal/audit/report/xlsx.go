@@ -463,7 +463,7 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -610,7 +610,7 @@ func (g *XLSXReportGenerator) buildBotAccessSheet(report *audit.AuditReport) err
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -756,7 +756,7 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -920,7 +920,7 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -1066,7 +1066,7 @@ func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditRep
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -1220,7 +1220,7 @@ func (g *XLSXReportGenerator) buildRepositoryFilesSheet(report *audit.AuditRepor
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}
@@ -1346,7 +1346,7 @@ func (g *XLSXReportGenerator) buildProtectedTagsSheet(report *audit.AuditReport)
 	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
 
 	type projectSpan struct {
-		ProjectID int
+		ProjectID int64
 		StartRow  int
 		EndRow    int
 	}

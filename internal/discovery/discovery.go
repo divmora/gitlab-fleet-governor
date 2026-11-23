@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ var (
 
 // TargetProject encapsulates a matched project and its targeting context.
 type TargetProject struct {
-	ID                  int             `json:"id"`
+	ID                  int64           `json:"id"`
 	Name                string          `json:"name"`
 	Path                string          `json:"path"`
 	PathWithNamespace   string          `json:"path_with_namespace"`
@@ -32,7 +33,7 @@ type TargetProject struct {
 	MarkedForDeletionAt *time.Time      `json:"marked_for_deletion_at,omitempty"`
 	Topics              []string        `json:"topics"`
 	NamespaceFullPath   string          `json:"namespace_full_path"`
-	ParentGroupID       int             `json:"parent_group_id,omitempty"`
+	ParentGroupID       int64           `json:"parent_group_id,omitempty"`
 	Raw                 *gitlab.Project `json:"-"`
 }
 
@@ -43,31 +44,31 @@ func (t *TargetProject) IsPendingDeletion() bool {
 
 // TargetGroup encapsulates a matched group and its targeting context.
 type TargetGroup struct {
-	ID       int           `json:"id"`
+	ID       int64         `json:"id"`
 	Name     string        `json:"name"`
 	Path     string        `json:"path"`
 	FullPath string        `json:"full_path"`
-	ParentID int           `json:"parent_id,omitempty"`
+	ParentID int64         `json:"parent_id,omitempty"`
 	Raw      *gitlab.Group `json:"-"`
 }
 
 // TargetFleet represents the fully resolved and deduplicated set of targeted
 // GitLab groups and projects to govern.
 type TargetFleet struct {
-	Projects             map[int]*TargetProject `json:"projects"`
-	Groups               map[int]*TargetGroup   `json:"groups"`
-	ScannedProjectsCount int                    `json:"scanned_projects_count"`
-	ScannedGroupsCount   int                    `json:"scanned_groups_count"`
-	MatchedProjectsCount int                    `json:"matched_projects_count"`
-	MatchedGroupsCount   int                    `json:"matched_groups_count"`
-	Duration             time.Duration          `json:"duration"`
+	Projects             map[int64]*TargetProject `json:"projects"`
+	Groups               map[int64]*TargetGroup   `json:"groups"`
+	ScannedProjectsCount int                      `json:"scanned_projects_count"`
+	ScannedGroupsCount   int                      `json:"scanned_groups_count"`
+	MatchedProjectsCount int                      `json:"matched_projects_count"`
+	MatchedGroupsCount   int                      `json:"matched_groups_count"`
+	Duration             time.Duration            `json:"duration"`
 }
 
 // NewTargetFleet creates an initialized TargetFleet.
 func NewTargetFleet() *TargetFleet {
 	return &TargetFleet{
-		Projects: make(map[int]*TargetProject),
-		Groups:   make(map[int]*TargetGroup),
+		Projects: make(map[int64]*TargetProject),
+		Groups:   make(map[int64]*TargetGroup),
 	}
 }
 
@@ -107,22 +108,22 @@ func (f *TargetFleet) GroupList() []*TargetGroup {
 }
 
 // ProjectIDs returns a sorted slice of all matched project IDs.
-func (f *TargetFleet) ProjectIDs() []int {
-	ids := make([]int, 0, len(f.Projects))
+func (f *TargetFleet) ProjectIDs() []int64 {
+	ids := make([]int64, 0, len(f.Projects))
 	for id := range f.Projects {
 		ids = append(ids, id)
 	}
-	sort.Ints(ids)
+	slices.Sort(ids)
 	return ids
 }
 
 // GroupIDs returns a sorted slice of all matched group IDs.
-func (f *TargetFleet) GroupIDs() []int {
-	ids := make([]int, 0, len(f.Groups))
+func (f *TargetFleet) GroupIDs() []int64 {
+	ids := make([]int64, 0, len(f.Groups))
 	for id := range f.Groups {
 		ids = append(ids, id)
 	}
-	sort.Ints(ids)
+	slices.Sort(ids)
 	return ids
 }
 
@@ -189,16 +190,16 @@ type discoveryCoordinator struct {
 
 type fleetAccumulator struct {
 	mu                   sync.Mutex
-	projects             map[int]*TargetProject
-	groups               map[int]*TargetGroup
+	projects             map[int64]*TargetProject
+	groups               map[int64]*TargetGroup
 	scannedProjectsCount int
 	scannedGroupsCount   int
 }
 
 func newFleetAccumulator() *fleetAccumulator {
 	return &fleetAccumulator{
-		projects: make(map[int]*TargetProject),
-		groups:   make(map[int]*TargetGroup),
+		projects: make(map[int64]*TargetProject),
+		groups:   make(map[int64]*TargetGroup),
 	}
 }
 
@@ -240,7 +241,7 @@ func (a *fleetAccumulator) AddGroup(g *gitlab.Group) {
 	}
 }
 
-func (a *fleetAccumulator) AddProjectIfMatches(p *gitlab.Project, filter *ProjectFilter, parentGroupID int) bool {
+func (a *fleetAccumulator) AddProjectIfMatches(p *gitlab.Project, filter *ProjectFilter, parentGroupID int64) bool {
 	if p == nil {
 		return false
 	}

@@ -42,7 +42,7 @@ func TestDiscoverFleet_InstanceWideProjectDiscovery(t *testing.T) {
 		require.NotNil(t, fleet)
 
 		assert.Equal(t, 1, fleet.MatchedProjectsCount)
-		assert.Contains(t, fleet.Projects, 101)
+		assert.Contains(t, fleet.Projects, int64(101))
 		assert.Equal(t, "fleet-governor", fleet.Projects[101].Name)
 		assert.Equal(t, "platform/fleet-governor", fleet.Projects[101].PathWithNamespace)
 	})
@@ -54,7 +54,7 @@ func TestDiscoverFleet_InstanceWideProjectDiscovery(t *testing.T) {
 
 		list := fleet.ProjectList()
 		assert.Len(t, list, 3)
-		assert.Equal(t, []int{101, 102, 103}, fleet.ProjectIDs())
+		assert.Equal(t, []int64{101, 102, 103}, fleet.ProjectIDs())
 		assert.False(t, fleet.IsEmpty())
 		assert.Greater(t, fleet.ScannedProjectsCount, 0)
 		assert.Greater(t, fleet.Duration.Nanoseconds(), int64(0))
@@ -87,17 +87,17 @@ func TestDiscoverFleet_GroupAndProjectDiscovery(t *testing.T) {
 	require.NotNil(t, fleet)
 
 	// Platform group tree contains group 10 (platform) and subgroup 11 (platform/core)
-	assert.Contains(t, fleet.Groups, 10)
-	assert.Contains(t, fleet.Groups, 11)
+	assert.Contains(t, fleet.Groups, int64(10))
+	assert.Contains(t, fleet.Groups, int64(11))
 	assert.Equal(t, 2, fleet.MatchedGroupsCount)
 
 	groupList := fleet.GroupList()
 	assert.Len(t, groupList, 2)
-	assert.Equal(t, []int{10, 11}, fleet.GroupIDs())
+	assert.Equal(t, []int64{10, 11}, fleet.GroupIDs())
 
 	// Project 102 (cloud-infra) is internal under platform/core
 	assert.Equal(t, 1, fleet.MatchedProjectsCount)
-	assert.Contains(t, fleet.Projects, 102)
+	assert.Contains(t, fleet.Projects, int64(102))
 	assert.Equal(t, "cloud-infra", fleet.Projects[102].Name)
 }
 
@@ -124,7 +124,7 @@ func TestDiscoverFleet_Deduplication(t *testing.T) {
 	recursiveFalse := false
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{1, 2},
+			GroupIDsInclude: []int64{1, 2},
 			Recursive:       &recursiveFalse,
 		},
 	}
