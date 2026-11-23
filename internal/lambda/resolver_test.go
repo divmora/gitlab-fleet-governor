@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -88,6 +91,40 @@ settings:
 	}
 	if source != "s3://governance-bucket/policies/config.yaml" {
 		t.Errorf("expected S3 source path, got %q", source)
+	}
+}
+
+// A Lambda event must not be able to point the loader at local files or stdin,
+// even when the path names a readable, valid policy file.
+func TestConfigResolver_RejectsNonS3ConfigURI(t *testing.T) {
+	localPolicy := filepath.Join(t.TempDir(), "policy.yaml")
+	if err := os.WriteFile(localPolicy, []byte("version: \"v1\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := lambda.NewConfigResolver(&mockS3Client{objects: map[string][]byte{}}, nil)
+	for _, uri := range []string{
+		localPolicy,
+		"/etc/passwd",
+		"../policy.yaml",
+		"-",
+		"file://" + localPolicy,
+		"S3://bucket/key.yaml",
+		"s3://",
+		"s3://bucket-only",
+		"s3://bucket/",
+		"s3:///key.yaml",
+	} {
+		t.Run(uri, func(t *testing.T) {
+			_, _, err := resolver.ResolveFromDirectPayload(context.Background(), &lambda.DirectInvocationPayload{ConfigS3URI: uri})
+			if err == nil || !strings.Contains(err.Error(), "must be an s3://bucket/key URI") {
+				t.Errorf("direct payload: expected s3 URI rejection, got %v", err)
+			}
+			_, _, err = resolver.ResolveFromS3URI(context.Background(), uri)
+			if err == nil || !strings.Contains(err.Error(), "must be an s3://bucket/key URI") {
+				t.Errorf("ResolveFromS3URI: expected s3 URI rejection, got %v", err)
+			}
+		})
 	}
 }
 
