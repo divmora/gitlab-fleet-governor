@@ -96,6 +96,18 @@ Pass inline policy configurations or target overrides directly to the Lambda fun
 
 `config_s3_uri` must be an `s3://bucket/key` URI. Local paths, `file://` URIs and `-` (stdin) are rejected, so an invocation payload can't make the function read files from its own filesystem.
 
+### Event-supplied configs are sanitised
+
+A config that arrives with an event is treated as untrusted. That covers inline `config`, `config_content`, `config_yaml` or `config_json`, an object named by `config_s3_uri`, and the object in an S3 Put event. Such a config can't read the function's files, copy its secrets, or send its GitLab token to another host:
+
+| Rule | Effect |
+|---|---|
+| **Limited `${VAR}` expansion** | Only `GITLAB_BASE_URL`, `CI_API_V4_URL` and the variables listed in `GLFG_EVENT_CONFIG_ALLOWED_ENV` (comma-separated) expand. Other references resolve as unset. Leave `settings.gitlab.token` and `settings.license.key` empty, and the function uses `GITLAB_TOKEN` and `DIVMORA_LICENSE_KEY` from its own environment. |
+| **GitLab URL** | Without its own `settings.gitlab.token`, the config's `settings.gitlab.base_url` must be unset or match `GITLAB_BASE_URL`. A config that brings its own token may target any instance. |
+| **No local files** | `repository_files[].content_file` must be an `s3://` URI (fetched when the config loads). `settings.license.file`, `crl_file` and `crl_url` are rejected. |
+
+The config named by the function's own `CONFIG_SOURCE` / `CONFIG_FILE` / `CONFIG_CONTENT` environment variables is the operator's, so none of these rules apply to it. Neither do CLI, Docker or Kubernetes runs, which read the operator's own config file or ConfigMap.
+
 ---
 
 ## Standardized Lambda Response Envelope

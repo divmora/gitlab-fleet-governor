@@ -13,6 +13,10 @@ import (
 type LoadOptions struct {
 	LoaderOptions []LoaderOption
 	SkipValidate  bool
+
+	// Untrusted, when set, restricts the configuration as one that arrived
+	// from an untrusted source (see UntrustedPolicy).
+	Untrusted *UntrustedPolicy
 }
 
 // Load executes the full 4-stage pipeline: Source Ingestion -> Envsubst -> Strict Unmarshal -> Semantic Validation.
@@ -30,7 +34,7 @@ func Load(ctx context.Context, configPath string, opts ...LoadOptions) (*PolicyC
 		return nil, sourceDesc, fmt.Errorf("config load error: %w", err)
 	}
 
-	return parseLoaded(loader, rawBytes, sourceDesc, opt)
+	return parseLoaded(ctx, loader, rawBytes, sourceDesc, opt)
 }
 
 // LoadFromS3 loads, expands, parses, and validates configuration from an
@@ -53,14 +57,31 @@ func LoadFromS3(ctx context.Context, s3URI string, opts ...LoadOptions) (*Policy
 		return nil, sourceDesc, fmt.Errorf("config load error: %w", errors.New("empty configuration content"))
 	}
 
-	return parseLoaded(loader, rawBytes, sourceDesc, opt)
+	return parseLoaded(ctx, loader, rawBytes, sourceDesc, opt)
+}
+
+// LoadInline parses, expands, and validates configuration content supplied
+// inline (for example in an event payload). sourceDesc labels it in errors.
+func LoadInline(ctx context.Context, data []byte, sourceDesc string, opts ...LoadOptions) (*PolicyConfig, string, error) {
+	var opt LoadOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return nil, sourceDesc, fmt.Errorf("config load error: %w", errors.New("empty configuration content"))
+	}
+	return parseLoaded(ctx, NewLoader(opt.LoaderOptions...), data, sourceDesc, opt)
 }
 
 // parseLoaded runs env substitution, strict unmarshaling, defaults and
 // validation on raw configuration bytes.
-func parseLoaded(loader *Loader, rawBytes []byte, sourceDesc string, opt LoadOptions) (*PolicyConfig, string, error) {
+func parseLoaded(ctx context.Context, loader *Loader, rawBytes []byte, sourceDesc string, opt LoadOptions) (*PolicyConfig, string, error) {
 	// Stage 2: Environment variable substitution
-	expandedStr, err := ExpandEnvWithLookup(string(rawBytes), loader.lookupEnv)
+	lookup := loader.lookupEnv
+	if opt.Untrusted != nil {
+		lookup = opt.Untrusted.lookup(lookup)
+	}
+	expandedStr, err := ExpandEnvWithLookup(string(rawBytes), lookup)
 	if err != nil {
 		return nil, sourceDesc, fmt.Errorf("config env substitution error in source '%s': %w", sourceDesc, err)
 	}
@@ -73,6 +94,12 @@ func parseLoaded(loader *Loader, rawBytes []byte, sourceDesc string, opt LoadOpt
 
 	// Apply default values
 	cfg.SetDefaults()
+
+	if opt.Untrusted != nil {
+		if err := opt.Untrusted.apply(ctx, loader, cfg); err != nil {
+			return nil, sourceDesc, err
+		}
+	}
 
 	// Stage 4: Semantic Validation
 	if !opt.SkipValidate {

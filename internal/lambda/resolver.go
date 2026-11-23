@@ -3,9 +3,11 @@ package lambda
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
+	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 // ConfigResolver loads and resolves PolicyConfig from multiple event sources.
@@ -51,46 +53,37 @@ func (r *ConfigResolver) ResolveFromDirectPayload(ctx context.Context, payload *
 		inlineContent = payload.ConfigJSON
 	}
 
+	// Configs from the event (inline, or an S3 object the event names) are
+	// untrusted: they may not read local files, expand secrets from the
+	// environment, or redirect the GitLab client. The operator's own
+	// CONFIG_* fallback below stays fully trusted.
+	eventOpts := config.LoadOptions{LoaderOptions: r.loaderOptions(), Untrusted: r.untrustedPolicy()}
+
 	if payload.Config != nil {
 		cfg = payload.Config
 		sourceDesc = "inline:payload"
-	} else if strings.TrimSpace(inlineContent) != "" {
-		cfg, err = config.LoadFromBytes(ctx, []byte(inlineContent), r.lookupEnv)
-		if err != nil {
-			return nil, "inline:payload", fmt.Errorf("failed to load inline config payload: %w", err)
+		cfg.SetDefaults()
+		if err := config.SanitizeUntrusted(ctx, cfg, eventOpts.Untrusted, eventOpts); err != nil {
+			return nil, sourceDesc, err
 		}
-		sourceDesc = "inline:payload"
+	} else if strings.TrimSpace(inlineContent) != "" {
+		cfg, sourceDesc, err = config.LoadInline(ctx, []byte(inlineContent), "inline:payload", eventOpts)
+		if err != nil {
+			return nil, sourceDesc, fmt.Errorf("failed to load inline config payload: %w", err)
+		}
 	} else if strings.TrimSpace(payload.ConfigS3URI) != "" {
 		// 2. S3 URI in payload. Only s3:// is accepted: config.Load also reads
 		// local files and stdin, which an invocation payload must not reach.
 		if err := requireS3URI(payload.ConfigS3URI); err != nil {
 			return nil, "", err
 		}
-		loaderOpts := []config.LoaderOption{}
-		if r.lookupEnv != nil {
-			loaderOpts = append(loaderOpts, config.WithEnvLookup(r.lookupEnv))
-		}
-		if r.s3Client != nil {
-			loaderOpts = append(loaderOpts, config.WithS3Client(r.s3Client))
-		}
-		cfg, sourceDesc, err = config.LoadFromS3(ctx, payload.ConfigS3URI, config.LoadOptions{
-			LoaderOptions: loaderOpts,
-		})
+		cfg, sourceDesc, err = config.LoadFromS3(ctx, payload.ConfigS3URI, eventOpts)
 		if err != nil {
 			return nil, sourceDesc, fmt.Errorf("failed to load config from S3 URI %q: %w", strings.TrimSpace(payload.ConfigS3URI), err)
 		}
 	} else {
-		// 3. Fallback to environment variables / default candidate files
-		loaderOpts := []config.LoaderOption{}
-		if r.lookupEnv != nil {
-			loaderOpts = append(loaderOpts, config.WithEnvLookup(r.lookupEnv))
-		}
-		if r.s3Client != nil {
-			loaderOpts = append(loaderOpts, config.WithS3Client(r.s3Client))
-		}
-		cfg, sourceDesc, err = config.Load(ctx, "", config.LoadOptions{
-			LoaderOptions: loaderOpts,
-		})
+		// 3. Fallback to the operator's environment variables / default candidate files
+		cfg, sourceDesc, err = config.Load(ctx, "", config.LoadOptions{LoaderOptions: r.loaderOptions()})
 		if err != nil {
 			return nil, sourceDesc, fmt.Errorf("failed to load default configuration: %w", err)
 		}
@@ -107,16 +100,56 @@ func (r *ConfigResolver) ResolveFromS3URI(ctx context.Context, s3URI string) (*c
 	if err := requireS3URI(s3URI); err != nil {
 		return nil, "", err
 	}
-	loaderOpts := []config.LoaderOption{}
+	// The bucket and key come from the event, so the object is untrusted.
+	return config.LoadFromS3(ctx, s3URI, config.LoadOptions{
+		LoaderOptions: r.loaderOptions(),
+		Untrusted:     r.untrustedPolicy(),
+	})
+}
+
+// EventConfigAllowedEnvVar names the environment variable listing extra
+// variables (comma-separated) that event-supplied configs may expand.
+const EventConfigAllowedEnvVar = "GLFG_EVENT_CONFIG_ALLOWED_ENV"
+
+func (r *ConfigResolver) env(name string) (string, bool) {
 	if r.lookupEnv != nil {
-		loaderOpts = append(loaderOpts, config.WithEnvLookup(r.lookupEnv))
+		return r.lookupEnv(name)
+	}
+	return os.LookupEnv(name)
+}
+
+func (r *ConfigResolver) loaderOptions() []config.LoaderOption {
+	opts := []config.LoaderOption{}
+	if r.lookupEnv != nil {
+		opts = append(opts, config.WithEnvLookup(r.lookupEnv))
 	}
 	if r.s3Client != nil {
-		loaderOpts = append(loaderOpts, config.WithS3Client(r.s3Client))
+		opts = append(opts, config.WithS3Client(r.s3Client))
 	}
-	return config.LoadFromS3(ctx, s3URI, config.LoadOptions{
-		LoaderOptions: loaderOpts,
-	})
+	return opts
+}
+
+// untrustedPolicy builds the restrictions for event-supplied configs from the
+// operator's environment.
+func (r *ConfigResolver) untrustedPolicy() *config.UntrustedPolicy {
+	allowed := []string{"GITLAB_BASE_URL", "CI_API_V4_URL"}
+	if extra, ok := r.env(EventConfigAllowedEnvVar); ok {
+		for _, name := range strings.Split(extra, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				allowed = append(allowed, name)
+			}
+		}
+	}
+
+	trustedURL := gitlab.DefaultGitLabBaseURL
+	for _, name := range []string{"GITLAB_BASE_URL", "CI_API_V4_URL"} {
+		if v, ok := r.env(name); ok && strings.TrimSpace(v) != "" {
+			trustedURL = strings.TrimSpace(v)
+			break
+		}
+	}
+
+	return &config.UntrustedPolicy{AllowedEnv: allowed, TrustedGitLabBaseURL: trustedURL}
 }
 
 // requireS3URI rejects any configuration source that is not an s3:// URI with
