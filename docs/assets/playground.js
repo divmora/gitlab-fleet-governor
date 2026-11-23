@@ -140,10 +140,13 @@
   let currentState = JSON.parse(JSON.stringify(defaultState));
   let currentFormat = "yaml";
 
+  // Quote a scalar when plain YAML would misread it. JSON.stringify escapes
+  // backslashes, quotes and control characters, and a JSON string is a valid
+  // YAML double-quoted scalar.
   function escapeYamlString(str) {
     if (typeof str !== "string") return str;
-    if (str.includes(":") || str.includes("#") || str.includes("@") || str.includes("^") || str.includes("$") || str.includes("\\")) {
-      return `"${str.replace(/"/g, '\\"')}"`;
+    if (str === "" || str.trim() !== str || /[:#@^$\\"'\n\r\t]/.test(str)) {
+      return JSON.stringify(str);
     }
     return str;
   }

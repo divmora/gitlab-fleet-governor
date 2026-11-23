@@ -61,7 +61,11 @@ func (r *ConfigResolver) ResolveFromDirectPayload(ctx context.Context, payload *
 		}
 		sourceDesc = "inline:payload"
 	} else if strings.TrimSpace(payload.ConfigS3URI) != "" {
-		// 2. S3 URI in payload
+		// 2. S3 URI in payload. Only s3:// is accepted: config.Load also reads
+		// local files and stdin, which an invocation payload must not reach.
+		if err := requireS3URI(payload.ConfigS3URI); err != nil {
+			return nil, "", err
+		}
 		loaderOpts := []config.LoaderOption{}
 		if r.lookupEnv != nil {
 			loaderOpts = append(loaderOpts, config.WithEnvLookup(r.lookupEnv))
@@ -73,7 +77,7 @@ func (r *ConfigResolver) ResolveFromDirectPayload(ctx context.Context, payload *
 			LoaderOptions: loaderOpts,
 		})
 		if err != nil {
-			return nil, sourceDesc, fmt.Errorf("failed to load config from S3 URI %q: %w", payload.ConfigS3URI, err)
+			return nil, sourceDesc, fmt.Errorf("failed to load config from S3 URI %q: %w", strings.TrimSpace(payload.ConfigS3URI), err)
 		}
 	} else {
 		// 3. Fallback to environment variables / default candidate files
@@ -100,6 +104,9 @@ func (r *ConfigResolver) ResolveFromDirectPayload(ctx context.Context, payload *
 
 // ResolveFromS3URI resolves PolicyConfig directly from an S3 URI.
 func (r *ConfigResolver) ResolveFromS3URI(ctx context.Context, s3URI string) (*config.PolicyConfig, string, error) {
+	if err := requireS3URI(s3URI); err != nil {
+		return nil, "", err
+	}
 	loaderOpts := []config.LoaderOption{}
 	if r.lookupEnv != nil {
 		loaderOpts = append(loaderOpts, config.WithEnvLookup(r.lookupEnv))
@@ -110,6 +117,18 @@ func (r *ConfigResolver) ResolveFromS3URI(ctx context.Context, s3URI string) (*c
 	return config.Load(ctx, s3URI, config.LoadOptions{
 		LoaderOptions: loaderOpts,
 	})
+}
+
+// requireS3URI rejects any configuration source that is not an s3:// URI with
+// a bucket and key, so Lambda events cannot make the loader open local paths.
+func requireS3URI(uri string) error {
+	uri = strings.TrimSpace(uri)
+	rest, ok := strings.CutPrefix(uri, "s3://")
+	bucket, key, _ := strings.Cut(rest, "/")
+	if !ok || bucket == "" || strings.TrimSpace(key) == "" {
+		return fmt.Errorf("invalid config_s3_uri: must be an s3://bucket/key URI")
+	}
+	return nil
 }
 
 func (r *ConfigResolver) applyPayloadOverrides(cfg *config.PolicyConfig, p *DirectInvocationPayload) {

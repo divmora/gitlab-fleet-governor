@@ -94,6 +94,8 @@ Pass inline policy configurations or target overrides directly to the Lambda fun
 }
 ```
 
+`config_s3_uri` must be an `s3://bucket/key` URI. Local paths, `file://` URIs and `-` (stdin) are rejected, so an invocation payload can't make the function read files from its own filesystem.
+
 ---
 
 ## Standardized Lambda Response Envelope
