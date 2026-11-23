@@ -17,6 +17,11 @@ on:
         required: false
         type: string
 
+# What the shared workflow's jobs need: read the code, push the images.
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   ci-cd:
     uses: divmora/.github/.github/workflows/docker-publish.yml@main
