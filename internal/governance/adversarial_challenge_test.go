@@ -43,7 +43,7 @@ func TestAdversarial_PushRules_LifecycleIdempotency(t *testing.T) {
 					CommitMessageRegex:         `^(feat|fix|docs|chore|refactor)\([a-z-]+\):\s.+`,
 					CommitMessageNegativeRegex: `(?i)wip|do not merge|fixup!`,
 					FileNameRegex:              `(\.pem|\.key|\.id_rsa|\.pfx)$`,
-					MaxFileSize:                gogitlab.Ptr(25),
+					MaxFileSize:                gogitlab.Ptr(int64(25)),
 					CommitCommitterCheck:       gogitlab.Ptr(true),
 					MemberCheck:                gogitlab.Ptr(true),
 					PreventSecrets:             gogitlab.Ptr(true),
@@ -92,7 +92,7 @@ func TestAdversarial_PushRules_LifecycleIdempotency(t *testing.T) {
 					CommitMessageRegex:         `^(feat|fix|docs|chore|refactor)\([a-z-]+\):\s.+`,
 					CommitMessageNegativeRegex: `(?i)wip|do not merge|fixup!`,
 					FileNameRegex:              `(\.pem|\.key|\.id_rsa|\.pfx)$`,
-					MaxFileSize:                gogitlab.Ptr(100), // Changed 25 -> 100
+					MaxFileSize:                gogitlab.Ptr(int64(100)), // Changed 25 -> 100
 					CommitCommitterCheck:       gogitlab.Ptr(true),
 					MemberCheck:                gogitlab.Ptr(true),
 					PreventSecrets:             gogitlab.Ptr(false), // Changed true -> false

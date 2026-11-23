@@ -26,7 +26,7 @@ func TestPagination_HighVolumeKeyset1500Items(t *testing.T) {
 
 	for i := 1; i <= totalProjects; i++ {
 		srv.State().AddProject(&gitlabsdk.Project{
-			ID:                i,
+			ID:                int64(i),
 			Name:              fmt.Sprintf("project-%04d", i),
 			PathWithNamespace: fmt.Sprintf("group/project-%04d", i),
 		})
@@ -36,7 +36,7 @@ func TestPagination_HighVolumeKeyset1500Items(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := gitlab.DefaultStreamOptions()
-	opts.Pagination.PerPage = perPage
+	opts.Pagination.PerPage = int64(perPage)
 	opts.Pagination.Mode = gitlab.PaginationModeKeyset
 
 	ctx := context.Background()
@@ -48,7 +48,7 @@ func TestPagination_HighVolumeKeyset1500Items(t *testing.T) {
 
 	// Verify sequential integrity and zero duplicates
 	for i, p := range streamed {
-		expectedID := i + 1
+		expectedID := int64(i + 1)
 		assert.Equal(t, expectedID, p.ID, "item at index %d should have ID %d", i, expectedID)
 		assert.Equal(t, fmt.Sprintf("project-%04d", expectedID), p.Name)
 	}
@@ -59,10 +59,10 @@ func TestPagination_SparseNonSequentialIDs(t *testing.T) {
 	srv := mockserver.NewMockGitLabServer()
 	defer srv.Close()
 
-	sparseIDs := []int{3, 17, 42, 108, 999, 10000, 555555, 9999999}
+	sparseIDs := []int64{3, 17, 42, 108, 999, 10000, 555555, 9999999}
 	for _, id := range sparseIDs {
 		srv.State().AddProject(&gitlabsdk.Project{
-			ID:   id,
+			ID:   int64(id),
 			Name: fmt.Sprintf("project-%d", id),
 		})
 	}
@@ -93,7 +93,7 @@ func TestPagination_SingleItemPerPageStress(t *testing.T) {
 	totalItems := 50
 	for i := 1; i <= totalItems; i++ {
 		srv.State().AddProject(&gitlabsdk.Project{
-			ID:   i,
+			ID:   int64(i),
 			Name: fmt.Sprintf("p-%d", i),
 		})
 	}
@@ -136,7 +136,7 @@ func TestPagination_ExactPageBoundary(t *testing.T) {
 	defer srv.Close()
 
 	for i := 1; i <= 20; i++ {
-		srv.State().AddProject(&gitlabsdk.Project{ID: i, Name: fmt.Sprintf("p-%d", i)})
+		srv.State().AddProject(&gitlabsdk.Project{ID: int64(i), Name: fmt.Sprintf("p-%d", i)})
 	}
 
 	client, err := srv.Client()
@@ -159,7 +159,7 @@ func TestPagination_ContextCancellationMidStream(t *testing.T) {
 	defer srv.Close()
 
 	for i := 1; i <= 500; i++ {
-		srv.State().AddProject(&gitlabsdk.Project{ID: i, Name: fmt.Sprintf("p-%d", i)})
+		srv.State().AddProject(&gitlabsdk.Project{ID: int64(i), Name: fmt.Sprintf("p-%d", i)})
 	}
 
 	client, err := srv.Client()

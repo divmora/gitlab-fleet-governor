@@ -181,10 +181,10 @@ type TargetSelectors struct {
 // GroupSelector defines group hierarchy inclusion, exclusion, and recursive traversal.
 type GroupSelector struct {
 	// GroupIDsInclude matches explicit numeric group IDs.
-	GroupIDsInclude []int `yaml:"group_ids_include,omitempty" json:"group_ids_include,omitempty"`
+	GroupIDsInclude []int64 `yaml:"group_ids_include,omitempty" json:"group_ids_include,omitempty"`
 
 	// GroupIDsExclude excludes explicit numeric group IDs.
-	GroupIDsExclude []int `yaml:"group_ids_exclude,omitempty" json:"group_ids_exclude,omitempty"`
+	GroupIDsExclude []int64 `yaml:"group_ids_exclude,omitempty" json:"group_ids_exclude,omitempty"`
 
 	// GroupPathsInclude matches group full paths (e.g. "enterprise/platform").
 	GroupPathsInclude []string `yaml:"group_paths_include,omitempty" json:"group_paths_include,omitempty"`
@@ -232,8 +232,8 @@ type ProjectSelector struct {
 
 // IDRange defines a closed interval [Min, Max] for numeric entity IDs.
 type IDRange struct {
-	Min int `yaml:"min,omitempty" json:"min,omitempty"`
-	Max int `yaml:"max,omitempty" json:"max,omitempty"`
+	Min int64 `yaml:"min,omitempty" json:"min,omitempty"`
+	Max int64 `yaml:"max,omitempty" json:"max,omitempty"`
 }
 
 // IDRangeSelector is an alias for IDRange.
@@ -391,7 +391,7 @@ type PushRulesConfig struct {
 	FileNameRegex string `yaml:"file_name_regex,omitempty" json:"file_name_regex,omitempty"`
 
 	// MaxFileSize specifies maximum file size in megabytes (MB) allowed in a commit.
-	MaxFileSize *int `yaml:"max_file_size,omitempty" json:"max_file_size,omitempty"`
+	MaxFileSize *int64 `yaml:"max_file_size,omitempty" json:"max_file_size,omitempty"`
 
 	// CommitCommitterCheck ensures committer is a recognized GitLab user.
 	CommitCommitterCheck *bool `yaml:"commit_committer_check,omitempty" json:"commit_committer_check,omitempty"`
@@ -443,10 +443,10 @@ type BranchAccessDescription struct {
 	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 
 	// UserID specifies explicit user ID granted access.
-	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	UserID int64 `yaml:"user_id,omitempty" json:"user_id,omitempty"`
 
 	// GroupID specifies explicit group ID granted access.
-	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupID int64 `yaml:"group_id,omitempty" json:"group_id,omitempty"`
 
 	// Username specifies username (dynamically resolved to UserID).
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
@@ -455,7 +455,7 @@ type BranchAccessDescription struct {
 	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
 
 	// DeployKeyID specifies deploy key ID granted push access.
-	DeployKeyID int `yaml:"deploy_key_id,omitempty" json:"deploy_key_id,omitempty"`
+	DeployKeyID int64 `yaml:"deploy_key_id,omitempty" json:"deploy_key_id,omitempty"`
 }
 
 // ============================================================================
@@ -508,10 +508,10 @@ type TagAccessDescription struct {
 	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 
 	// UserID specifies explicit user ID granted access.
-	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	UserID int64 `yaml:"user_id,omitempty" json:"user_id,omitempty"`
 
 	// GroupID specifies explicit group ID granted access.
-	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupID int64 `yaml:"group_id,omitempty" json:"group_id,omitempty"`
 
 	// Username specifies username (dynamically resolved to UserID).
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
@@ -564,7 +564,7 @@ type ProtectedEnvironmentRuleConfig struct {
 	DeployAccessLevels []EnvironmentAccessDescription `yaml:"deploy_access_levels,omitempty" json:"deploy_access_levels,omitempty"`
 
 	// RequiredApprovalCount defines minimum number of required approvals before deployment.
-	RequiredApprovalCount *int `yaml:"required_approval_count,omitempty" json:"required_approval_count,omitempty"`
+	RequiredApprovalCount *int64 `yaml:"required_approval_count,omitempty" json:"required_approval_count,omitempty"`
 
 	// ApprovalRules specifies required approver rules for deployment.
 	ApprovalRules []EnvironmentApprovalRuleConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
@@ -582,10 +582,10 @@ type EnvironmentAccessDescription struct {
 	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 
 	// UserID specifies explicit user ID granted deployment access.
-	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	UserID int64 `yaml:"user_id,omitempty" json:"user_id,omitempty"`
 
 	// GroupID specifies explicit group ID granted deployment access.
-	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupID int64 `yaml:"group_id,omitempty" json:"group_id,omitempty"`
 
 	// Username specifies user by username for dynamic ID resolution.
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
@@ -596,13 +596,13 @@ type EnvironmentAccessDescription struct {
 
 // EnvironmentApprovalGroupConfig specifies deployment approval group.
 type EnvironmentApprovalGroupConfig struct {
-	GroupID   int    `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupID   int64  `yaml:"group_id,omitempty" json:"group_id,omitempty"`
 	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
 }
 
 // EnvironmentApprovalUserConfig specifies deployment approval user.
 type EnvironmentApprovalUserConfig struct {
-	UserID   int    `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	UserID   int64  `yaml:"user_id,omitempty" json:"user_id,omitempty"`
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 }
 
@@ -612,10 +612,10 @@ type EnvironmentApprovalRuleConfig struct {
 	AccessLevel int `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 
 	// UserID specifies explicit user ID required to approve.
-	UserID int `yaml:"user_id,omitempty" json:"user_id,omitempty"`
+	UserID int64 `yaml:"user_id,omitempty" json:"user_id,omitempty"`
 
 	// GroupID specifies explicit group ID required to approve.
-	GroupID int `yaml:"group_id,omitempty" json:"group_id,omitempty"`
+	GroupID int64 `yaml:"group_id,omitempty" json:"group_id,omitempty"`
 
 	// Username specifies user by username for dynamic ID resolution.
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
@@ -624,7 +624,7 @@ type EnvironmentApprovalRuleConfig struct {
 	GroupPath string `yaml:"group_path,omitempty" json:"group_path,omitempty"`
 
 	// RequiredApprovalCount specifies required approvals for this specific rule (default: 1).
-	RequiredApprovalCount *int `yaml:"required_approvals,omitempty" json:"required_approvals,omitempty"`
+	RequiredApprovalCount *int64 `yaml:"required_approvals,omitempty" json:"required_approvals,omitempty"`
 }
 
 // ============================================================================
@@ -634,7 +634,7 @@ type EnvironmentApprovalRuleConfig struct {
 // ApprovalRulesConfig encapsulates project-level MR approval settings and named approval rules.
 type ApprovalRulesConfig struct {
 	// ApprovalsBeforeMerge specifies required approvals before merge.
-	ApprovalsBeforeMerge *int `yaml:"approvals_before_merge,omitempty" json:"approvals_before_merge,omitempty"`
+	ApprovalsBeforeMerge *int64 `yaml:"approvals_before_merge,omitempty" json:"approvals_before_merge,omitempty"`
 
 	// ResetApprovalsOnPush resets approvals when commits are pushed.
 	ResetApprovalsOnPush *bool `yaml:"reset_approvals_on_push,omitempty" json:"reset_approvals_on_push,omitempty"`
@@ -652,7 +652,7 @@ type ApprovalRulesConfig struct {
 // ApprovalSettingsConfig specifies general project merge request approval settings.
 type ApprovalSettingsConfig struct {
 	// ApprovalsBeforeMerge specifies required approvals before merge.
-	ApprovalsBeforeMerge *int `yaml:"approvals_before_merge,omitempty" json:"approvals_before_merge,omitempty"`
+	ApprovalsBeforeMerge *int64 `yaml:"approvals_before_merge,omitempty" json:"approvals_before_merge,omitempty"`
 
 	// ResetApprovalsOnPush resets approvals when commits are pushed.
 	ResetApprovalsOnPush *bool `yaml:"reset_approvals_on_push,omitempty" json:"reset_approvals_on_push,omitempty"`
@@ -682,25 +682,25 @@ type ApprovalRuleConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// ApprovalsRequired specifies minimum number of approvals required (>= 1).
-	ApprovalsRequired int `yaml:"approvals_required" json:"approvals_required"`
+	ApprovalsRequired int64 `yaml:"approvals_required" json:"approvals_required"`
 
 	// UserUsernames specifies approver usernames (dynamically resolved to UserIDs).
 	UserUsernames []string `yaml:"user_usernames,omitempty" json:"user_usernames,omitempty"`
 
 	// UserIDs specifies explicit approver user IDs.
-	UserIDs []int `yaml:"user_ids,omitempty" json:"user_ids,omitempty"`
+	UserIDs []int64 `yaml:"user_ids,omitempty" json:"user_ids,omitempty"`
 
 	// GroupPaths specifies approver group paths (dynamically resolved to GroupIDs).
 	GroupPaths []string `yaml:"group_paths,omitempty" json:"group_paths,omitempty"`
 
 	// GroupIDs specifies explicit approver group IDs.
-	GroupIDs []int `yaml:"group_ids,omitempty" json:"group_ids,omitempty"`
+	GroupIDs []int64 `yaml:"group_ids,omitempty" json:"group_ids,omitempty"`
 
 	// ProtectedBranchNames specifies target branch names/wildcards for this rule.
 	ProtectedBranchNames []string `yaml:"protected_branch_names,omitempty" json:"protected_branch_names,omitempty"`
 
 	// ProtectedBranchIDs specifies explicit target protected branch IDs.
-	ProtectedBranchIDs []int `yaml:"protected_branch_ids,omitempty" json:"protected_branch_ids,omitempty"`
+	ProtectedBranchIDs []int64 `yaml:"protected_branch_ids,omitempty" json:"protected_branch_ids,omitempty"`
 
 	// RuleType specifies the rule type: "regular" (default), "code_owner", "any_approver", "report_approver".
 	RuleType string `yaml:"rule_type,omitempty" json:"rule_type,omitempty"`
@@ -758,7 +758,7 @@ type ContainerExpirationPolicyConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
 	// KeepN specifies number of container tags to retain per image.
-	KeepN *int `yaml:"keep_n,omitempty" json:"keep_n,omitempty"`
+	KeepN *int64 `yaml:"keep_n,omitempty" json:"keep_n,omitempty"`
 
 	// OlderThan specifies retention duration: "7d", "14d", "30d", "60d", "90d".
 	OlderThan string `yaml:"older_than,omitempty" json:"older_than,omitempty"`
@@ -848,7 +848,7 @@ type RunnersConfig struct {
 // RunnerConfig defines configuration assertions for a specific runner.
 type RunnerConfig struct {
 	// ID is the numeric runner ID.
-	ID int `yaml:"id,omitempty" json:"id,omitempty"`
+	ID int64 `yaml:"id,omitempty" json:"id,omitempty"`
 
 	// Description is the runner name/description.
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
@@ -869,7 +869,7 @@ type RunnerConfig struct {
 	AccessLevel string `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 
 	// MaximumTimeout specifies maximum job execution timeout in seconds.
-	MaximumTimeout *int `yaml:"maximum_timeout,omitempty" json:"maximum_timeout,omitempty"`
+	MaximumTimeout *int64 `yaml:"maximum_timeout,omitempty" json:"maximum_timeout,omitempty"`
 }
 
 // ============================================================================
@@ -882,7 +882,7 @@ type ComplianceConfig struct {
 	FrameworkName string `yaml:"framework_name,omitempty" json:"framework_name,omitempty"`
 
 	// FrameworkID is the explicit compliance framework ID (resolved from FrameworkName if omitted).
-	FrameworkID *int `yaml:"framework_id,omitempty" json:"framework_id,omitempty"`
+	FrameworkID *int64 `yaml:"framework_id,omitempty" json:"framework_id,omitempty"`
 
 	// Prune removes compliance framework labels from non-compliant projects.
 	Prune *bool `yaml:"prune,omitempty" json:"prune,omitempty"`

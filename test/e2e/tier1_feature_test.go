@@ -549,30 +549,30 @@ func TestE2E_Tier1_Discovery_Target_Selectors(t *testing.T) {
 		assert.False(t, fleet.IsEmpty())
 
 		// Group 10 and Subgroup 11 must be discovered
-		assert.Contains(t, fleet.Groups, 10)
-		assert.Contains(t, fleet.Groups, 11)
-		assert.NotContains(t, fleet.Groups, 20)
+		assert.Contains(t, fleet.Groups, int64(10))
+		assert.Contains(t, fleet.Groups, int64(11))
+		assert.NotContains(t, fleet.Groups, int64(20))
 
 		// Projects belonging to 10 and 11 must be discovered
-		assert.Contains(t, fleet.Projects, 101)
-		assert.Contains(t, fleet.Projects, 102)
-		assert.NotContains(t, fleet.Projects, 103)
+		assert.Contains(t, fleet.Projects, int64(101))
+		assert.Contains(t, fleet.Projects, int64(102))
+		assert.NotContains(t, fleet.Projects, int64(103))
 	})
 
 	t.Run("Group Selector - Group IDs Include and Exclude", func(t *testing.T) {
 		targets := config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10, 20},
-				GroupIDsExclude: []int{20},
+				GroupIDsInclude: []int64{10, 20},
+				GroupIDsExclude: []int64{20},
 				Recursive:       &boolFalse,
 			},
 		}
 
 		fleet, err := discovery.DiscoverFleet(ctx, client, targets)
 		require.NoError(t, err)
-		assert.Contains(t, fleet.Groups, 10)
-		assert.NotContains(t, fleet.Groups, 20)
-		assert.NotContains(t, fleet.Groups, 11) // non-recursive
+		assert.Contains(t, fleet.Groups, int64(10))
+		assert.NotContains(t, fleet.Groups, int64(20))
+		assert.NotContains(t, fleet.Groups, int64(11)) // non-recursive
 	})
 
 	t.Run("Project Selector - Namespace Filter", func(t *testing.T) {
@@ -584,9 +584,9 @@ func TestE2E_Tier1_Discovery_Target_Selectors(t *testing.T) {
 
 		fleet, err := discovery.DiscoverFleet(ctx, client, targets)
 		require.NoError(t, err)
-		assert.Contains(t, fleet.Projects, 102)
-		assert.NotContains(t, fleet.Projects, 101)
-		assert.NotContains(t, fleet.Projects, 103)
+		assert.Contains(t, fleet.Projects, int64(102))
+		assert.NotContains(t, fleet.Projects, int64(101))
+		assert.NotContains(t, fleet.Projects, int64(103))
 	})
 
 	t.Run("Project Selector - Project Name Regex Include and Exclude", func(t *testing.T) {
@@ -599,9 +599,9 @@ func TestE2E_Tier1_Discovery_Target_Selectors(t *testing.T) {
 
 		fleet, err := discovery.DiscoverFleet(ctx, client, targets)
 		require.NoError(t, err)
-		assert.Contains(t, fleet.Projects, 101)    // fleet-governor
-		assert.NotContains(t, fleet.Projects, 102) // cloud-infra
-		assert.NotContains(t, fleet.Projects, 103) // security-tools (excluded by regex exclude)
+		assert.Contains(t, fleet.Projects, int64(101))    // fleet-governor
+		assert.NotContains(t, fleet.Projects, int64(102)) // cloud-infra
+		assert.NotContains(t, fleet.Projects, int64(103)) // security-tools (excluded by regex exclude)
 	})
 
 	t.Run("Project Selector - Visibility and ID Range Filter", func(t *testing.T) {
@@ -617,9 +617,9 @@ func TestE2E_Tier1_Discovery_Target_Selectors(t *testing.T) {
 
 		fleet, err := discovery.DiscoverFleet(ctx, client, targets)
 		require.NoError(t, err)
-		assert.Contains(t, fleet.Projects, 101)    // Private, ID 101
-		assert.NotContains(t, fleet.Projects, 102) // Internal
-		assert.NotContains(t, fleet.Projects, 103) // Public
+		assert.Contains(t, fleet.Projects, int64(101))    // Private, ID 101
+		assert.NotContains(t, fleet.Projects, int64(102)) // Internal
+		assert.NotContains(t, fleet.Projects, int64(103)) // Public
 	})
 }
 
@@ -824,7 +824,7 @@ func TestE2E_Tier1_All_10_Governance_Reconcilers(t *testing.T) {
 		pr, found := h.Server.State().GetProjectPushRule("101")
 		require.True(t, found)
 		assert.Equal(t, `@fleetcorp\.io$`, pr.AuthorEmailRegex)
-		assert.Equal(t, 25, pr.MaxFileSize)
+		assert.Equal(t, int64(25), pr.MaxFileSize)
 		assert.True(t, pr.PreventSecrets)
 		assert.True(t, pr.RejectUnsignedCommits)
 

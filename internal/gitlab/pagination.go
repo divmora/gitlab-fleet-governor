@@ -22,11 +22,11 @@ const (
 // PaginationOptions provides configuration parameters for paginated queries.
 type PaginationOptions struct {
 	Mode      PaginationMode `yaml:"mode" json:"mode"`
-	Page      int            `yaml:"page" json:"page"`
-	PerPage   int            `yaml:"per_page" json:"per_page"`
+	Page      int64          `yaml:"page" json:"page"`
+	PerPage   int64          `yaml:"per_page" json:"per_page"`
 	OrderBy   string         `yaml:"order_by" json:"order_by"`
 	Sort      string         `yaml:"sort" json:"sort"`
-	IDAfter   int            `yaml:"id_after" json:"id_after"`
+	IDAfter   int64          `yaml:"id_after" json:"id_after"`
 	PageToken string         `yaml:"page_token" json:"page_token"`
 }
 
@@ -43,14 +43,14 @@ func DefaultPaginationOptions() PaginationOptions {
 
 // PageResponse contains metadata parsed from standard and keyset pagination headers.
 type PageResponse struct {
-	CurrentPage int
-	PerPage     int
-	NextPage    int
-	PrevPage    int
-	Total       int
-	TotalPages  int
+	CurrentPage int64
+	PerPage     int64
+	NextPage    int64
+	PrevPage    int64
+	Total       int64
+	TotalPages  int64
 	NextURL     string
-	NextIDAfter int
+	NextIDAfter int64
 	HasNext     bool
 }
 
@@ -108,23 +108,23 @@ func ParsePageResponse(resp *http.Response) PageResponse {
 	h := resp.Header
 
 	// Parse Page-based headers
-	if v, err := strconv.Atoi(h.Get("X-Page")); err == nil {
+	if v, err := strconv.ParseInt(h.Get("X-Page"), 10, 64); err == nil {
 		pr.CurrentPage = v
 	}
-	if v, err := strconv.Atoi(h.Get("X-Per-Page")); err == nil {
+	if v, err := strconv.ParseInt(h.Get("X-Per-Page"), 10, 64); err == nil {
 		pr.PerPage = v
 	}
-	if v, err := strconv.Atoi(h.Get("X-Next-Page")); err == nil && v > 0 {
+	if v, err := strconv.ParseInt(h.Get("X-Next-Page"), 10, 64); err == nil && v > 0 {
 		pr.NextPage = v
 		pr.HasNext = true
 	}
-	if v, err := strconv.Atoi(h.Get("X-Prev-Page")); err == nil {
+	if v, err := strconv.ParseInt(h.Get("X-Prev-Page"), 10, 64); err == nil {
 		pr.PrevPage = v
 	}
-	if v, err := strconv.Atoi(h.Get("X-Total")); err == nil {
+	if v, err := strconv.ParseInt(h.Get("X-Total"), 10, 64); err == nil {
 		pr.Total = v
 	}
-	if v, err := strconv.Atoi(h.Get("X-Total-Pages")); err == nil {
+	if v, err := strconv.ParseInt(h.Get("X-Total-Pages"), 10, 64); err == nil {
 		pr.TotalPages = v
 	}
 
@@ -140,12 +140,12 @@ func ParsePageResponse(resp *http.Response) PageResponse {
 			if parsed, err := url.Parse(nextURL); err == nil {
 				q := parsed.Query()
 				if idAfterStr := q.Get("id_after"); idAfterStr != "" {
-					if idAfter, err := strconv.Atoi(idAfterStr); err == nil {
+					if idAfter, err := strconv.ParseInt(idAfterStr, 10, 64); err == nil {
 						pr.NextIDAfter = idAfter
 					}
 				}
 				if pageStr := q.Get("page"); pageStr != "" && pr.NextPage == 0 {
-					if p, err := strconv.Atoi(pageStr); err == nil {
+					if p, err := strconv.ParseInt(pageStr, 10, 64); err == nil {
 						pr.NextPage = p
 					}
 				}
@@ -316,7 +316,7 @@ func StreamGroups(
 			if pOpt.PageToken != "" {
 				reqOpt.PageToken = pOpt.PageToken
 			} else if pOpt.IDAfter > 0 {
-				reqOpt.PageToken = strconv.Itoa(pOpt.IDAfter)
+				reqOpt.PageToken = strconv.FormatInt(pOpt.IDAfter, 10)
 			}
 		} else {
 			reqOpt.Page = pOpt.Page
@@ -355,7 +355,7 @@ func StreamSubgroups(
 			if pOpt.PageToken != "" {
 				reqOpt.PageToken = pOpt.PageToken
 			} else if pOpt.IDAfter > 0 {
-				reqOpt.PageToken = strconv.Itoa(pOpt.IDAfter)
+				reqOpt.PageToken = strconv.FormatInt(pOpt.IDAfter, 10)
 			}
 		} else {
 			reqOpt.Page = pOpt.Page
@@ -394,7 +394,7 @@ func StreamGroupProjects(
 			if pOpt.PageToken != "" {
 				reqOpt.PageToken = pOpt.PageToken
 			} else if pOpt.IDAfter > 0 {
-				reqOpt.PageToken = strconv.Itoa(pOpt.IDAfter)
+				reqOpt.PageToken = strconv.FormatInt(pOpt.IDAfter, 10)
 			}
 		} else {
 			reqOpt.Page = pOpt.Page

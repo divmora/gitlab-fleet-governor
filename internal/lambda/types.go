@@ -80,8 +80,8 @@ type DirectInvocationPayload struct {
 	Concurrency         int                  `json:"concurrency,omitempty"`
 	LogLevel            string               `json:"log_level,omitempty"`
 	LogFormat           string               `json:"log_format,omitempty"`
-	GroupIDsInclude     []int                `json:"group_ids_include,omitempty"`
-	GroupIDsExclude     []int                `json:"group_ids_exclude,omitempty"`
+	GroupIDsInclude     []int64              `json:"group_ids_include,omitempty"`
+	GroupIDsExclude     []int64              `json:"group_ids_exclude,omitempty"`
 	GroupPathsInclude   []string             `json:"group_paths_include,omitempty"`
 	GroupPathsExclude   []string             `json:"group_paths_exclude,omitempty"`
 	NamespacesInclude   []string             `json:"namespaces_include,omitempty"`
@@ -135,7 +135,7 @@ type ExecutionSummary struct {
 
 // ProjectChangeSummary summarizes changes made to a single project.
 type ProjectChangeSummary struct {
-	ProjectID   int      `json:"project_id"`
+	ProjectID   int64    `json:"project_id"`
 	ProjectPath string   `json:"project_path"`
 	Action      string   `json:"action"`
 	Operations  []string `json:"operations"`

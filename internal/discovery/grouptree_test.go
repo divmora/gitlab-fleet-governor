@@ -16,7 +16,7 @@ import (
 
 func TestGroupSelectorEvaluator_Inclusions(t *testing.T) {
 	sel := &config.GroupSelector{
-		GroupIDsInclude:   []int{10, 20},
+		GroupIDsInclude:   []int64{10, 20},
 		GroupPathsInclude: []string{"platform/core", "infra/networking"},
 	}
 	eval := discovery.NewGroupSelectorEvaluator(sel)
@@ -64,8 +64,8 @@ func TestGroupSelectorEvaluator_Inclusions(t *testing.T) {
 
 func TestGroupSelectorEvaluator_ExclusionPrecedence(t *testing.T) {
 	sel := &config.GroupSelector{
-		GroupIDsInclude:   []int{10, 20, 30},
-		GroupIDsExclude:   []int{20},
+		GroupIDsInclude:   []int64{10, 20, 30},
+		GroupIDsExclude:   []int64{20},
 		GroupPathsInclude: []string{"platform/core", "platform/sandbox"},
 		GroupPathsExclude: []string{"platform/sandbox"},
 	}
@@ -136,25 +136,25 @@ func TestBFSGroupTraverser_StandardHierarchy(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, groups, 3)
 
-	groupMap := make(map[int]*discovery.DiscoveredGroup)
+	groupMap := make(map[int64]*discovery.DiscoveredGroup)
 	for _, g := range groups {
 		groupMap[g.ID] = g
 	}
 
-	assert.Contains(t, groupMap, 10)
-	assert.Contains(t, groupMap, 11)
-	assert.Contains(t, groupMap, 20)
+	assert.Contains(t, groupMap, int64(10))
+	assert.Contains(t, groupMap, int64(11))
+	assert.Contains(t, groupMap, int64(20))
 
 	// Check depth and parentage
 	assert.Equal(t, 0, groupMap[10].Depth)
-	assert.Equal(t, 10, groupMap[10].RootParentID)
+	assert.Equal(t, int64(10), groupMap[10].RootParentID)
 
 	assert.Equal(t, 1, groupMap[11].Depth)
-	assert.Equal(t, 10, groupMap[11].ParentID)
-	assert.Equal(t, 10, groupMap[11].RootParentID)
+	assert.Equal(t, int64(10), groupMap[11].ParentID)
+	assert.Equal(t, int64(10), groupMap[11].RootParentID)
 
 	assert.Equal(t, 0, groupMap[20].Depth)
-	assert.Equal(t, 20, groupMap[20].RootParentID)
+	assert.Equal(t, int64(20), groupMap[20].RootParentID)
 }
 
 func TestBFSGroupTraverser_NonRecursive(t *testing.T) {
@@ -175,13 +175,13 @@ func TestBFSGroupTraverser_NonRecursive(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, groups, 2)
 
-	ids := make([]int, 0, len(groups))
+	ids := make([]int64, 0, len(groups))
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 		assert.Equal(t, 0, g.Depth)
 	}
 
-	assert.ElementsMatch(t, []int{10, 20}, ids)
+	assert.ElementsMatch(t, []int64{10, 20}, ids)
 }
 
 func TestBFSGroupTraverser_IncludeSpecificGroup(t *testing.T) {
@@ -197,16 +197,16 @@ func TestBFSGroupTraverser_IncludeSpecificGroup(t *testing.T) {
 
 	t.Run("IncludeByIDWithSubgroups", func(t *testing.T) {
 		groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-			GroupIDsInclude: []int{10},
+			GroupIDsInclude: []int64{10},
 		})
 		require.NoError(t, err)
 		require.Len(t, groups, 2)
 
-		ids := make([]int, 0, len(groups))
+		ids := make([]int64, 0, len(groups))
 		for _, g := range groups {
 			ids = append(ids, g.ID)
 		}
-		assert.ElementsMatch(t, []int{10, 11}, ids)
+		assert.ElementsMatch(t, []int64{10, 11}, ids)
 	})
 
 	t.Run("IncludeByPath", func(t *testing.T) {
@@ -215,7 +215,7 @@ func TestBFSGroupTraverser_IncludeSpecificGroup(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, groups, 1)
-		assert.Equal(t, 20, groups[0].ID)
+		assert.Equal(t, int64(20), groups[0].ID)
 		assert.Equal(t, "security", groups[0].FullPath)
 	})
 }
@@ -237,11 +237,11 @@ func TestBFSGroupTraverser_ExcludeSubgroup(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, groups, 2)
 
-	ids := make([]int, 0, len(groups))
+	ids := make([]int64, 0, len(groups))
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{10, 20}, ids)
+	assert.ElementsMatch(t, []int64{10, 20}, ids)
 }
 
 func TestBFSGroupTraverser_CycleDetection(t *testing.T) {
@@ -259,7 +259,7 @@ func TestBFSGroupTraverser_CycleDetection(t *testing.T) {
 
 	startTime := time.Now()
 	groups, err := traverser.Traverse(ctx, &config.GroupSelector{
-		GroupIDsInclude: []int{500},
+		GroupIDsInclude: []int64{500},
 	})
 	elapsed := time.Since(startTime)
 
@@ -269,11 +269,11 @@ func TestBFSGroupTraverser_CycleDetection(t *testing.T) {
 	// Must discover exactly groups 500, 501, 502 without infinite duplication
 	require.Len(t, groups, 3)
 
-	ids := make([]int, 0, len(groups))
+	ids := make([]int64, 0, len(groups))
 	for _, g := range groups {
 		ids = append(ids, g.ID)
 	}
-	assert.ElementsMatch(t, []int{500, 501, 502}, ids)
+	assert.ElementsMatch(t, []int64{500, 501, 502}, ids)
 }
 
 func TestBFSGroupTraverser_ContextCancellation(t *testing.T) {
@@ -304,7 +304,7 @@ func TestBFSGroupTraverser_InvalidGroupID(t *testing.T) {
 	traverser := discovery.NewBFSGroupTraverser(client)
 
 	_, err = traverser.Traverse(context.Background(), &config.GroupSelector{
-		GroupIDsInclude: []int{99999},
+		GroupIDsInclude: []int64{99999},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get group by ID 99999")

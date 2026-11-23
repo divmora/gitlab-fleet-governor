@@ -28,28 +28,28 @@ func TestMockGitLabServer_CircularSubgroupsTraversal(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, subs500, 1)
-	assert.Equal(t, 501, subs500[0].ID)
+	assert.Equal(t, int64(501), subs500[0].ID)
 
 	// Step 2: Query group 501 -> returns 502
 	subs501, resp, err := client.Groups.ListSubGroups(501, nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, subs501, 1)
-	assert.Equal(t, 502, subs501[0].ID)
+	assert.Equal(t, int64(502), subs501[0].ID)
 
 	// Step 3: Query group 502 -> returns 500 (cycle complete)
 	subs502, resp, err := client.Groups.ListSubGroups(502, nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, subs502, 1)
-	assert.Equal(t, 500, subs502[0].ID)
+	assert.Equal(t, int64(500), subs502[0].ID)
 
 	// Step 4: Resolve by full path with URL encoding
 	subsByPath, resp, err := client.Groups.ListSubGroups("circ-root/child-a/child-b", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, subsByPath, 1)
-	assert.Equal(t, 500, subsByPath[0].ID)
+	assert.Equal(t, int64(500), subsByPath[0].ID)
 }
 
 // TestMockGitLabServer_DeepSubgroupHierarchy tests traversal through 6 levels of nested subgroups.
@@ -58,12 +58,12 @@ func TestMockGitLabServer_DeepSubgroupHierarchy(t *testing.T) {
 	defer srv.Close()
 
 	depth := 6
-	currentParent := 0
+	currentParent := int64(0)
 	currentPath := "root"
 
 	for i := 1; i <= depth; i++ {
 		g := srv.State().AddGroup(&gitlab.Group{
-			ID:       1000 + i,
+			ID:       int64(1000 + i),
 			Name:     fmt.Sprintf("Level-%d", i),
 			Path:     fmt.Sprintf("level-%d", i),
 			FullPath: currentPath,
@@ -79,7 +79,7 @@ func TestMockGitLabServer_DeepSubgroupHierarchy(t *testing.T) {
 	// Verify each parent sees its child
 	for i := 1; i < depth; i++ {
 		parentID := 1000 + i
-		expectedChildID := 1000 + i + 1
+		expectedChildID := int64(1000 + i + 1)
 		subs, resp, err := client.Groups.ListSubGroups(parentID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -107,7 +107,7 @@ func TestMockGitLabServer_URLEncodedPathWithNamespaceComprehensive(t *testing.T)
 		Path:              "service-mesh",
 		PathWithNamespace: deepPath,
 	})
-	require.Equal(t, 777, p.ID)
+	require.Equal(t, int64(777), p.ID)
 
 	client, err := srv.Client()
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestMockGitLabServer_URLEncodedPathWithNamespaceComprehensive(t *testing.T)
 		proj, resp, err := client.Projects.GetProject(deepPath, nil)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Equal(t, 777, proj.ID)
+		assert.Equal(t, int64(777), proj.ID)
 		assert.Equal(t, deepPath, proj.PathWithNamespace)
 	})
 
@@ -195,7 +195,7 @@ func TestMockGitLabServer_StateIsolation(t *testing.T) {
 	// Populate srvA with 10 projects
 	for i := 1; i <= 10; i++ {
 		srvA.State().AddProject(&gitlab.Project{
-			ID:   i,
+			ID:   int64(i),
 			Name: fmt.Sprintf("project-A-%d", i),
 		})
 	}
@@ -203,7 +203,7 @@ func TestMockGitLabServer_StateIsolation(t *testing.T) {
 	// Populate srvB with 2 different projects
 	for i := 1; i <= 2; i++ {
 		srvB.State().AddProject(&gitlab.Project{
-			ID:   i,
+			ID:   int64(i),
 			Name: fmt.Sprintf("project-B-%d", i),
 		})
 	}
@@ -262,7 +262,7 @@ func TestMockGitLabServer_ConcurrentStressStateSafety(t *testing.T) {
 
 				// 1. Add project
 				srv.State().AddProject(&gitlab.Project{
-					ID:                projID,
+					ID:                int64(projID),
 					Name:              fmt.Sprintf("proj-%d", projID),
 					PathWithNamespace: fmt.Sprintf("group-%d/proj-%d", wID, projID),
 				})

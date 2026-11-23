@@ -15,7 +15,7 @@ import (
 // UserRegistry manages thread-safe discovery, caching, and display formatting of all users across the fleet.
 type UserRegistry struct {
 	mu         sync.RWMutex
-	users      map[int]*UserInfo
+	users      map[int64]*UserInfo
 	client     gl.GitLabClient
 	classifier *BotClassifier
 }
@@ -27,7 +27,7 @@ func NewUserRegistry(client gl.GitLabClient, classifier ...*BotClassifier) *User
 		c = classifier[0]
 	}
 	return &UserRegistry{
-		users:      make(map[int]*UserInfo),
+		users:      make(map[int64]*UserInfo),
 		client:     client,
 		classifier: c,
 	}
@@ -41,7 +41,7 @@ func (r *UserRegistry) SetClassifier(c *BotClassifier) {
 }
 
 // Register adds or updates a user in the registry.
-func (r *UserRegistry) Register(userID int, username, name, email, state, webURL string, projectPath string) *UserInfo {
+func (r *UserRegistry) Register(userID int64, username, name, email, state, webURL string, projectPath string) *UserInfo {
 	if userID <= 0 {
 		return nil
 	}
@@ -107,7 +107,7 @@ func (r *UserRegistry) Register(userID int, username, name, email, state, webURL
 }
 
 // Resolve looks up a user by numeric ID, optionally fetching from the GitLab API if uncached.
-func (r *UserRegistry) Resolve(ctx context.Context, userID int) *UserInfo {
+func (r *UserRegistry) Resolve(ctx context.Context, userID int64) *UserInfo {
 	if userID <= 0 {
 		return nil
 	}
@@ -132,7 +132,7 @@ func (r *UserRegistry) Resolve(ctx context.Context, userID int) *UserInfo {
 }
 
 // FormatUser formats a user into a readable string: "@username (Name) [ID: X]" or "User ID X".
-func (r *UserRegistry) FormatUser(ctx context.Context, userID int) string {
+func (r *UserRegistry) FormatUser(ctx context.Context, userID int64) string {
 	if userID <= 0 {
 		return ""
 	}

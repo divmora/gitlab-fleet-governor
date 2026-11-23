@@ -51,11 +51,10 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 	projState, isArchived, isInactive := EvaluateProjectLifecycle(project.Archived, isMarked, lastAct)
 
 	var allEnvs []*gitlab.ProtectedEnvironment
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProtectedEnvironmentsOptions{
-			Page:    page,
-			PerPage: 100,
+			ListOptions: gitlab.ListOptions{Page: page, PerPage: 100},
 		}
 		envs, resp, err := client.ProtectedEnvironments().ListProtectedEnvironments(project.ID, opts, gitlab.WithContext(ctx))
 		if err != nil {
@@ -163,7 +162,7 @@ func (a *ProtectedEnvironmentsAuditor) AuditProject(ctx context.Context, client 
 	// 2. Discover project environments that have zero protection configured
 	if client.Environments() != nil {
 		var projectEnvs []*gitlab.Environment
-		pPage := 1
+		pPage := int64(1)
 		for {
 			opts := &gitlab.ListEnvironmentsOptions{
 				ListOptions: gitlab.ListOptions{

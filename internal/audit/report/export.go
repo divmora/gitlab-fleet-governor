@@ -104,7 +104,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.UserAccessFindings {
 		row := []string{
 			"user_access",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -125,7 +125,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.BotAccessFindings {
 		row := []string{
 			"bots_and_service_accounts",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -146,7 +146,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.ProtectedBranchFindings {
 		row := []string{
 			"protected_branches",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -167,7 +167,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.ProtectedEnvFindings {
 		row := []string{
 			"protected_environments",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -188,7 +188,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.PipelineRetentionFindings {
 		row := []string{
 			"Pipeline Retention",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -209,7 +209,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.RepositoryFileFindings {
 		row := []string{
 			"Repository Files",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,
@@ -230,7 +230,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	for _, f := range report.ProtectedTagFindings {
 		row := []string{
 			"Protected Tags",
-			strconv.Itoa(f.ProjectID),
+			strconv.FormatInt(f.ProjectID, 10),
 			f.ProjectName,
 			f.ProjectPath,
 			f.ProjectStatus,

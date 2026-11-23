@@ -74,7 +74,7 @@ type GovernanceOperation interface {
 type PlanResult struct {
 	OperationName string        `json:"operation_name"`
 	ResourceType  ResourceType  `json:"resource_type"`
-	ResourceID    int           `json:"resource_id"`
+	ResourceID    int64         `json:"resource_id"`
 	ResourcePath  string        `json:"resource_path"`
 	Action        ActionType    `json:"action"`
 	Diffs         []Diff        `json:"diffs,omitempty"`
@@ -88,7 +88,7 @@ type PlanResult struct {
 type ApplyResult struct {
 	OperationName string        `json:"operation_name"`
 	ResourceType  ResourceType  `json:"resource_type"`
-	ResourceID    int           `json:"resource_id"`
+	ResourceID    int64         `json:"resource_id"`
 	ResourcePath  string        `json:"resource_path"`
 	Action        ActionType    `json:"action"`
 	Diffs         []Diff        `json:"diffs,omitempty"`
@@ -101,7 +101,7 @@ type ApplyResult struct {
 }
 
 // NewPlanResult creates a populated PlanResult with changes.
-func NewPlanResult(op string, rType ResourceType, id int, path string, action ActionType, diffs []Diff) *PlanResult {
+func NewPlanResult(op string, rType ResourceType, id int64, path string, action ActionType, diffs []Diff) *PlanResult {
 	hasChanges := action != ActionNoop && action != ActionSkipped && len(diffs) > 0
 	return &PlanResult{
 		OperationName: op,
@@ -115,7 +115,7 @@ func NewPlanResult(op string, rType ResourceType, id int, path string, action Ac
 }
 
 // NewNoopPlanResult creates a PlanResult representing no drift.
-func NewNoopPlanResult(op string, rType ResourceType, id int, path string) *PlanResult {
+func NewNoopPlanResult(op string, rType ResourceType, id int64, path string) *PlanResult {
 	return &PlanResult{
 		OperationName: op,
 		ResourceType:  rType,
@@ -128,7 +128,7 @@ func NewNoopPlanResult(op string, rType ResourceType, id int, path string) *Plan
 }
 
 // NewSkippedPlanResult creates a PlanResult representing a skipped operation.
-func NewSkippedPlanResult(op string, rType ResourceType, id int, path string, reason string) *PlanResult {
+func NewSkippedPlanResult(op string, rType ResourceType, id int64, path string, reason string) *PlanResult {
 	return &PlanResult{
 		OperationName: op,
 		ResourceType:  rType,
@@ -142,7 +142,7 @@ func NewSkippedPlanResult(op string, rType ResourceType, id int, path string, re
 }
 
 // NewApplyResult creates an ApplyResult for a mutation.
-func NewApplyResult(op string, rType ResourceType, id int, path string, action ActionType, status StatusType, diffs []Diff, err error, start time.Time) *ApplyResult {
+func NewApplyResult(op string, rType ResourceType, id int64, path string, action ActionType, status StatusType, diffs []Diff, err error, start time.Time) *ApplyResult {
 	success := status == StatusSuccess || status == StatusNoop || status == StatusSkipped
 	return &ApplyResult{
 		OperationName: op,
@@ -160,7 +160,7 @@ func NewApplyResult(op string, rType ResourceType, id int, path string, action A
 }
 
 // NewNoopApplyResult creates an ApplyResult when no mutation was needed.
-func NewNoopApplyResult(op string, rType ResourceType, id int, path string) *ApplyResult {
+func NewNoopApplyResult(op string, rType ResourceType, id int64, path string) *ApplyResult {
 	return &ApplyResult{
 		OperationName: op,
 		ResourceType:  rType,
@@ -175,7 +175,7 @@ func NewNoopApplyResult(op string, rType ResourceType, id int, path string) *App
 }
 
 // NewSkippedApplyResult creates an ApplyResult when operation was skipped.
-func NewSkippedApplyResult(op string, rType ResourceType, id int, path string, reason string) *ApplyResult {
+func NewSkippedApplyResult(op string, rType ResourceType, id int64, path string, reason string) *ApplyResult {
 	return &ApplyResult{
 		OperationName: op,
 		ResourceType:  rType,

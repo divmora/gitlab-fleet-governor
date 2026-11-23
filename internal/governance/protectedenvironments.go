@@ -242,7 +242,7 @@ func (r *ProtectedEnvironmentsReconciler) ApplyGroup(ctx context.Context, client
 // Internal Helpers & Diff Computations
 // ============================================================================
 
-func (r *ProtectedEnvironmentsReconciler) expandRules(ctx context.Context, client gitlab.GitLabClient, projectID int, rules []config.ProtectedEnvironmentRuleConfig, liveEnvs []*gogitlab.ProtectedEnvironment) ([]config.ProtectedEnvironmentRuleConfig, error) {
+func (r *ProtectedEnvironmentsReconciler) expandRules(ctx context.Context, client gitlab.GitLabClient, projectID int64, rules []config.ProtectedEnvironmentRuleConfig, liveEnvs []*gogitlab.ProtectedEnvironment) ([]config.ProtectedEnvironmentRuleConfig, error) {
 	var hasWildcards bool
 	for _, rule := range rules {
 		if strings.ContainsAny(rule.Name, "*?[") {
@@ -258,7 +258,7 @@ func (r *ProtectedEnvironmentsReconciler) expandRules(ctx context.Context, clien
 	// Fetch all project environments for wildcard expansion
 	var projectEnvs []*gogitlab.Environment
 	if client.Environments() != nil {
-		page := 1
+		page := int64(1)
 		for {
 			opts := &gogitlab.ListEnvironmentsOptions{
 				ListOptions: gogitlab.ListOptions{
@@ -332,13 +332,12 @@ func (r *ProtectedEnvironmentsReconciler) isManaged(name string, rules []config.
 	return false
 }
 
-func (r *ProtectedEnvironmentsReconciler) fetchAllLiveProtectedEnvironments(ctx context.Context, client gitlab.GitLabClient, projectID int) ([]*gogitlab.ProtectedEnvironment, error) {
+func (r *ProtectedEnvironmentsReconciler) fetchAllLiveProtectedEnvironments(ctx context.Context, client gitlab.GitLabClient, projectID int64) ([]*gogitlab.ProtectedEnvironment, error) {
 	var all []*gogitlab.ProtectedEnvironment
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gogitlab.ListProtectedEnvironmentsOptions{
-			Page:    page,
-			PerPage: 100,
+			ListOptions: gogitlab.ListOptions{Page: page, PerPage: 100},
 		}
 		envs, resp, err := client.ProtectedEnvironments().ListProtectedEnvironments(projectID, opts, gogitlab.WithContext(ctx))
 		if err != nil {
@@ -559,7 +558,7 @@ func formatDesiredApprovalRules(list []*gogitlab.EnvironmentApprovalRuleOptions)
 		} else if a.AccessLevel != nil && *a.AccessLevel > 0 {
 			target = formatAccessLevel(int(*a.AccessLevel))
 		}
-		req := 1
+		req := int64(1)
 		if a.RequiredApprovalCount != nil {
 			req = *a.RequiredApprovalCount
 		}
@@ -606,11 +605,11 @@ func equalEnvAccess(live []*gogitlab.EnvironmentAccessDescription, desired []*go
 		if d.AccessLevel != nil {
 			acc = int(*d.AccessLevel)
 		}
-		uid := 0
+		uid := int64(0)
 		if d.UserID != nil {
 			uid = *d.UserID
 		}
-		gid := 0
+		gid := int64(0)
 		if d.GroupID != nil {
 			gid = *d.GroupID
 		}
@@ -666,15 +665,15 @@ func equalEnvApprovalRules(live []*gogitlab.EnvironmentApprovalRule, desired []*
 		if d.AccessLevel != nil {
 			acc = int(*d.AccessLevel)
 		}
-		uid := 0
+		uid := int64(0)
 		if d.UserID != nil {
 			uid = *d.UserID
 		}
-		gid := 0
+		gid := int64(0)
 		if d.GroupID != nil {
 			gid = *d.GroupID
 		}
-		req := 1
+		req := int64(1)
 		if d.RequiredApprovalCount != nil {
 			req = *d.RequiredApprovalCount
 		}

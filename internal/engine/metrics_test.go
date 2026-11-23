@@ -171,7 +171,7 @@ func TestSummaryMetrics_FailedTargetOperationCount(t *testing.T) {
 func TargetResultFixture(id int, path string, changed, success bool, err error, ops ...*engine.OperationResult) *engine.TargetResult {
 
 	return &engine.TargetResult{
-		TargetID:     id,
+		TargetID:     int64(id),
 		TargetPath:   path,
 		TargetName:   path,
 		ResourceType: governance.ResourceTypeProject,

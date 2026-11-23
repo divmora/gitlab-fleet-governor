@@ -222,7 +222,7 @@ func (h *E2EHarness) GetGroup(id int) (*gogitlab.Group, bool) {
 
 // Helper: Get Pipeline Retention in seconds for a project
 func (h *E2EHarness) GetPipelineRetention(id int) (int, bool) {
-	return h.Server.State().GetProjectPipelineRetention(id)
+	return h.Server.State().GetProjectPipelineRetention(int64(id))
 }
 
 func TestE2EHarness_Bootstrap(t *testing.T) {

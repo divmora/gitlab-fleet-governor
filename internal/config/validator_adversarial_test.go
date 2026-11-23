@@ -479,7 +479,7 @@ func TestAdversarial_EnumTyposAndInvalidValues(t *testing.T) {
 				Policies: config.PoliciesConfig{
 					ProjectSettings: &config.ProjectSettingsConfig{
 						ContainerExpirationPolicy: &config.ContainerExpirationPolicyConfig{
-							KeepN: intPtr(3),
+							KeepN: int64Ptr(3),
 						},
 					},
 				},
@@ -594,7 +594,7 @@ func TestAdversarial_RetentionDaysAndNumericBoundaries(t *testing.T) {
 		cfg := &config.PolicyConfig{
 			Policies: config.PoliciesConfig{
 				PushRules: &config.PushRulesConfig{
-					MaxFileSize: intPtr(-1),
+					MaxFileSize: int64Ptr(-1),
 				},
 			},
 		}
@@ -609,7 +609,7 @@ func TestAdversarial_RetentionDaysAndNumericBoundaries(t *testing.T) {
 				Runners: &config.RunnersConfig{
 					Runners: []config.RunnerConfig{
 						{
-							MaximumTimeout: intPtr(-10),
+							MaximumTimeout: int64Ptr(-10),
 						},
 					},
 				},
@@ -853,7 +853,7 @@ func TestAdversarial_FullErrorAggregation(t *testing.T) {
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude:   []int{-10},               // Error 8
+				GroupIDsInclude:   []int64{-10},             // Error 8
 				GroupPathsInclude: []string{"/bad/prefix/"}, // Error 9
 			},
 			ProjectSelector: &config.ProjectSelector{
@@ -868,7 +868,7 @@ func TestAdversarial_FullErrorAggregation(t *testing.T) {
 		Policies: config.PoliciesConfig{
 			PushRules: &config.PushRulesConfig{
 				BranchNameRegex: "*bad-branch-regex", // Error 13
-				MaxFileSize:     intPtr(-50),         // Error 14
+				MaxFileSize:     int64Ptr(-50),       // Error 14
 			},
 			ProtectedBranches: []config.ProtectedBranchRuleConfig{
 				{
@@ -893,7 +893,7 @@ func TestAdversarial_FullErrorAggregation(t *testing.T) {
 				ContainerExpirationPolicy: &config.ContainerExpirationPolicyConfig{
 					Cadence:   "bad_cadence", // Error 22
 					OlderThan: "bad_age",     // Error 23
-					KeepN:     intPtr(999),   // Error 24
+					KeepN:     int64Ptr(999), // Error 24
 					NameRegex: "(?P<bad",     // Error 25
 				},
 			},
@@ -921,7 +921,7 @@ func TestAdversarial_FullErrorAggregation(t *testing.T) {
 				Runners: []config.RunnerConfig{
 					{
 						AccessLevel:    "invalid_runner_level", // Error 30
-						MaximumTimeout: intPtr(-1),             // Error 31
+						MaximumTimeout: int64Ptr(-1),           // Error 31
 					},
 				},
 			},

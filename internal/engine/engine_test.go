@@ -34,7 +34,7 @@ func setupTestEngine(t *testing.T, dryRun bool) (*engine.GovernanceEngine, *mock
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10},
+				GroupIDsInclude: []int64{10},
 				Recursive:       gogitlab.Ptr(false),
 			},
 		},
@@ -143,7 +143,7 @@ func TestGovernanceEngine_ExecuteMethod(t *testing.T) {
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10},
+				GroupIDsInclude: []int64{10},
 				Recursive:       gogitlab.Ptr(false),
 			},
 		},

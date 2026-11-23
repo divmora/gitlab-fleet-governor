@@ -64,7 +64,7 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 		return nil, fmt.Errorf("failed to list direct project members for %d: %w", project.ID, err)
 	}
 
-	directMap := make(map[int]struct{})
+	directMap := make(map[int64]struct{})
 	for _, m := range directMembers {
 		if m != nil {
 			directMap[m.ID] = struct{}{}
@@ -73,7 +73,7 @@ func (a *UserAccessAuditor) AuditProject(ctx context.Context, client gl.GitLabCl
 
 	// 2. Fetch all members (both direct and inherited from parent groups)
 	var allMembers []*gitlab.ProjectMember
-	page := 1
+	page := int64(1)
 	for {
 		opts := &gitlab.ListProjectMembersOptions{
 			ListOptions: gitlab.ListOptions{

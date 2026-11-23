@@ -17,79 +17,79 @@ type State struct {
 	mu sync.RWMutex
 
 	// Projects: key is project ID
-	projects          map[int]*gitlab.Project
-	projectByPath     map[string]int // path_with_namespace -> ID
-	pipelineRetention map[int]int    // projectID -> ci_delete_pipelines_in_seconds
-	pipelines         map[int][]*gitlab.PipelineInfo
-	nextProjectID     int
+	projects          map[int64]*gitlab.Project
+	projectByPath     map[string]int64 // path_with_namespace -> ID
+	pipelineRetention map[int64]int    // projectID -> ci_delete_pipelines_in_seconds
+	pipelines         map[int64][]*gitlab.PipelineInfo
+	nextProjectID     int64
 
 	// Groups: key is group ID
-	groups      map[int]*gitlab.Group
-	groupByPath map[string]int // full_path -> ID
-	nextGroupID int
+	groups      map[int64]*gitlab.Group
+	groupByPath map[string]int64 // full_path -> ID
+	nextGroupID int64
 
 	// Group-Project relationships
-	groupProjects map[int][]int // groupID -> list of projectIDs
-	subgroups     map[int][]int // groupID -> list of child groupIDs
+	groupProjects map[int64][]int64 // groupID -> list of projectIDs
+	subgroups     map[int64][]int64 // groupID -> list of child groupIDs
 
 	// Push Rules
-	projectPushRules map[int]*gitlab.ProjectPushRules
-	groupPushRules   map[int]*gitlab.GroupPushRules
+	projectPushRules map[int64]*gitlab.ProjectPushRules
+	groupPushRules   map[int64]*gitlab.GroupPushRules
 
 	// Protected Branches: projectID -> branchName -> *gitlab.ProtectedBranch
-	protectedBranches map[int]map[string]*gitlab.ProtectedBranch
-	protectedTags     map[int]map[string]*gitlab.ProtectedTag
+	protectedBranches map[int64]map[string]*gitlab.ProtectedBranch
+	protectedTags     map[int64]map[string]*gitlab.ProtectedTag
 
 	// Protected Environments: projectID -> envName -> *gitlab.ProtectedEnvironment
-	protectedEnvironments map[int]map[string]*gitlab.ProtectedEnvironment
+	protectedEnvironments map[int64]map[string]*gitlab.ProtectedEnvironment
 
 	// Environments: projectID -> envID -> *gitlab.Environment
-	environments      map[int]map[int]*gitlab.Environment
-	nextEnvironmentID int
+	environments      map[int64]map[int64]*gitlab.Environment
+	nextEnvironmentID int64
 
 	// Merge Request Approvals
-	projectApprovals     map[int]*gitlab.ProjectApprovals
-	projectApprovalRules map[int]map[int]*gitlab.ProjectApprovalRule // projectID -> ruleID -> rule
-	nextApprovalRuleID   int
+	projectApprovals     map[int64]*gitlab.ProjectApprovals
+	projectApprovalRules map[int64]map[int64]*gitlab.ProjectApprovalRule // projectID -> ruleID -> rule
+	nextApprovalRuleID   int64
 
 	// CI/CD Variables: projectID -> varKey/envScope -> variable
-	projectVariables map[int]map[string]*gitlab.ProjectVariable
-	groupVariables   map[int]map[string]*gitlab.GroupVariable
+	projectVariables map[int64]map[string]*gitlab.ProjectVariable
+	groupVariables   map[int64]map[string]*gitlab.GroupVariable
 
 	// Runners
-	runners       map[int]*gitlab.Runner
-	runnerDetails map[int]*gitlab.RunnerDetails
-	nextRunnerID  int
+	runners       map[int64]*gitlab.Runner
+	runnerDetails map[int64]*gitlab.RunnerDetails
+	nextRunnerID  int64
 
 	// Compliance Frameworks: projectID -> frameworks
-	complianceFrameworks map[int][]MockComplianceFramework
+	complianceFrameworks map[int64][]MockComplianceFramework
 
 	// Webhooks: projectID -> hookID -> hook
-	projectHooks map[int]map[int]*gitlab.ProjectHook
-	nextHookID   int
+	projectHooks map[int64]map[int64]*gitlab.ProjectHook
+	nextHookID   int64
 
 	// Members
-	projectMembers map[int]map[int]*gitlab.ProjectMember // projectID -> userID -> member
-	groupMembers   map[int]map[int]*gitlab.GroupMember   // groupID -> userID -> member
+	projectMembers map[int64]map[int64]*gitlab.ProjectMember // projectID -> userID -> member
+	groupMembers   map[int64]map[int64]*gitlab.GroupMember   // groupID -> userID -> member
 
 	// Target Branch Rules: projectID -> ruleID -> rule
-	targetBranchRules map[int]map[string]MockTargetBranchRule
-	nextTargetRuleID  int
+	targetBranchRules map[int64]map[string]MockTargetBranchRule
+	nextTargetRuleID  int64
 
 	// Repository Files: projectID -> branch -> filePath -> content
-	repositoryFiles map[int]map[string]map[string][]byte
+	repositoryFiles map[int64]map[string]map[string][]byte
 
 	// Branches: projectID -> branchName -> Branch
-	branches map[int]map[string]*gitlab.Branch
+	branches map[int64]map[string]*gitlab.Branch
 
 	// Merge Requests: projectID -> iid -> MergeRequest
-	mergeRequests map[int]map[int]*gitlab.MergeRequest
-	nextMRIID     map[int]int
+	mergeRequests map[int64]map[int64]*gitlab.MergeRequest
+	nextMRIID     map[int64]int64
 
 	// Users: userID -> User
-	users          map[int]*gitlab.User
-	userByUsername map[string]int
-	nextUserID     int
+	users          map[int64]*gitlab.User
+	userByUsername map[string]int64
+	nextUserID     int64
 }
 
 // MockComplianceFramework mirrors GraphQL compliance framework model.
@@ -107,7 +107,7 @@ type MockTargetBranchRule struct {
 	Name         string    `json:"name"`
 	TargetBranch string    `json:"targetBranch"`
 	CreatedAt    time.Time `json:"createdAt"`
-	Seq          int       `json:"seq,omitempty"`
+	Seq          int64     `json:"seq,omitempty"`
 }
 
 // NewState creates a new, empty in-memory state store.
@@ -122,56 +122,56 @@ func (s *State) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.projects = make(map[int]*gitlab.Project)
-	s.projectByPath = make(map[string]int)
-	s.pipelineRetention = make(map[int]int)
-	s.pipelines = make(map[int][]*gitlab.PipelineInfo)
+	s.projects = make(map[int64]*gitlab.Project)
+	s.projectByPath = make(map[string]int64)
+	s.pipelineRetention = make(map[int64]int)
+	s.pipelines = make(map[int64][]*gitlab.PipelineInfo)
 	s.nextProjectID = 1
 
-	s.groups = make(map[int]*gitlab.Group)
-	s.groupByPath = make(map[string]int)
+	s.groups = make(map[int64]*gitlab.Group)
+	s.groupByPath = make(map[string]int64)
 	s.nextGroupID = 1
 
-	s.groupProjects = make(map[int][]int)
-	s.subgroups = make(map[int][]int)
+	s.groupProjects = make(map[int64][]int64)
+	s.subgroups = make(map[int64][]int64)
 
-	s.projectPushRules = make(map[int]*gitlab.ProjectPushRules)
-	s.groupPushRules = make(map[int]*gitlab.GroupPushRules)
+	s.projectPushRules = make(map[int64]*gitlab.ProjectPushRules)
+	s.groupPushRules = make(map[int64]*gitlab.GroupPushRules)
 
-	s.protectedBranches = make(map[int]map[string]*gitlab.ProtectedBranch)
-	s.protectedTags = make(map[int]map[string]*gitlab.ProtectedTag)
-	s.protectedEnvironments = make(map[int]map[string]*gitlab.ProtectedEnvironment)
-	s.environments = make(map[int]map[int]*gitlab.Environment)
+	s.protectedBranches = make(map[int64]map[string]*gitlab.ProtectedBranch)
+	s.protectedTags = make(map[int64]map[string]*gitlab.ProtectedTag)
+	s.protectedEnvironments = make(map[int64]map[string]*gitlab.ProtectedEnvironment)
+	s.environments = make(map[int64]map[int64]*gitlab.Environment)
 	s.nextEnvironmentID = 1
-	s.projectApprovals = make(map[int]*gitlab.ProjectApprovals)
-	s.projectApprovalRules = make(map[int]map[int]*gitlab.ProjectApprovalRule)
+	s.projectApprovals = make(map[int64]*gitlab.ProjectApprovals)
+	s.projectApprovalRules = make(map[int64]map[int64]*gitlab.ProjectApprovalRule)
 	s.nextApprovalRuleID = 1
 
-	s.projectVariables = make(map[int]map[string]*gitlab.ProjectVariable)
-	s.groupVariables = make(map[int]map[string]*gitlab.GroupVariable)
+	s.projectVariables = make(map[int64]map[string]*gitlab.ProjectVariable)
+	s.groupVariables = make(map[int64]map[string]*gitlab.GroupVariable)
 
-	s.runners = make(map[int]*gitlab.Runner)
-	s.runnerDetails = make(map[int]*gitlab.RunnerDetails)
+	s.runners = make(map[int64]*gitlab.Runner)
+	s.runnerDetails = make(map[int64]*gitlab.RunnerDetails)
 	s.nextRunnerID = 1
 
-	s.complianceFrameworks = make(map[int][]MockComplianceFramework)
+	s.complianceFrameworks = make(map[int64][]MockComplianceFramework)
 
-	s.projectHooks = make(map[int]map[int]*gitlab.ProjectHook)
+	s.projectHooks = make(map[int64]map[int64]*gitlab.ProjectHook)
 	s.nextHookID = 1
 
-	s.projectMembers = make(map[int]map[int]*gitlab.ProjectMember)
-	s.groupMembers = make(map[int]map[int]*gitlab.GroupMember)
+	s.projectMembers = make(map[int64]map[int64]*gitlab.ProjectMember)
+	s.groupMembers = make(map[int64]map[int64]*gitlab.GroupMember)
 
-	s.targetBranchRules = make(map[int]map[string]MockTargetBranchRule)
+	s.targetBranchRules = make(map[int64]map[string]MockTargetBranchRule)
 	s.nextTargetRuleID = 1
 
-	s.repositoryFiles = make(map[int]map[string]map[string][]byte)
-	s.branches = make(map[int]map[string]*gitlab.Branch)
-	s.mergeRequests = make(map[int]map[int]*gitlab.MergeRequest)
-	s.nextMRIID = make(map[int]int)
+	s.repositoryFiles = make(map[int64]map[string]map[string][]byte)
+	s.branches = make(map[int64]map[string]*gitlab.Branch)
+	s.mergeRequests = make(map[int64]map[int64]*gitlab.MergeRequest)
+	s.nextMRIID = make(map[int64]int64)
 
-	s.users = make(map[int]*gitlab.User)
-	s.userByUsername = make(map[string]int)
+	s.users = make(map[int64]*gitlab.User)
+	s.userByUsername = make(map[string]int64)
 	s.nextUserID = 1
 }
 
@@ -486,19 +486,19 @@ func (s *State) DestroyTargetBranchRule(ruleID string) bool {
 	return false
 }
 
-func (s *State) SetPipelineRetention(projectID int, seconds int) {
+func (s *State) SetPipelineRetention(projectID int64, seconds int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pipelineRetention[projectID] = seconds
 }
 
-func (s *State) GetPipelineRetention(projectID int) int {
+func (s *State) GetPipelineRetention(projectID int64) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.pipelineRetention[projectID]
 }
 
-func (s *State) GetProjectPipelineRetention(projectID int) (int, bool) {
+func (s *State) GetProjectPipelineRetention(projectID int64) (int, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	sec, ok := s.pipelineRetention[projectID]
@@ -536,15 +536,15 @@ func (s *State) ListProjectPipelines(idOrPath any) []*gitlab.PipelineInfo {
 	return result
 }
 
-func (s *State) resolveProjectIDLocked(idOrPath any) (int, bool) {
+func (s *State) resolveProjectIDLocked(idOrPath any) (int64, bool) {
 	switch v := idOrPath.(type) {
 	case int:
-		return v, true
+		return int64(v), true
 	case int64:
-		return int(v), true
+		return v, true
 	case string:
 		v = strings.TrimPrefix(v, "gid://gitlab/Project/")
-		if id, err := strconv.Atoi(v); err == nil {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return id, true
 		}
 		if unescaped, err := url.PathUnescape(v); err == nil {
@@ -582,7 +582,7 @@ func (s *State) AddGroup(g *gitlab.Group) *gitlab.Group {
 	return cloneGroup(g)
 }
 
-func (s *State) AddSubgroup(parentGroupID, childGroupID int) {
+func (s *State) AddSubgroup(parentGroupID, childGroupID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.subgroups[parentGroupID] = append(s.subgroups[parentGroupID], childGroupID)
@@ -632,7 +632,7 @@ func (s *State) ListSubgroups(parentIDOrPath any) []*gitlab.Group {
 	return res
 }
 
-func (s *State) AddGroupProject(groupID, projectID int) {
+func (s *State) AddGroupProject(groupID, projectID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -657,14 +657,14 @@ func (s *State) ListGroupProjects(groupIDOrPath any) []*gitlab.Project {
 	return res
 }
 
-func (s *State) resolveGroupIDLocked(idOrPath any) (int, bool) {
+func (s *State) resolveGroupIDLocked(idOrPath any) (int64, bool) {
 	switch v := idOrPath.(type) {
 	case int:
-		return v, true
+		return int64(v), true
 	case int64:
-		return int(v), true
+		return v, true
 	case string:
-		if id, err := strconv.Atoi(v); err == nil {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return id, true
 		}
 		if unescaped, err := url.PathUnescape(v); err == nil {
@@ -1002,7 +1002,7 @@ func (s *State) AddEnvironment(idOrPath any, env *gitlab.Environment) (*gitlab.E
 		return nil, false
 	}
 	if s.environments[id] == nil {
-		s.environments[id] = make(map[int]*gitlab.Environment)
+		s.environments[id] = make(map[int64]*gitlab.Environment)
 	}
 	if env.ID == 0 {
 		env.ID = s.nextEnvironmentID
@@ -1068,7 +1068,7 @@ func (s *State) AddApprovalRule(idOrPath any, r *gitlab.ProjectApprovalRule) (*g
 		return nil, false
 	}
 	if s.projectApprovalRules[id] == nil {
-		s.projectApprovalRules[id] = make(map[int]*gitlab.ProjectApprovalRule)
+		s.projectApprovalRules[id] = make(map[int64]*gitlab.ProjectApprovalRule)
 	}
 	if r.ID == 0 {
 		r.ID = s.nextApprovalRuleID
@@ -1080,7 +1080,7 @@ func (s *State) AddApprovalRule(idOrPath any, r *gitlab.ProjectApprovalRule) (*g
 	return cloneProjectApprovalRule(r), true
 }
 
-func (s *State) UpdateApprovalRule(idOrPath any, ruleID int, updater func(*gitlab.ProjectApprovalRule)) (*gitlab.ProjectApprovalRule, bool) {
+func (s *State) UpdateApprovalRule(idOrPath any, ruleID int64, updater func(*gitlab.ProjectApprovalRule)) (*gitlab.ProjectApprovalRule, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1096,7 +1096,7 @@ func (s *State) UpdateApprovalRule(idOrPath any, ruleID int, updater func(*gitla
 	return cloneProjectApprovalRule(rule), true
 }
 
-func (s *State) DeleteApprovalRule(idOrPath any, ruleID int) bool {
+func (s *State) DeleteApprovalRule(idOrPath any, ruleID int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1263,7 +1263,7 @@ func (s *State) ListRunners() []*gitlab.Runner {
 	return res
 }
 
-func (s *State) GetRunnerDetails(id int) (*gitlab.RunnerDetails, bool) {
+func (s *State) GetRunnerDetails(id int64) (*gitlab.RunnerDetails, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -1274,7 +1274,7 @@ func (s *State) GetRunnerDetails(id int) (*gitlab.RunnerDetails, bool) {
 	return cloneRunnerDetails(d), true
 }
 
-func (s *State) UpdateRunnerDetails(id int, updater func(*gitlab.RunnerDetails)) (*gitlab.RunnerDetails, bool) {
+func (s *State) UpdateRunnerDetails(id int64, updater func(*gitlab.RunnerDetails)) (*gitlab.RunnerDetails, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1290,7 +1290,7 @@ func (s *State) UpdateRunnerDetails(id int, updater func(*gitlab.RunnerDetails))
 // Compliance Operations
 // ----------------------------------------------------------------------------
 
-func (s *State) GetComplianceFrameworks(projectID int) []MockComplianceFramework {
+func (s *State) GetComplianceFrameworks(projectID int64) []MockComplianceFramework {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -1299,14 +1299,14 @@ func (s *State) GetComplianceFrameworks(projectID int) []MockComplianceFramework
 	return res
 }
 
-func (s *State) SetComplianceFramework(projectID int, f MockComplianceFramework) {
+func (s *State) SetComplianceFramework(projectID int64, f MockComplianceFramework) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.complianceFrameworks[projectID] = []MockComplianceFramework{f}
 }
 
-func (s *State) RemoveComplianceFramework(projectID int) {
+func (s *State) RemoveComplianceFramework(projectID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1342,7 +1342,7 @@ func (s *State) AddProjectHook(idOrPath any, h *gitlab.ProjectHook) (*gitlab.Pro
 		return nil, false
 	}
 	if s.projectHooks[id] == nil {
-		s.projectHooks[id] = make(map[int]*gitlab.ProjectHook)
+		s.projectHooks[id] = make(map[int64]*gitlab.ProjectHook)
 	}
 	if h.ID == 0 {
 		h.ID = s.nextHookID
@@ -1354,7 +1354,7 @@ func (s *State) AddProjectHook(idOrPath any, h *gitlab.ProjectHook) (*gitlab.Pro
 	return cloneProjectHook(h), true
 }
 
-func (s *State) EditProjectHook(idOrPath any, hookID int, updater func(*gitlab.ProjectHook)) (*gitlab.ProjectHook, bool) {
+func (s *State) EditProjectHook(idOrPath any, hookID int64, updater func(*gitlab.ProjectHook)) (*gitlab.ProjectHook, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1370,7 +1370,7 @@ func (s *State) EditProjectHook(idOrPath any, hookID int, updater func(*gitlab.P
 	return cloneProjectHook(hook), true
 }
 
-func (s *State) DeleteProjectHook(idOrPath any, hookID int) bool {
+func (s *State) DeleteProjectHook(idOrPath any, hookID int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1414,7 +1414,7 @@ func (s *State) AddProjectMember(idOrPath any, m *gitlab.ProjectMember) bool {
 		return false
 	}
 	if s.projectMembers[id] == nil {
-		s.projectMembers[id] = make(map[int]*gitlab.ProjectMember)
+		s.projectMembers[id] = make(map[int64]*gitlab.ProjectMember)
 	}
 	s.projectMembers[id][m.ID] = m
 	return true
@@ -1445,7 +1445,7 @@ func (s *State) AddGroupMember(idOrPath any, m *gitlab.GroupMember) bool {
 		return false
 	}
 	if s.groupMembers[id] == nil {
-		s.groupMembers[id] = make(map[int]*gitlab.GroupMember)
+		s.groupMembers[id] = make(map[int64]*gitlab.GroupMember)
 	}
 	s.groupMembers[id][m.ID] = m
 	return true
@@ -1472,7 +1472,7 @@ func (s *State) AddUser(u *gitlab.User) *gitlab.User {
 	return cloneUser(u)
 }
 
-func (s *State) GetUser(id int) (*gitlab.User, bool) {
+func (s *State) GetUser(id int64) (*gitlab.User, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -1610,7 +1610,7 @@ func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, tit
 		return nil, false
 	}
 	if s.mergeRequests[id] == nil {
-		s.mergeRequests[id] = make(map[int]*gitlab.MergeRequest)
+		s.mergeRequests[id] = make(map[int64]*gitlab.MergeRequest)
 		s.nextMRIID[id] = 1
 	}
 
@@ -1640,7 +1640,7 @@ func (s *State) CreateMergeRequest(idOrPath any, sourceBranch, targetBranch, tit
 	return &cp, true
 }
 
-func (s *State) GetMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, bool) {
+func (s *State) GetMergeRequest(idOrPath any, mrIID int64) (*gitlab.MergeRequest, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -1656,7 +1656,7 @@ func (s *State) GetMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, 
 	return &cp, true
 }
 
-func (s *State) SetMergeRequestConflicts(idOrPath any, mrIID int, hasConflicts bool) bool {
+func (s *State) SetMergeRequestConflicts(idOrPath any, mrIID int64, hasConflicts bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1677,7 +1677,7 @@ func (s *State) SetMergeRequestConflicts(idOrPath any, mrIID int, hasConflicts b
 	return true
 }
 
-func (s *State) AcceptMergeRequest(idOrPath any, mrIID int) (*gitlab.MergeRequest, bool) {
+func (s *State) AcceptMergeRequest(idOrPath any, mrIID int64) (*gitlab.MergeRequest, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

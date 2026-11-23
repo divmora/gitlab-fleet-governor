@@ -423,7 +423,7 @@ func TestProjectFilter_IDRangeBoundaryExhaustive(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			p := &gitlab.Project{ID: tc.projectID, Name: "test"}
+			p := &gitlab.Project{ID: int64(tc.projectID), Name: "test"}
 			assert.Equal(t, tc.wantMatch, f.Matches(p))
 		})
 	}
@@ -487,12 +487,12 @@ func TestDiscoverFleet_HighScale1000Projects50Groups(t *testing.T) {
 	)
 
 	// 1. Seed 50 groups
-	groupIDs := make([]int, totalGroups)
+	groupIDs := make([]int64, totalGroups)
 	for i := 0; i < totalGroups; i++ {
-		gID := i + 1
+		gID := int64(i + 1)
 		groupIDs[i] = gID
 		srv.State().AddGroup(&gitlab.Group{
-			ID:       gID,
+			ID:       int64(gID),
 			Name:     fmt.Sprintf("Group-%03d", gID),
 			Path:     fmt.Sprintf("group-%03d", gID),
 			FullPath: fmt.Sprintf("enterprise/group-%03d", gID),
@@ -519,7 +519,7 @@ func TestDiscoverFleet_HighScale1000Projects50Groups(t *testing.T) {
 		assignedGroup := ((pID - 1) % totalGroups) + 1
 
 		srv.State().AddProject(&gitlab.Project{
-			ID:                pID,
+			ID:                int64(pID),
 			Name:              fmt.Sprintf("service-%04d", pID),
 			Path:              fmt.Sprintf("service-%04d", pID),
 			PathWithNamespace: fmt.Sprintf("enterprise/group-%03d/service-%04d", assignedGroup, pID),
@@ -538,12 +538,12 @@ func TestDiscoverFleet_HighScale1000Projects50Groups(t *testing.T) {
 		// Assigned primary projects
 		for offset := 0; offset < 20; offset++ {
 			pID := ((gIdx*20 + offset) % uniqueProjectsCount) + 1
-			srv.State().AddGroupProject(gID, pID)
+			srv.State().AddGroupProject(int64(gID), int64(pID))
 		}
 		// Shared/overlapping projects (from a shared pool 900..1000)
 		for sharedIdx := 0; sharedIdx < 10; sharedIdx++ {
 			sharedPID := 901 + ((gIdx*3 + sharedIdx) % 100)
-			srv.State().AddGroupProject(gID, sharedPID)
+			srv.State().AddGroupProject(int64(gID), int64(sharedPID))
 		}
 	}
 
@@ -633,8 +633,8 @@ func TestDiscoverFleet_HighScale1000Projects50Groups(t *testing.T) {
 
 		// Calculate expected matched projects independently:
 		// ID in [1..499], active (ID % 20 != 0), even (ID % 2 == 0), not deprecated (ID % 10 != 0)
-		var expectedIDs []int
-		for id := 1; id <= 499; id++ {
+		var expectedIDs []int64
+		for id := int64(1); id <= 499; id++ {
 			if id%2 == 0 && id%10 != 0 && id%20 != 0 {
 				expectedIDs = append(expectedIDs, id)
 			}
@@ -657,19 +657,19 @@ func TestDiscoverFleet_AdversarialMassiveConcurrentRaceFreedom(t *testing.T) {
 	// Seed 30 groups and 150 projects
 	for gID := 1; gID <= 30; gID++ {
 		srv.State().AddGroup(&gitlab.Group{
-			ID:       gID,
+			ID:       int64(gID),
 			Name:     fmt.Sprintf("G-%d", gID),
 			FullPath: fmt.Sprintf("org/g-%d", gID),
 		})
 		for pID := 1; pID <= 5; pID++ {
 			globalPID := gID*100 + pID
 			srv.State().AddProject(&gitlab.Project{
-				ID:                globalPID,
+				ID:                int64(globalPID),
 				Name:              fmt.Sprintf("p-%d", globalPID),
 				PathWithNamespace: fmt.Sprintf("org/g-%d/p-%d", gID, globalPID),
 				Visibility:        gitlab.PrivateVisibility,
 			})
-			srv.State().AddGroupProject(gID, globalPID)
+			srv.State().AddGroupProject(int64(gID), int64(globalPID))
 		}
 	}
 
@@ -733,7 +733,7 @@ func TestDiscoverFleet_MultiTierCircularSubgroupHierarchy(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		gID := 1000 + i
 		srv.State().AddGroup(&gitlab.Group{
-			ID:       gID,
+			ID:       int64(gID),
 			Name:     fmt.Sprintf("Ring-%d", gID),
 			FullPath: fmt.Sprintf("ring/g-%d", gID),
 		})
@@ -741,7 +741,7 @@ func TestDiscoverFleet_MultiTierCircularSubgroupHierarchy(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		curr := 1000 + i
 		next := 1000 + ((i + 1) % 5)
-		srv.State().AddSubgroup(curr, next)
+		srv.State().AddSubgroup(int64(curr), int64(next))
 	}
 
 	// Attach 10 projects to each ring node (total 50 projects)
@@ -750,11 +750,11 @@ func TestDiscoverFleet_MultiTierCircularSubgroupHierarchy(t *testing.T) {
 		for p := 1; p <= 10; p++ {
 			pID := gID*10 + p
 			srv.State().AddProject(&gitlab.Project{
-				ID:                pID,
+				ID:                int64(pID),
 				Name:              fmt.Sprintf("ring-proj-%d", pID),
 				PathWithNamespace: fmt.Sprintf("ring/g-%d/ring-proj-%d", gID, pID),
 			})
-			srv.State().AddGroupProject(gID, pID)
+			srv.State().AddGroupProject(int64(gID), int64(pID))
 		}
 	}
 
@@ -767,7 +767,7 @@ func TestDiscoverFleet_MultiTierCircularSubgroupHierarchy(t *testing.T) {
 	recursiveTrue := true
 	targets := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{1000},
+			GroupIDsInclude: []int64{1000},
 			Recursive:       &recursiveTrue,
 		},
 	}
@@ -779,7 +779,7 @@ func TestDiscoverFleet_MultiTierCircularSubgroupHierarchy(t *testing.T) {
 	// Must discover all 5 ring groups and all 50 projects with zero duplicates
 	assert.Equal(t, 5, fleet.MatchedGroupsCount)
 	assert.Len(t, fleet.Groups, 5)
-	assert.ElementsMatch(t, []int{1000, 1001, 1002, 1003, 1004}, fleet.GroupIDs())
+	assert.ElementsMatch(t, []int64{1000, 1001, 1002, 1003, 1004}, fleet.GroupIDs())
 
 	assert.Equal(t, 50, fleet.MatchedProjectsCount)
 	assert.Len(t, fleet.Projects, 50)

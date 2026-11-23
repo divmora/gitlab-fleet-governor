@@ -148,8 +148,8 @@ func TestStreamProjects_Helper(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, results, 2)
-	assert.Equal(t, 10, results[0].ID)
-	assert.Equal(t, 20, results[1].ID)
+	assert.Equal(t, int64(10), results[0].ID)
+	assert.Equal(t, int64(20), results[1].ID)
 }
 
 func TestStreamGroups_Helper(t *testing.T) {
@@ -166,7 +166,7 @@ func TestStreamGroups_Helper(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
-	assert.Equal(t, 100, results[0].ID)
+	assert.Equal(t, int64(100), results[0].ID)
 }
 
 func TestStreamSubgroups_Helper(t *testing.T) {
@@ -183,7 +183,7 @@ func TestStreamSubgroups_Helper(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
-	assert.Equal(t, 200, results[0].ID)
+	assert.Equal(t, int64(200), results[0].ID)
 }
 
 func TestStreamGroupProjects_Helper(t *testing.T) {
@@ -200,5 +200,5 @@ func TestStreamGroupProjects_Helper(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
-	assert.Equal(t, 300, results[0].ID)
+	assert.Equal(t, int64(300), results[0].ID)
 }

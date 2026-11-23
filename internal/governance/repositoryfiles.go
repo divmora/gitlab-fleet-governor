@@ -382,7 +382,7 @@ func (r *RepositoryFilesReconciler) ApplyGroup(ctx context.Context, client gitla
 	return NewSkippedApplyResult(r.Name(), ResourceTypeGroup, group.ID, group.FullPath, "Repository files governance is not applicable to groups"), nil
 }
 
-func fetchFileContent(ctx context.Context, client gitlab.GitLabClient, projectID int, path, ref string) (string, bool, error) {
+func fetchFileContent(ctx context.Context, client gitlab.GitLabClient, projectID int64, path, ref string) (string, bool, error) {
 	raw, resp, err := client.RepositoryFiles().GetRawFile(projectID, path, &gogitlab.GetRawFileOptions{Ref: gogitlab.Ptr(ref)}, gogitlab.WithContext(ctx))
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {

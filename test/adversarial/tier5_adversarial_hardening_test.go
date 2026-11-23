@@ -53,7 +53,7 @@ func TestTier5_Adversarial_RaceStress_100Goroutines(t *testing.T) {
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10, 20},
+				GroupIDsInclude: []int64{10, 20},
 				Recursive:       gogitlab.Ptr(false),
 			},
 		},
@@ -137,7 +137,7 @@ func TestTier5_Adversarial_RaceStress_100Goroutines(t *testing.T) {
 			// Record target results on shared metrics and verify invariants concurrently
 			targetID := 2000 + workerID
 			metrics.RecordTargetResult(&engine.TargetResult{
-				TargetID:     targetID,
+				TargetID:     int64(targetID),
 				TargetPath:   fmt.Sprintf("group/proj-%d", targetID),
 				TargetName:   fmt.Sprintf("proj-%d", targetID),
 				ResourceType: governance.ResourceTypeProject,
@@ -293,7 +293,7 @@ func TestTier5_Adversarial_SimulatedContainerTimeouts(t *testing.T) {
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10, 20},
+				GroupIDsInclude: []int64{10, 20},
 				Recursive:       gogitlab.Ptr(true),
 			},
 		},
@@ -656,7 +656,7 @@ func TestTier5_Adversarial_SecretLeakageAudit(t *testing.T) {
 		},
 		Targets: config.TargetSelectors{
 			GroupSelector: &config.GroupSelector{
-				GroupIDsInclude: []int{10},
+				GroupIDsInclude: []int64{10},
 				Recursive:       gogitlab.Ptr(false),
 			},
 		},
@@ -807,7 +807,7 @@ func TestTier5_Adversarial_SubgroupCycleDetection(t *testing.T) {
 	// Perform discovery on circular subgroup graph: 500 -> 501 -> 502 -> 500
 	selectors := config.TargetSelectors{
 		GroupSelector: &config.GroupSelector{
-			GroupIDsInclude: []int{500},
+			GroupIDsInclude: []int64{500},
 			Recursive:       gogitlab.Ptr(true),
 		},
 	}
@@ -903,7 +903,7 @@ func TestTier5_Adversarial_CascadingMultiOperationFailures(t *testing.T) {
 		}
 
 		metrics.RecordTargetResult(&engine.TargetResult{
-			TargetID:     targetID,
+			TargetID:     int64(targetID),
 			TargetPath:   fmt.Sprintf("group/project-%d", targetID),
 			ResourceType: governance.ResourceTypeProject,
 			Success:      false,

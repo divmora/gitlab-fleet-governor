@@ -13,12 +13,12 @@ import (
 
 // DiscoveredGroup represents a normalized GitLab group resolved during fleet discovery.
 type DiscoveredGroup struct {
-	ID           int           `json:"id"`
+	ID           int64         `json:"id"`
 	Name         string        `json:"name"`
 	Path         string        `json:"path"`
 	FullPath     string        `json:"full_path"`
-	ParentID     int           `json:"parent_id"`
-	RootParentID int           `json:"root_parent_id"`
+	ParentID     int64         `json:"parent_id"`
+	RootParentID int64         `json:"root_parent_id"`
 	Depth        int           `json:"depth"`
 	Visibility   string        `json:"visibility"`
 	Description  string        `json:"description"`
@@ -28,8 +28,8 @@ type DiscoveredGroup struct {
 
 // GroupSelectorEvaluator encapsulates include/exclude matching rules.
 type GroupSelectorEvaluator struct {
-	includeIDs   map[int]bool
-	excludeIDs   map[int]bool
+	includeIDs   map[int64]bool
+	excludeIDs   map[int64]bool
 	includePaths map[string]bool
 	excludePaths map[string]bool
 	hasIncludes  bool
@@ -39,8 +39,8 @@ type GroupSelectorEvaluator struct {
 // NewGroupSelectorEvaluator builds a compiled evaluator for fast O(1) lookups.
 func NewGroupSelectorEvaluator(sel *config.GroupSelector) *GroupSelectorEvaluator {
 	eval := &GroupSelectorEvaluator{
-		includeIDs:   make(map[int]bool),
-		excludeIDs:   make(map[int]bool),
+		includeIDs:   make(map[int64]bool),
+		excludeIDs:   make(map[int64]bool),
 		includePaths: make(map[string]bool),
 		excludePaths: make(map[string]bool),
 		recursive:    true, // default is recursive: true
@@ -140,13 +140,13 @@ func NewBFSGroupTraverser(client gl.GitLabClient) *BFSGroupTraverser {
 type queueItem struct {
 	group        *gitlab.Group
 	depth        int
-	rootParentID int
+	rootParentID int64
 }
 
 // Traverse executes BFS group tree traversal with cycle detection and selector filtering.
 func (t *BFSGroupTraverser) Traverse(ctx context.Context, selector *config.GroupSelector) ([]*DiscoveredGroup, error) {
 	eval := NewGroupSelectorEvaluator(selector)
-	visited := make(map[int]bool)
+	visited := make(map[int64]bool)
 	var queue []queueItem
 	var matchedGroups []*DiscoveredGroup
 
@@ -223,7 +223,7 @@ func (t *BFSGroupTraverser) Traverse(ctx context.Context, selector *config.Group
 // resolveRoots fetches initial root groups based on include filters or instance top-level groups.
 func (t *BFSGroupTraverser) resolveRoots(ctx context.Context, selector *config.GroupSelector) ([]*gitlab.Group, error) {
 	var roots []*gitlab.Group
-	seen := make(map[int]bool)
+	seen := make(map[int64]bool)
 
 	if selector != nil && (len(selector.GroupIDsInclude) > 0 || len(selector.GroupPathsInclude) > 0) {
 		// Resolve explicit group IDs
@@ -286,7 +286,7 @@ func (t *BFSGroupTraverser) resolveRoots(ctx context.Context, selector *config.G
 }
 
 // listAllSubgroups retrieves all direct child subgroups of a parent group using pagination.
-func (t *BFSGroupTraverser) listAllSubgroups(ctx context.Context, groupID int) ([]*gitlab.Group, error) {
+func (t *BFSGroupTraverser) listAllSubgroups(ctx context.Context, groupID int64) ([]*gitlab.Group, error) {
 	var allSubgroups []*gitlab.Group
 	opt := &gitlab.ListSubGroupsOptions{
 		ListOptions: gitlab.ListOptions{PerPage: 100, Page: 1},
@@ -308,7 +308,7 @@ func (t *BFSGroupTraverser) listAllSubgroups(ctx context.Context, groupID int) (
 }
 
 // NormalizeGroup converts a raw SDK *gitlab.Group into a standard DiscoveredGroup.
-func NormalizeGroup(raw *gitlab.Group, depth, rootParentID int) *DiscoveredGroup {
+func NormalizeGroup(raw *gitlab.Group, depth int, rootParentID int64) *DiscoveredGroup {
 	if raw == nil {
 		return nil
 	}

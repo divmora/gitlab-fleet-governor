@@ -50,7 +50,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 30}, // Developer
 							},
-							RequiredApprovalCount: gogitlab.Ptr(1),
+							RequiredApprovalCount: gogitlab.Ptr(int64(1)),
 						},
 					},
 				},
@@ -79,7 +79,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 30},
 							},
-							RequiredApprovalCount: gogitlab.Ptr(1),
+							RequiredApprovalCount: gogitlab.Ptr(int64(1)),
 						},
 					},
 				},
@@ -99,7 +99,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 40}, // Maintainer
 							},
-							RequiredApprovalCount: gogitlab.Ptr(2),
+							RequiredApprovalCount: gogitlab.Ptr(int64(2)),
 						},
 					},
 				},
@@ -139,7 +139,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 40},
 							},
-							RequiredApprovalCount: gogitlab.Ptr(2),
+							RequiredApprovalCount: gogitlab.Ptr(int64(2)),
 						},
 					},
 				},
@@ -198,7 +198,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							DeployAccessLevels: []config.EnvironmentAccessDescription{
 								{AccessLevel: 40},
 							},
-							RequiredApprovalCount: gogitlab.Ptr(2),
+							RequiredApprovalCount: gogitlab.Ptr(int64(2)),
 						},
 					},
 				},
@@ -247,7 +247,7 @@ func TestProtectedEnvironmentsReconciler(t *testing.T) {
 							ApprovalGroups: []config.EnvironmentApprovalGroupConfig{
 								{GroupPath: "platform"},
 							},
-							RequiredApprovalCount: gogitlab.Ptr(1),
+							RequiredApprovalCount: gogitlab.Ptr(int64(1)),
 						},
 					},
 				},

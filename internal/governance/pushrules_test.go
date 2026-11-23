@@ -83,7 +83,7 @@ func TestPushRulesReconciler(t *testing.T) {
 			Policies: config.PoliciesConfig{
 				PushRules: &config.PushRulesConfig{
 					AuthorEmailRegex: `@example\.com$`,
-					MaxFileSize:      gogitlab.Ptr(50), // Changed from 10 to 50
+					MaxFileSize:      gogitlab.Ptr(int64(50)), // Changed from 10 to 50
 					PreventSecrets:   gogitlab.Ptr(true),
 				},
 			},

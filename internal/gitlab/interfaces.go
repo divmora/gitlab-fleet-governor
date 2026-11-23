@@ -103,8 +103,8 @@ type ApprovalRulesService interface {
 	ChangeApprovalConfiguration(pid any, opt *gitlab.ChangeApprovalConfigurationOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovals, *gitlab.Response, error)
 	GetProjectApprovalRules(pid any, opt *gitlab.GetProjectApprovalRulesListsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProjectApprovalRule, *gitlab.Response, error)
 	CreateProjectApprovalRule(pid any, opt *gitlab.CreateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error)
-	UpdateProjectApprovalRule(pid any, rule int, opt *gitlab.UpdateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error)
-	DeleteProjectApprovalRule(pid any, rule int, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
+	UpdateProjectApprovalRule(pid any, rule int64, opt *gitlab.UpdateProjectLevelRuleOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectApprovalRule, *gitlab.Response, error)
+	DeleteProjectApprovalRule(pid any, rule int64, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 }
 
 // VariablesService abstracts CI/CD project and group variable operations.
@@ -138,17 +138,17 @@ type ComplianceFramework struct {
 
 // ComplianceService abstracts compliance framework label queries and assignments.
 type ComplianceService interface {
-	GetProjectComplianceFrameworks(ctx context.Context, projectID int) ([]ComplianceFramework, error)
-	SetProjectComplianceFramework(ctx context.Context, projectID int, frameworkID string) error
-	RemoveProjectComplianceFramework(ctx context.Context, projectID int, frameworkID string) error
+	GetProjectComplianceFrameworks(ctx context.Context, projectID int64) ([]ComplianceFramework, error)
+	SetProjectComplianceFramework(ctx context.Context, projectID int64, frameworkID string) error
+	RemoveProjectComplianceFramework(ctx context.Context, projectID int64, frameworkID string) error
 }
 
 // WebhooksService abstracts project webhook integrations.
 type WebhooksService interface {
 	ListProjectHooks(pid any, opt *gitlab.ListProjectHooksOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.ProjectHook, *gitlab.Response, error)
 	AddProjectHook(pid any, opt *gitlab.AddProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error)
-	EditProjectHook(pid any, hook int, opt *gitlab.EditProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error)
-	DeleteProjectHook(pid any, hook int, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
+	EditProjectHook(pid any, hook int64, opt *gitlab.EditProjectHookOptions, options ...gitlab.RequestOptionFunc) (*gitlab.ProjectHook, *gitlab.Response, error)
+	DeleteProjectHook(pid any, hook int64, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error)
 }
 
 // MembersService abstracts project and group member lists.
@@ -163,7 +163,7 @@ type MembersService interface {
 type UsersService interface {
 	CurrentUser(options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error)
 	ListUsers(opt *gitlab.ListUsersOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.User, *gitlab.Response, error)
-	GetUser(user int, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error)
+	GetUser(user int64, opt gitlab.GetUsersOptions, options ...gitlab.RequestOptionFunc) (*gitlab.User, *gitlab.Response, error)
 }
 
 // PipelinesService abstracts project pipeline queries.
@@ -203,7 +203,7 @@ type BranchesService interface {
 // MergeRequestsService abstracts merge request creation, listing, inspection, and auto-merge operations.
 type MergeRequestsService interface {
 	ListProjectMergeRequests(pid any, opt *gitlab.ListProjectMergeRequestsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.BasicMergeRequest, *gitlab.Response, error)
-	GetMergeRequest(pid any, mr int, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
+	GetMergeRequest(pid any, mr int64, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
 	CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
-	AcceptMergeRequest(pid any, mr int, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
+	AcceptMergeRequest(pid any, mr int64, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
 }

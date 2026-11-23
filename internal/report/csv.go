@@ -56,7 +56,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 			// Write target row without operations
 			row := []string{
 				t.ResourceType,
-				strconv.Itoa(t.ID),
+				strconv.FormatInt(t.ID, 10),
 				t.Path,
 				"",
 				"",
@@ -78,7 +78,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 			if len(op.Diffs) == 0 {
 				row := []string{
 					t.ResourceType,
-					strconv.Itoa(t.ID),
+					strconv.FormatInt(t.ID, 10),
 					t.Path,
 					op.Name,
 					op.Action,
@@ -100,7 +100,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 				if len(diff.Fields) == 0 {
 					row := []string{
 						t.ResourceType,
-						strconv.Itoa(t.ID),
+						strconv.FormatInt(t.ID, 10),
 						t.Path,
 						op.Name,
 						op.Action,
@@ -129,7 +129,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 					}
 					row := []string{
 						t.ResourceType,
-						strconv.Itoa(t.ID),
+						strconv.FormatInt(t.ID, 10),
 						t.Path,
 						op.Name,
 						string(f.Action),

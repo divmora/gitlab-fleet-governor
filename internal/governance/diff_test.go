@@ -174,13 +174,13 @@ func TestComparisonHelpers(t *testing.T) {
 
 	t.Run("CompareIntPtr", func(t *testing.T) {
 		assert.Nil(t, governance.CompareIntPtr("f", 10, nil))
-		desired10 := 10
+		desired10 := int64(10)
 		assert.Nil(t, governance.CompareIntPtr("f", 10, &desired10))
-		desired20 := 20
+		desired20 := int64(20)
 		diff := governance.CompareIntPtr("f", 10, &desired20)
 		assert.NotNil(t, diff)
-		assert.Equal(t, 10, diff.OldValue)
-		assert.Equal(t, 20, diff.NewValue)
+		assert.Equal(t, int64(10), diff.OldValue)
+		assert.Equal(t, int64(20), diff.NewValue)
 	})
 
 	t.Run("CompareStringSlice", func(t *testing.T) {
