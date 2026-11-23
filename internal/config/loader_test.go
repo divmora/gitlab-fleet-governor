@@ -238,3 +238,45 @@ func TestLoader_LoadRaw_Sources(t *testing.T) {
 		assert.Contains(t, err.Error(), "no configuration source provided")
 	})
 }
+
+func TestLoadFromS3(t *testing.T) {
+	ctx := context.Background()
+	mock := &MockS3Client{Objects: map[string][]byte{
+		"policies/fleet.yaml": []byte("version: \"v1\"\nsettings:\n  concurrency: 6\n"),
+		"policies/empty.yaml": []byte("   \n"),
+	}}
+	opts := config.LoadOptions{LoaderOptions: []config.LoaderOption{config.WithS3Client(mock)}}
+
+	t.Run("loads from S3", func(t *testing.T) {
+		cfg, src, err := config.LoadFromS3(ctx, " s3://policies/fleet.yaml ", opts)
+		require.NoError(t, err)
+		assert.Equal(t, "s3://policies/fleet.yaml", src)
+		assert.Equal(t, 6, cfg.Settings.Concurrency)
+	})
+
+	t.Run("empty object", func(t *testing.T) {
+		_, _, err := config.LoadFromS3(ctx, "s3://policies/empty.yaml", opts)
+		require.ErrorContains(t, err, "empty configuration content")
+	})
+
+	// Never falls back to local files, stdin or CONFIG_* sources, even when a
+	// readable local policy exists at the given path.
+	t.Run("rejects non-S3 sources", func(t *testing.T) {
+		local := filepath.Join(t.TempDir(), "policy.yaml")
+		require.NoError(t, os.WriteFile(local, []byte("version: \"v1\"\n"), 0o600))
+		envOpts := config.LoadOptions{LoaderOptions: []config.LoaderOption{
+			config.WithS3Client(mock),
+			config.WithEnvLookup(func(k string) (string, bool) {
+				if k == "CONFIG_FILE" {
+					return local, true
+				}
+				return "", false
+			}),
+		}}
+		for _, uri := range []string{local, "-", "", "file://" + local} {
+			cfg, _, err := config.LoadFromS3(ctx, uri, envOpts)
+			assert.Error(t, err, "uri %q", uri)
+			assert.Nil(t, cfg, "uri %q", uri)
+		}
+	})
+}
