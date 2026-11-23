@@ -73,7 +73,7 @@ func (r *ConfigResolver) ResolveFromDirectPayload(ctx context.Context, payload *
 		if r.s3Client != nil {
 			loaderOpts = append(loaderOpts, config.WithS3Client(r.s3Client))
 		}
-		cfg, sourceDesc, err = config.Load(ctx, strings.TrimSpace(payload.ConfigS3URI), config.LoadOptions{
+		cfg, sourceDesc, err = config.LoadFromS3(ctx, payload.ConfigS3URI, config.LoadOptions{
 			LoaderOptions: loaderOpts,
 		})
 		if err != nil {
@@ -114,7 +114,7 @@ func (r *ConfigResolver) ResolveFromS3URI(ctx context.Context, s3URI string) (*c
 	if r.s3Client != nil {
 		loaderOpts = append(loaderOpts, config.WithS3Client(r.s3Client))
 	}
-	return config.Load(ctx, s3URI, config.LoadOptions{
+	return config.LoadFromS3(ctx, s3URI, config.LoadOptions{
 		LoaderOptions: loaderOpts,
 	})
 }

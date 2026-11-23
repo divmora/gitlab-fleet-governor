@@ -1,9 +1,12 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // LoadOptions configures the config loading and parsing behavior.
@@ -27,6 +30,35 @@ func Load(ctx context.Context, configPath string, opts ...LoadOptions) (*PolicyC
 		return nil, sourceDesc, fmt.Errorf("config load error: %w", err)
 	}
 
+	return parseLoaded(loader, rawBytes, sourceDesc, opt)
+}
+
+// LoadFromS3 loads, expands, parses, and validates configuration from an
+// s3://bucket/key URI only. Unlike Load it never reads local files, stdin or
+// CONFIG_* sources, so it is safe for URIs taken from untrusted events.
+func LoadFromS3(ctx context.Context, s3URI string, opts ...LoadOptions) (*PolicyConfig, string, error) {
+	var opt LoadOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	loader := NewLoader(opt.LoaderOptions...)
+	sourceDesc := strings.TrimSpace(s3URI)
+
+	rawBytes, err := loader.readFromS3(ctx, sourceDesc)
+	if err != nil {
+		return nil, sourceDesc, fmt.Errorf("config load error: %w", err)
+	}
+	if len(bytes.TrimSpace(rawBytes)) == 0 {
+		return nil, sourceDesc, fmt.Errorf("config load error: %w", errors.New("empty configuration content"))
+	}
+
+	return parseLoaded(loader, rawBytes, sourceDesc, opt)
+}
+
+// parseLoaded runs env substitution, strict unmarshaling, defaults and
+// validation on raw configuration bytes.
+func parseLoaded(loader *Loader, rawBytes []byte, sourceDesc string, opt LoadOptions) (*PolicyConfig, string, error) {
 	// Stage 2: Environment variable substitution
 	expandedStr, err := ExpandEnvWithLookup(string(rawBytes), loader.lookupEnv)
 	if err != nil {
