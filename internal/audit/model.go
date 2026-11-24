@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,6 +47,8 @@ func AllModuleNames() []string {
 
 // UserInfo encapsulates metadata for an individual identity discovered across the fleet.
 type UserInfo struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance      string   `json:"instance,omitempty"`
 	ID            int64    `json:"id"`
 	Username      string   `json:"username"`
 	Name          string   `json:"name"`
@@ -60,6 +63,8 @@ type UserInfo struct {
 
 // UserAccessFinding captures access-level and expiration audit observations for a member.
 type UserAccessFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance       string   `json:"instance,omitempty"`
 	ProjectID      int64    `json:"project_id"`
 	ProjectName    string   `json:"project_name"`
 	ProjectPath    string   `json:"project_path"`
@@ -85,6 +90,8 @@ type UserAccessFinding struct {
 
 // ProtectedBranchFinding captures compliance status for a project branch protection.
 type ProtectedBranchFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance                  string   `json:"instance,omitempty"`
 	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
@@ -107,6 +114,8 @@ type ProtectedBranchFinding struct {
 
 // ProtectedEnvironmentFinding captures compliance status for an environment deployment target.
 type ProtectedEnvironmentFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance                  string   `json:"instance,omitempty"`
 	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
@@ -126,6 +135,8 @@ type ProtectedEnvironmentFinding struct {
 
 // PipelineRetentionFinding captures pipeline retention configurations and stale unpruned pipeline audit observations.
 type PipelineRetentionFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance               string   `json:"instance,omitempty"`
 	ProjectID              int64    `json:"project_id"`
 	ProjectName            string   `json:"project_name"`
 	ProjectPath            string   `json:"project_path"`
@@ -148,6 +159,8 @@ type PipelineRetentionFinding struct {
 
 // RepositoryFileFinding captures compliance status for a repository file.
 type RepositoryFileFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance      string   `json:"instance,omitempty"`
 	ProjectID     int64    `json:"project_id"`
 	ProjectName   string   `json:"project_name"`
 	ProjectPath   string   `json:"project_path"`
@@ -164,6 +177,8 @@ type RepositoryFileFinding struct {
 
 // ProtectedTagFinding captures compliance status for tag protections on releases and versions.
 type ProtectedTagFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance                  string   `json:"instance,omitempty"`
 	ProjectID                 int64    `json:"project_id"`
 	ProjectName               string   `json:"project_name"`
 	ProjectPath               string   `json:"project_path"`
@@ -241,6 +256,35 @@ type AuditReport struct {
 	RepositoryFileFindings    []RepositoryFileFinding       `json:"repository_file_findings,omitempty"`
 	ProtectedTagFindings      []ProtectedTagFinding         `json:"protected_tag_findings,omitempty"`
 	UserDirectory             []*UserInfo                   `json:"user_directory,omitempty"`
+	Instances                 []InstanceAudit               `json:"instances,omitempty"`
+}
+
+// InstanceAudit summarises one GitLab instance in a multi-instance audit.
+type InstanceAudit struct {
+	Name              string    `json:"name"`
+	BaseURL           string    `json:"base_url"`
+	AuthenticatedUser *UserInfo `json:"authenticated_user,omitempty"`
+	ProjectsScanned   int       `json:"projects_scanned"`
+	Violations        int       `json:"violations"`
+	Error             string    `json:"error,omitempty"`
+}
+
+// IsMultiInstance reports whether the report covers several GitLab instances.
+func (r *AuditReport) IsMultiInstance() bool {
+	return r != nil && len(r.Instances) > 0
+}
+
+// Label prefixes s with the instance name ("saas:team/app") in a
+// multi-instance report, and returns s unchanged otherwise.
+func Label(instance, s string) string {
+	if instance == "" {
+		return s
+	}
+	return instance + ":" + s
+}
+
+func projectKey(instance string, id int64) string {
+	return instance + "\x00" + strconv.FormatInt(id, 10)
 }
 
 // ComputeSummary recalculates summary metrics based on findings.
@@ -262,7 +306,7 @@ func (r *AuditReport) ComputeSummary() {
 	r.Summary.RepositoryFileViolations = 0
 	r.Summary.ProtectedTagViolations = 0
 
-	nonCompliantProjects := make(map[int64]struct{})
+	nonCompliantProjects := make(map[string]struct{})
 
 	// Process Human User Access findings
 	for _, f := range r.UserAccessFindings {
@@ -271,7 +315,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.UserAccessViolations++
 			r.Summary.HumanUserViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -292,7 +336,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.UserAccessViolations++
 			r.Summary.BotUserViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -312,7 +356,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.TotalViolations++
 			r.Summary.ProtectedBranchViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -332,7 +376,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.TotalViolations++
 			r.Summary.ProtectedEnvViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -352,7 +396,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.TotalViolations++
 			r.Summary.PipelineRetentionViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -372,7 +416,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.TotalViolations++
 			r.Summary.RepositoryFileViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++
@@ -392,7 +436,7 @@ func (r *AuditReport) ComputeSummary() {
 			r.Summary.TotalViolations++
 			r.Summary.ProtectedTagViolations++
 			r.Summary.SeverityBreakdown[f.Severity]++
-			nonCompliantProjects[f.ProjectID] = struct{}{}
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
 			switch f.Severity {
 			case SeverityCritical:
 				r.Summary.CriticalSeverityCount++

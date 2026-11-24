@@ -17,6 +17,7 @@ import (
 )
 
 type exportFlags struct {
+	Instance                  string
 	GroupPath                 string
 	ProjectID                 int64
 	Recursive                 bool
@@ -62,6 +63,7 @@ and emits a normalized declarative policy.yaml baseline that can be used for fle
 	cmd.Flags().BoolVar(&flags.IncludeSecretsPlaceholder, "include-secrets-placeholder", true, "Replace masked variable values with ${VAR:-PLACEHOLDER}")
 	cmd.Flags().StringVar(&flags.SkipReconcilers, "skip-reconcilers", "", "Comma-separated list of reconcilers to skip (e.g., variables,webhooks)")
 	cmd.Flags().StringVar(&flags.FromProject, "from-project", "", "Project ID or full path to use as golden template for group policy")
+	cmd.Flags().StringVar(&flags.Instance, "instance", "", "Instance to export from, for a policy with an instances block")
 	cmd.Flags().StringVar(&flags.Strategy, "strategy", "archetype", "Divergence resolution strategy: archetype (use golden template or first project), consensus (only identical properties across all projects), or strict (fail on divergence)")
 
 	return cmd
@@ -88,11 +90,14 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		if err != nil {
 			return fmt.Errorf("failed to load configuration '%s': %w", globalFlags.ConfigPath, err)
 		}
-		if err := requireSingleInstance("export", loadedCfg); err != nil {
+		cfg, err = selectInstance(loadedCfg, flags.Instance)
+		if err != nil {
 			return err
 		}
-		cfg = loadedCfg
 	} else {
+		if strings.TrimSpace(flags.Instance) != "" {
+			return fmt.Errorf("--instance needs a policy with an instances block (--config)")
+		}
 		cfg = &config.PolicyConfig{}
 		cfg.SetDefaults()
 	}
@@ -119,8 +124,9 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		cfg.Targets.GroupSelector = nil
 	}
 
-	// Initialize GitLab Client
-	client, err := gitlab.NewClientFromConfig(&cfg.Settings.GitLab)
+	// Initialize GitLab Client (an instance of a multi-instance policy uses
+	// only its own URL and token)
+	client, err := gitlab.NewClientForRun(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize GitLab client: %w", err)
 	}

@@ -11,6 +11,10 @@ import (
 // permitted in production environments free of charge under the Business Source License 1.1.
 const FreeTierMaxProjects = 25
 
+// FeatureMultiInstance is the feature required to govern or audit more than
+// one GitLab instance in a single run (Enterprise).
+const FeatureMultiInstance = "platform.multi_instance"
+
 // DefaultGracePeriodDays defines the default grace period duration (in days) after license
 // expiration during which warning notices are emitted before hard-blocking execution.
 const DefaultGracePeriodDays = 14
