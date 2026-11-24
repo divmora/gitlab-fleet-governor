@@ -137,6 +137,42 @@
     "policies": {
       "type": "object",
       "properties": {
+        "deploy_keys": {
+          "type": "object",
+          "description": "Deploy keys enabled on each targeted project (Pro).",
+          "additionalProperties": false,
+          "properties": {
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["title"],
+                "additionalProperties": false,
+                "properties": {
+                  "title": { "type": "string" },
+                  "key": { "type": "string" },
+                  "fingerprint": { "type": "string", "pattern": "^SHA256:[A-Za-z0-9+/]{43}=?$" },
+                  "can_push": { "type": "boolean" }
+                }
+              }
+            },
+            "deny_push": { "type": "boolean" },
+            "max_age_days": { "type": "integer", "minimum": 1 },
+            "prune": { "type": "boolean" }
+          }
+        },
+        "deploy_tokens": {
+          "type": "object",
+          "description": "Rules for project and group deploy tokens (Pro).",
+          "additionalProperties": false,
+          "properties": {
+            "allowed_scopes": { "type": "array", "items": { "type": "string", "enum": ["read_repository", "read_registry", "write_registry", "read_package_registry", "write_package_registry", "read_virtual_registry", "write_virtual_registry"] } },
+            "require_expires_at": { "type": "boolean" },
+            "max_expiration_days": { "type": "integer", "minimum": 1 },
+            "revoke_expired": { "type": "boolean" },
+            "revoke_noncompliant": { "type": "boolean" }
+          }
+        },
         "job_token_scope": {
           "type": "object",
           "description": "CI/CD job token access allowlist for each targeted project (Pro).",

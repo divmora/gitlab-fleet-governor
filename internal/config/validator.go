@@ -331,6 +331,8 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 	}
 	validateGroupSettings(p.GroupSettings, prefix+".group_settings", errs)
 	validateJobTokenScope(p.JobTokenScope, prefix+".job_token_scope", errs)
+	validateDeployKeys(p.DeployKeys, prefix+".deploy_keys", errs)
+	validateDeployTokens(p.DeployTokens, prefix+".deploy_tokens", errs)
 	validateSecretPushProtection(p.SecretPushProtection, prefix+".secret_push_protection", errs)
 
 	if p.PushRules != nil {

@@ -20,6 +20,9 @@ type State struct {
 	// Project security: job token scope and secret push protection
 	security *securityState
 
+	// Deploy keys (per project) and deploy tokens (per project or group)
+	deploy *deployState
+
 	// Projects: key is project ID
 	projects          map[int64]*gitlab.Project
 	projectByPath     map[string]int64 // path_with_namespace -> ID

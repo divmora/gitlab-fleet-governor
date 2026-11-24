@@ -1235,7 +1235,7 @@ func TestVerify_AutoFingerprint_NodeLocking(t *testing.T) {
 }
 
 func TestSecuritySettingsFeaturesArePro(t *testing.T) {
-	for _, feature := range []string{"governance.group_settings", "governance.job_token_scope", "governance.secret_push_protection"} {
+	for _, feature := range []string{"governance.group_settings", "governance.job_token_scope", "governance.secret_push_protection", "governance.deploy_keys", "governance.deploy_tokens"} {
 		if got := license.RequiredTierForFeature(feature); got != "pro" {
 			t.Fatalf("RequiredTierForFeature(%s) = %q, want pro", feature, got)
 		}

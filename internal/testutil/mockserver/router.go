@@ -201,6 +201,10 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 		rt.handleJobTokenScope(w, r, unescapedID, parts[2:])
 	case "security_settings":
 		rt.handleSecuritySettings(w, r, unescapedID)
+	case "deploy_keys":
+		rt.handleProjectDeployKeys(w, r, unescapedID, parts[2:])
+	case "deploy_tokens":
+		rt.handleDeployTokens(w, r, "project", unescapedID, parts[2:])
 	default:
 		http.NotFound(w, r)
 	}
@@ -1060,6 +1064,11 @@ func (rt *Router) routeGroups(w http.ResponseWriter, r *http.Request, sub string
 		rt.handleGroupVariables(w, r, groupID, lastPart)
 		return
 	}
+	if secondLastPart == "deploy_tokens" {
+		groupID := strings.Join(parts[:len(parts)-2], "/")
+		rt.handleDeployTokens(w, r, "group", groupID, parts[len(parts)-1:])
+		return
+	}
 	if secondLastPart == "members" && lastPart == "all" {
 		groupID := strings.Join(parts[:len(parts)-2], "/")
 		rt.handleGroupMembers(w, r, groupID)
@@ -1090,6 +1099,10 @@ func (rt *Router) routeGroups(w http.ResponseWriter, r *http.Request, sub string
 	case "members":
 		groupID := strings.Join(parts[:len(parts)-1], "/")
 		rt.handleGroupMembers(w, r, groupID)
+		return
+	case "deploy_tokens":
+		groupID := strings.Join(parts[:len(parts)-1], "/")
+		rt.handleDeployTokens(w, r, "group", groupID, nil)
 		return
 	default:
 		// Entire path is the group ID or path

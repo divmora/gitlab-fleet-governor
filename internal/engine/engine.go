@@ -443,6 +443,12 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.SecretPushProtection != nil {
 		requiredFeatures = append(requiredFeatures, "governance.secret_push_protection")
 	}
+	if cfg.Policies.DeployKeys != nil {
+		requiredFeatures = append(requiredFeatures, "governance.deploy_keys")
+	}
+	if cfg.Policies.DeployTokens != nil {
+		requiredFeatures = append(requiredFeatures, "governance.deploy_tokens")
+	}
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		requiredFeatures = append(requiredFeatures, "runtime.lambda")
 	}
