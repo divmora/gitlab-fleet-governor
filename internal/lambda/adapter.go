@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -24,15 +25,20 @@ func (h *Handler) executeEngine(ctx context.Context, cfg *config.PolicyConfig) (
 	return res, err
 }
 
-// notify sends the run summary. Channels come from the operator's config
-// and the function's environment; event-supplied configs can't set them
-// (see config.UntrustedPolicy).
+// notify sends the run summary. On Lambda, notification targets come only
+// from the function's own environment (GLFG_* variables), never from a
+// policy: whoever can invoke the function can supply a config, and must
+// not be able to choose where fleet findings are sent. Event configs that
+// try are also rejected by config.UntrustedPolicy.
 func (h *Handler) notify(ctx context.Context, cfg *config.PolicyConfig, res *engine.ExecutionResult, execErr error) {
 	if cfg == nil {
 		return
 	}
+	if !cfg.Settings.Notifications.IsEmpty() {
+		slog.Info("settings.notifications is ignored on Lambda; set notification targets with GLFG_* environment variables")
+	}
 	lookup := h.lookupEnv
-	n := notify.Resolve(cfg.Settings.Notifications, notify.Overrides{}, func(k string) (string, bool) {
+	n := notify.Resolve(nil, notify.Overrides{}, func(k string) (string, bool) {
 		if lookup == nil {
 			return "", false
 		}

@@ -110,7 +110,7 @@ A channel is notified when the overall severity reaches its `min_severity`, so `
 > - Only `https://` URLs are accepted, redirects are not followed, and URLs are never logged or echoed in errors.
 > - Each request times out after 5 seconds. A failed notification is logged as a warning and never changes the command's exit code.
 > - For SNS, the AWS credentials need `sns:Publish` on the topic. The region is taken from the ARN.
-> - On Lambda, an event-supplied config can't set `settings.notifications` (see [lambda.md](lambda.md)).
+> - On Lambda, notification targets come only from the function's `GLFG_*` environment variables. `settings.notifications` in any config is ignored there, and an event-supplied config that sets it is rejected (see [lambda.md](lambda.md)).
 
 ---
 
