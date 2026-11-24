@@ -166,7 +166,6 @@ func executeRun(ctx context.Context, cmd *cobra.Command, flags runFlags) error {
 	summary.Scope = notifyScope(cfg)
 	summary.ReportPath = globalFlags.OutputFile
 	sendNotifications(ctx, cfg, flags.Notify, summary, notify.Gate{
-		DryRun:      dryRun,
 		LicenseKey:  cfg.Settings.License.Key,
 		LicenseFile: cfg.Settings.License.File,
 		CRL:         cfg.Settings.License.CRL,

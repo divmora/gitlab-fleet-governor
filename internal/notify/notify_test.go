@@ -244,14 +244,12 @@ func TestSend_ValidationAndLicence(t *testing.T) {
 	s := notify.FromExecution(nil, errors.New("boom"))
 	n := &config.NotificationsConfig{Webhook: &config.WebhookNotifyConfig{URL: srv.URL + "/hook"}}
 
-	assert.Nil(t, notify.Send(context.Background(), d, &config.NotificationsConfig{Webhook: &config.WebhookNotifyConfig{URL: "http://insecure.example"}}, s, notify.Gate{DryRun: true}), "http:// is rejected")
+	assert.Nil(t, notify.Send(context.Background(), d, &config.NotificationsConfig{Webhook: &config.WebhookNotifyConfig{URL: "http://insecure.example"}}, s, notify.Gate{LicenseKey: testutil.CLITestToken}), "http:// is rejected")
 
-	assert.Nil(t, notify.Send(context.Background(), d, n, s, notify.Gate{DryRun: false}), "apply without a Pro licence sends nothing")
+	assert.Nil(t, notify.Send(context.Background(), d, n, s, notify.Gate{}), "without a Pro licence nothing is sent, whatever the run mode")
 	assert.Empty(t, got.bodies)
 
-	assert.Len(t, notify.Send(context.Background(), d, n, s, notify.Gate{DryRun: true}), 1, "dry-run is allowed with a warning")
-	got.bodies = map[string][]byte{}
-	results := notify.Send(context.Background(), d, n, s, notify.Gate{DryRun: false, LicenseKey: testutil.CLITestToken})
+	results := notify.Send(context.Background(), d, n, s, notify.Gate{LicenseKey: testutil.CLITestToken})
 	require.Len(t, results, 1)
 	assert.True(t, results[0].Sent)
 	assert.NotEmpty(t, got.bodies["/hook"])

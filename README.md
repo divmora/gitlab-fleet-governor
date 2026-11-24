@@ -424,7 +424,7 @@ Contributions are welcome!
  
 This project is licensed under the **Business Source License 1.1 (BSL 1.1)**.
  
-- **Non-Production Use**: Free of charge for local development, staging, QA, testing, CI/CD automated validation (dry-run linting), educational purposes, and proof-of-concept evaluation.
+- **Non-Production Use**: Free of charge for local development, staging, QA, testing, CI/CD automated validation (dry-run linting of policy changes), educational purposes, and proof-of-concept evaluation. Producing audit, compliance or evidence reports from a production GitLab instance, or sending notifications about it, is production use, with or without dry-run.
 - **Production Use (Free Fleet Tier)**: Free of charge in production environments governing a cumulative fleet size of up to **twenty-five (25) managed GitLab projects/repositories** at any given time.
 - **Enterprise / Fleet Scale**: Any production deployment governing more than twenty-five (25) managed projects/repositories or utilizing Enterprise-gated capabilities requires an active commercial subscription (EULA) from DIVMORA Technologies.
 - **Change Date**: Converts automatically to **Apache License 2.0** three (3) years after the release date of the specific version.
@@ -440,7 +440,7 @@ For commercial inquiries and enterprise licensing, please contact **[licensing@d
 | **Enterprise** | Unlimited Scale | Everything in Pro + **Compliance & Security Audit Suite** (.xlsx + SMTP dispatch), compliance frameworks, AWS Lambda runtime | Active commercial license |
 
 > [!TIP]
-> **Simulation Before Mutation**: Dry-run simulation mode (`--dry-run` or `settings.dry_run: true`) is **always 100% free and unrestricted** across all tiers and fleet sizes without requiring a license key.
+> **Simulation Before Mutation**: Previewing changes with `run --dry-run` (or `settings.dry_run: true`) is free across all tiers and fleet sizes without a licence key. `audit` and notifications are production use: they are licensed the same way whether or not dry-run is set, because an audit reads exactly the same data either way. A revoked or invalid licence key always fails.
 >
 > **Community Zero-Check Bypass**: When policies exercise only Community Tier capabilities, GitLab Fleet Governor bypasses all license verification completely.
 >

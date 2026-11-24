@@ -430,7 +430,7 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 			valStyle := g.dataCellStyle
 			if lr.Key == "Entitlement Status" {
 				switch att.Status {
-				case "VALID_COMMERCIAL", "APACHE_2_CONVERTED", "EXEMPTED_DRY_RUN":
+				case "VALID_COMMERCIAL", "APACHE_2_CONVERTED":
 					valStyle = g.passStatusStyle
 				case "OPERATING_IN_GRACE_PERIOD":
 					valStyle = g.warnStatusStyle

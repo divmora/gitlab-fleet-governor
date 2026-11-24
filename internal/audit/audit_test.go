@@ -343,7 +343,8 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 		},
 	})
 
-	t.Run("DryRun Exemption", func(t *testing.T) {
+	t.Run("DryRun Flag Is Ignored", func(t *testing.T) {
+		// An audit only reads, so it is always licensed as production use (#118).
 		auditor, err := audit.NewAuditor(client,
 			targetOpts,
 			audit.WithAuditorLicense("", "", true),
@@ -354,10 +355,8 @@ func TestAuditor_LicenseAttestationVariants(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, report.LicenseAttestation)
 
-		assert.Equal(t, "EXEMPTED_DRY_RUN", report.LicenseAttestation.Status)
-		assert.Equal(t, "BSL-1.1", report.LicenseAttestation.LicenseModel)
-		assert.Equal(t, "SIMULATION", report.LicenseAttestation.Tier)
-		assert.Contains(t, report.LicenseAttestation.AttestationStatement, "Additional Use Grant (a)")
+		assert.Equal(t, "COMMUNITY_TIER", report.LicenseAttestation.Status)
+		assert.NotContains(t, report.LicenseAttestation.AttestationStatement, "dry-run")
 	})
 
 	t.Run("Valid Commercial License", func(t *testing.T) {

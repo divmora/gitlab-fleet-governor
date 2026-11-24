@@ -6,7 +6,7 @@ Licensor: DIVMORA Technologies
 Licensed Work: GitLab Fleet Governor, including all source code, documentation, and associated files in this repository.
 Additional Use Grant:
   You may use the Licensed Work free of charge for:
-  (a) Non-production purposes, including local development, testing, staging, QA, CI/CD automated validation (dry-run linting), educational purposes, and proof-of-concept evaluation; and
+  (a) Non-production purposes, including local development, testing, staging, QA, CI/CD automated validation (dry-run linting of policy changes), educational purposes, and proof-of-concept evaluation. Using the Licensed Work against a production GitLab instance to produce audit, compliance or evidence reports, or to send notifications about that instance, is production use and is not covered by this clause (a), whether or not a dry-run or simulation mode is used; and
   (b) Production environments governing a cumulative fleet size of no more than twenty-five (25) managed GitLab projects/repositories at any given time.
 
   Any production deployment governing more than twenty-five (25) managed projects/repositories or utilizing Enterprise-gated capabilities requires an active commercial subscription (EULA) from the Licensor.

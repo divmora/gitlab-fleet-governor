@@ -10,7 +10,6 @@ import (
 
 // Gate carries what the licence check needs.
 type Gate struct {
-	DryRun        bool
 	GitLabBaseURL string
 	LicenseKey    string
 	LicenseFile   string
@@ -30,8 +29,10 @@ func Send(ctx context.Context, d *Dispatcher, n *config.NotificationsConfig, s *
 		slog.Warn("Notifications not sent: invalid notification settings", "error", err)
 		return nil
 	}
+	// Notifications are production monitoring whatever the run mode, so
+	// the licence is checked as for a live run, even after a dry-run plan.
 	if _, err := license.Enforce(license.EnforcementOptions{
-		IsDryRun:         g.DryRun,
+		IsDryRun:         false,
 		GitLabBaseURL:    g.GitLabBaseURL,
 		LicenseKey:       g.LicenseKey,
 		LicenseFile:      g.LicenseFile,

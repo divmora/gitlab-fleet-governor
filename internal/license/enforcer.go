@@ -120,9 +120,11 @@ func ResolveToken(key, file string) (string, error) {
 }
 
 // Enforce evaluates the active execution context against the Business Source License 1.1 terms:
-// 1. Non-production / dry-run simulation: Permitted free of charge under Additional Use Grant (a).
-// 2. Production fleet size <= 25: Permitted free of charge under Additional Use Grant (b).
-// 3. Production fleet size > 25: Strictly requires a valid, unexpired commercial license with sufficient capacity.
+//  1. Non-production use and dry-run previews of run/merge: permitted free of charge under Additional Use Grant (a).
+//     Callers pass IsDryRun only for such previews: audit and notifications are production use (#118).
+//     A revoked or invalid licence token fails whatever IsDryRun says.
+//  2. Production fleet size <= 25: Permitted free of charge under Additional Use Grant (b).
+//  3. Production fleet size > 25: Strictly requires a valid, unexpired commercial license with sufficient capacity.
 func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 	evalTime := opts.EvaluationTime
 	if evalTime.IsZero() {
@@ -180,22 +182,11 @@ func Enforce(opts EnforcementOptions) (*ValidationStatus, error) {
 	if token != "" {
 		status, err := ParseAndVerifyAt(token, opts.PublicKey, evalTime, opts.CRL, opts.CRLFile, opts.CRLURL)
 		if err != nil {
+			// A revoked or invalid licence always fails, in dry-run too: it
+			// must not be possible to fall back to the dry-run exemption by
+			// supplying a bad token.
 			if errors.Is(err, liblicense.ErrLicenseRevoked) {
-				if opts.IsDryRun {
-					slog.Warn("Commercial license has been revoked by Certificate Revocation List (CRL), falling back to dry-run simulation exemption", "error", err)
-					return &ValidationStatus{
-						Valid:   true,
-						Message: "Simulation / dry-run mode exempted under BSL 1.1 Additional Use Grant (a)",
-					}, nil
-				}
 				return status, fmt.Errorf("COMMERCIAL LICENSE REVOKED: %w", err)
-			}
-			if opts.IsDryRun {
-				slog.Warn("Commercial license verification failed, falling back to dry-run simulation exemption", "error", err)
-				return &ValidationStatus{
-					Valid:   true,
-					Message: "Simulation / dry-run mode exempted under BSL 1.1 Additional Use Grant (a)",
-				}, nil
 			}
 			return status, fmt.Errorf("commercial license verification failed: %w", err)
 		}

@@ -165,13 +165,15 @@ func TestAudit_MultiInstanceNeedsEnterprise(t *testing.T) {
 	policy := twoInstanceAuditPolicy(t, alpha.BaseURL(), beta.BaseURL())
 	out := filepath.Join(t.TempDir(), "a.json")
 
-	// Like the other commercial audit features, dry-run (the default) only warns.
-	_, _, err := executeCommand(context.Background(), "audit", "-c", policy, "--format=json", "-o", out)
-	require.NoError(t, err)
-
-	_, _, err = executeCommand(context.Background(), "audit", "-c", policy, "--dry-run=false", "--format=json", "-o", out)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), license.FeatureMultiInstance)
+	// An audit is production use, so dry-run (the default) doesn't exempt it (#118).
+	for _, args := range [][]string{
+		{"audit", "-c", policy, "--format=json", "-o", out},
+		{"audit", "-c", policy, "--dry-run", "--format=json", "-o", out},
+	} {
+		_, _, err := executeCommand(context.Background(), args...)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), license.FeatureMultiInstance)
+	}
 }
 
 func TestExportAndMerge_InstanceSelection(t *testing.T) {

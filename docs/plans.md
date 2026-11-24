@@ -93,7 +93,7 @@ The following table details feature availability and runtime verification mechan
 | **AWS Lambda Serverless Runtime** | `runtime.lambda` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **All Future Modules** | `*` | ❌ | ❌ | ✅ Included | Wildcard entitlement |
 | **Fleet Scale** | `max_projects` | $\le$ 25 Projects | Custom Quota | Unlimited | Enforced against `discovered_projects` |
-| **Dry-Run Simulation** | `--dry-run` | ✅ Free | ✅ Free | ✅ Free | Exempt under BSL Additional Use Grant (a) |
+| **Dry-Run Preview** | `run --dry-run` / `merge --dry-run` | ✅ Free | ✅ Free | ✅ Free | Previews changes free under BSL Additional Use Grant (a). `audit` and notifications are production use and are licensed as such in every mode. |
 
 ---
 

@@ -160,7 +160,7 @@ targets:
 
 ## `instances` Reference
 
-A policy can govern several GitLab instances in one run, for example gitlab.com and a self-managed instance. Governing more than one instance requires an **Enterprise** licence (feature `platform.multi_instance`); without one, `plan` and dry-run still work and print a warning, and `apply` is refused. The same applies to `audit`, which runs in dry-run unless `settings.dry_run` is `false` or `--dry-run=false` is passed, like its other commercial features.
+A policy can govern several GitLab instances in one run, for example gitlab.com and a self-managed instance. Governing more than one instance requires an **Enterprise** licence (feature `platform.multi_instance`); without one, a dry-run `run` still works and prints a warning, and `apply` is refused. `audit` always needs the licence for more than one instance, whatever the dry-run setting, because an audit is production use.
 
 ```yaml
 version: "v1"
@@ -677,7 +677,7 @@ Without the `revoke_*` options, every finding is reported as `AUDIT` and nothing
 ## Commercial License Resolution
 
 GitLab Fleet Governor is licensed under the Business Source License 1.1 (BSL 1.1):
-- **Free Community Tier**: Governs up to 25 production projects/repositories with zero license key required. Unlimited in local development, staging, test environments, and non-mutating `--dry-run` modes.
+- **Free Community Tier**: Governs up to 25 production projects/repositories with zero license key required. Unlimited in local development, staging and test environments, and for `run --dry-run` previews. `audit` and notifications are production use in every mode.
 - **Commercial Enterprise Tier**: Required when actively governing >25 production repositories.
 
 ### Token Resolution
