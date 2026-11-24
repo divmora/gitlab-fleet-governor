@@ -330,6 +330,8 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 		return
 	}
 	validateGroupSettings(p.GroupSettings, prefix+".group_settings", errs)
+	validateJobTokenScope(p.JobTokenScope, prefix+".job_token_scope", errs)
+	validateSecretPushProtection(p.SecretPushProtection, prefix+".secret_push_protection", errs)
 
 	if p.PushRules != nil {
 		validatePushRules(p.PushRules, prefix+".push_rules", errs)
@@ -779,6 +781,31 @@ func validateApprovalRules(a *ApprovalRulesConfig, prefix string, errs *Validati
 }
 
 func validateProjectSettings(p *ProjectSettingsConfig, prefix string, errs *ValidationErrors) {
+	for _, e := range []struct {
+		field, value string
+		allowed      []string
+	}{
+		{"visibility", p.Visibility, []string{"private", "internal", "public"}},
+		{"forking_access_level", p.ForkingAccessLevel, []string{"disabled", "private", "enabled"}},
+		{"ci_pipeline_variables_minimum_override_role", p.CIPipelineVariablesMinimumOverrideRole, []string{"no_one_allowed", "developer", "maintainer", "owner"}},
+		{"ci_restrict_pipeline_cancellation_role", p.CIRestrictPipelineCancellationRole, []string{"developer", "maintainer", "no_one"}},
+	} {
+		if e.value == "" {
+			continue
+		}
+		ok := false
+		for _, a := range e.allowed {
+			ok = ok || e.value == a
+		}
+		if !ok {
+			*errs = append(*errs, ValidationError{
+				Field:   prefix + "." + e.field,
+				Message: fmt.Sprintf("invalid %s '%s' (must be %s)", e.field, e.value, strings.Join(e.allowed, ", ")),
+				Value:   e.value,
+			})
+		}
+	}
+
 	if p.SquashOption != "" {
 		switch p.SquashOption {
 		case "never", "always", "default_on", "default_off":

@@ -80,6 +80,8 @@ The following table details feature availability and runtime verification mechan
 | **Protected Environments & Deploy Gates** | `governance.protected_environments` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Protected Tags Reconciler** | `governance.protected_tags` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Group Settings Reconciler** | `governance.group_settings` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
+| **CI/CD Job Token Scope** | `governance.job_token_scope` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
+| **Secret Push Protection** | `governance.secret_push_protection` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Multi-Instance Governance** | `platform.multi_instance` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Compliance Audit Suite** | `audit.*` (`audit.run`, `audit.drift`) | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Multi-Sheet Excel Reports** | `audit.export.xlsx` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
@@ -112,6 +114,8 @@ The following table details feature availability and runtime verification mechan
 - **Protected Environments & Deployment Gates (`governance.protected_environments`)**: Declarative deployment protections, multi-tier approval counts, role-based deployer access levels, group/user approver lists, unmanaged environment pruning, and wildcard environment name expansion (`dr-*`, `prod-*`).
 - **Protected Tags Reconciler (`governance.protected_tags`)**: Declarative release and version tag protections, wildcard tag pattern matching (`v*`, `release-*`), granular `allowed_to_create` access levels (No Access, Maintainer, Owner, Admin), user and group ID/path resolution, and unmanaged tag protection pruning.
 - **Group Settings Reconciler (`governance.group_settings`)**: Group visibility, two-factor authentication enforcement and grace period, project and subgroup creation levels, sharing and membership locks, forking restrictions, IP and email-domain allowlists, and default branch protection for new projects.
+- **CI/CD Job Token Scope (`governance.job_token_scope`)**: Limit which projects and groups can use their CI/CD job tokens to reach each project, with allowlist pruning that never removes the project itself.
+- **Secret Push Protection (`governance.secret_push_protection`)**: Enforce GitLab secret push protection across the fleet (GitLab Ultimate).
 
 ### 4.3 Enterprise Plan Capabilities
 - **Compliance & Security Audit Suite (`audit.*`)**: Fleet-wide, non-mutating compliance posture scans inspecting user access hygiene, protected branch posture, protected environment gates, pipeline retention, repository files, and protected tags.

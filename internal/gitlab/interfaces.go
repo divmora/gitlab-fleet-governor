@@ -28,6 +28,8 @@ type GitLabClient interface {
 	RepositoryFiles() RepositoryFilesService
 	Branches() BranchesService
 	MergeRequests() MergeRequestsService
+	JobTokenScope() JobTokenScopeService
+	SecuritySettings() SecuritySettingsService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -208,3 +210,11 @@ type MergeRequestsService interface {
 	CreateMergeRequest(pid any, opt *gitlab.CreateMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
 	AcceptMergeRequest(pid any, mr int64, opt *gitlab.AcceptMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error)
 }
+
+// JobTokenScopeService manages a project's CI/CD job token access settings
+// and inbound allowlist.
+type JobTokenScopeService = gitlab.JobTokenScopeServiceInterface
+
+// SecuritySettingsService reads and updates project security settings such
+// as secret push protection.
+type SecuritySettingsService = gitlab.ProjectSecuritySettingsServiceInterface

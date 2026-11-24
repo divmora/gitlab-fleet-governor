@@ -126,6 +126,16 @@ func (r *ProjectSettingsReconciler) buildProjectSettingsDiff(live *gogitlab.Proj
 
 	builder.Add(CompareBoolPtr("auto_devops_enabled", live.AutoDevopsEnabled, desired.AutoDevopsEnabled))
 
+	// Security-related project settings.
+	builder.Add(CompareString("visibility", string(live.Visibility), desired.Visibility))
+	builder.Add(CompareBoolPtr("public_jobs", live.PublicJobs, desired.PublicJobs))
+	builder.Add(CompareBoolPtr("request_access_enabled", live.RequestAccessEnabled, desired.RequestAccessEnabled))
+	builder.Add(CompareString("forking_access_level", string(live.ForkingAccessLevel), desired.ForkingAccessLevel))
+	builder.Add(CompareBoolPtr("ci_forward_deployment_enabled", live.CIForwardDeploymentEnabled, desired.CIForwardDeploymentEnabled))
+	builder.Add(CompareBoolPtr("ci_push_repository_for_job_token_allowed", live.CIPushRepositoryForJobTokenAllowed, desired.CIPushRepositoryForJobTokenAllowed))
+	builder.Add(CompareString("ci_pipeline_variables_minimum_override_role", live.CIPipelineVariablesMinimumOverrideRole, desired.CIPipelineVariablesMinimumOverrideRole))
+	builder.Add(CompareString("ci_restrict_pipeline_cancellation_role", string(live.CIRestrictPipelineCancellationRole), desired.CIRestrictPipelineCancellationRole))
+
 	return builder.Build("project_settings", ActionUpdate)
 }
 
@@ -164,6 +174,22 @@ func (r *ProjectSettingsReconciler) toEditProjectOptions(cfg *config.ProjectSett
 	}
 	if cfg.AutoDevopsEnabled != nil {
 		editOpts.AutoDevopsEnabled = cfg.AutoDevopsEnabled
+	}
+	if cfg.Visibility != "" {
+		editOpts.Visibility = gogitlab.Ptr(gogitlab.VisibilityValue(cfg.Visibility))
+	}
+	editOpts.PublicJobs = cfg.PublicJobs
+	editOpts.RequestAccessEnabled = cfg.RequestAccessEnabled
+	if cfg.ForkingAccessLevel != "" {
+		editOpts.ForkingAccessLevel = gogitlab.Ptr(gogitlab.AccessControlValue(cfg.ForkingAccessLevel))
+	}
+	editOpts.CIForwardDeploymentEnabled = cfg.CIForwardDeploymentEnabled
+	editOpts.CIPushRepositoryForJobTokenAllowed = cfg.CIPushRepositoryForJobTokenAllowed
+	if cfg.CIPipelineVariablesMinimumOverrideRole != "" {
+		editOpts.CIPipelineVariablesMinimumOverrideRole = gogitlab.Ptr(cfg.CIPipelineVariablesMinimumOverrideRole)
+	}
+	if cfg.CIRestrictPipelineCancellationRole != "" {
+		editOpts.CIRestrictPipelineCancellationRole = gogitlab.Ptr(gogitlab.AccessControlValue(cfg.CIRestrictPipelineCancellationRole))
 	}
 
 	return editOpts

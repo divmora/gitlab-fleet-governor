@@ -197,6 +197,10 @@ func (rt *Router) routeProjects(w http.ResponseWriter, r *http.Request, sub stri
 		rt.handleProjectMembers(w, r, unescapedID)
 	case "pipelines":
 		rt.handleProjectPipelines(w, r, unescapedID)
+	case "job_token_scope":
+		rt.handleJobTokenScope(w, r, unescapedID, parts[2:])
+	case "security_settings":
+		rt.handleSecuritySettings(w, r, unescapedID)
 	default:
 		http.NotFound(w, r)
 	}
@@ -308,6 +312,30 @@ func (rt *Router) handleEditProject(w http.ResponseWriter, r *http.Request, idOr
 		}
 		if v, ok := body["group_runners_enabled"].(bool); ok {
 			proj.GroupRunnersEnabled = v
+		}
+		if v, ok := body["visibility"].(string); ok {
+			proj.Visibility = gitlab.VisibilityValue(v)
+		}
+		if v, ok := body["public_jobs"].(bool); ok {
+			proj.PublicJobs = v
+		}
+		if v, ok := body["request_access_enabled"].(bool); ok {
+			proj.RequestAccessEnabled = v
+		}
+		if v, ok := body["forking_access_level"].(string); ok {
+			proj.ForkingAccessLevel = gitlab.AccessControlValue(v)
+		}
+		if v, ok := body["ci_forward_deployment_enabled"].(bool); ok {
+			proj.CIForwardDeploymentEnabled = v
+		}
+		if v, ok := body["ci_push_repository_for_job_token_allowed"].(bool); ok {
+			proj.CIPushRepositoryForJobTokenAllowed = v
+		}
+		if v, ok := body["ci_pipeline_variables_minimum_override_role"].(string); ok {
+			proj.CIPipelineVariablesMinimumOverrideRole = v
+		}
+		if v, ok := body["ci_restrict_pipeline_cancellation_role"].(string); ok {
+			proj.CIRestrictPipelineCancellationRole = gitlab.AccessControlValue(v)
 		}
 	})
 

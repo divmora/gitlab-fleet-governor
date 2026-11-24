@@ -137,6 +137,24 @@
     "policies": {
       "type": "object",
       "properties": {
+        "job_token_scope": {
+          "type": "object",
+          "description": "CI/CD job token access allowlist for each targeted project (Pro).",
+          "additionalProperties": false,
+          "properties": {
+            "limit_access": { "type": "boolean" },
+            "allowed_projects": { "type": "array", "items": { "type": "string" } },
+            "allowed_groups": { "type": "array", "items": { "type": "string" } },
+            "prune": { "type": "boolean" }
+          }
+        },
+        "secret_push_protection": {
+          "type": "object",
+          "description": "Secret push protection for each targeted project (Pro; GitLab Ultimate).",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": { "enabled": { "type": "boolean" } }
+        },
         "group_settings": {
           "type": "object",
           "description": "Group-level security and membership settings applied to every targeted group (Pro).",
@@ -231,7 +249,15 @@
             "only_allow_merge_if_pipeline_succeeds": { "type": "boolean" },
             "only_allow_merge_if_all_discussions_are_resolved": { "type": "boolean" },
             "keep_latest_artifact": { "type": "boolean" },
-            "printing_merge_request_link_enabled": { "type": "boolean" }
+            "printing_merge_request_link_enabled": { "type": "boolean" },
+            "visibility": { "type": "string", "enum": ["private", "internal", "public"] },
+            "public_jobs": { "type": "boolean" },
+            "request_access_enabled": { "type": "boolean" },
+            "forking_access_level": { "type": "string", "enum": ["disabled", "private", "enabled"] },
+            "ci_forward_deployment_enabled": { "type": "boolean" },
+            "ci_push_repository_for_job_token_allowed": { "type": "boolean" },
+            "ci_pipeline_variables_minimum_override_role": { "type": "string", "enum": ["no_one_allowed", "developer", "maintainer", "owner"] },
+            "ci_restrict_pipeline_cancellation_role": { "type": "string", "enum": ["developer", "maintainer", "no_one"] }
           }
         },
         "target_branch_rules": {

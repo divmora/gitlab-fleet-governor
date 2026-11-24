@@ -372,6 +372,15 @@ policies:
       enabled: true
       keep_n: 10
       older_than: "30d"
+    # Security settings
+    visibility: "private"                     # "private", "internal", "public"
+    public_jobs: false                        # hide job logs/artifacts from non-members
+    request_access_enabled: false
+    forking_access_level: "private"           # "disabled", "private", "enabled"
+    ci_forward_deployment_enabled: true       # skip outdated deployment jobs
+    ci_push_repository_for_job_token_allowed: false
+    ci_pipeline_variables_minimum_override_role: "maintainer"  # "no_one_allowed", "developer", "maintainer", "owner"
+    ci_restrict_pipeline_cancellation_role: "maintainer"       # "developer", "maintainer", "no_one" (Premium)
 
   pipeline_retention:
     retention_days: 30 # Maps to ci_delete_pipelines_in_seconds = 2592000
@@ -547,6 +556,36 @@ policies:
 > - GitLab refuses to make a group more restricted than its projects or subgroups, for example `visibility: private` on a group that has a public project. The run reports that group as failed with GitLab's error.
 > - Premium-only settings fail with GitLab's error on Free instances.
 > - Group settings are applied to every group the targets select, including subgroups when `recursive` is on.
+
+
+### 14. `job_token_scope`
+
+Which projects and groups may use their CI/CD job tokens to access each targeted project (Pro, feature `governance.job_token_scope`).
+
+```yaml
+policies:
+  job_token_scope:
+    limit_access: true                        # "Limit access to this project"
+    allowed_projects: ["platform/deployer", "4242"]   # full path or numeric ID
+    allowed_groups: ["platform/release"]
+    prune: true                               # remove entries that aren't listed
+```
+
+> [!NOTE]
+> - Unset `allowed_projects` or `allowed_groups` leaves that list unmanaged. Without `prune`, listed entries are added and nothing is removed.
+> - The project itself is always on its own allowlist and is never removed.
+> - Entries are added before `limit_access` is turned on, so a project the policy keeps is never locked out in between.
+> - An entry that can't be resolved fails the project with `cannot resolve project "…"`.
+
+### 15. `secret_push_protection`
+
+Turns GitLab secret push protection on or off for each targeted project (Pro, feature `governance.secret_push_protection`; requires GitLab Ultimate).
+
+```yaml
+policies:
+  secret_push_protection:
+    enabled: true
+```
 
 ---
 

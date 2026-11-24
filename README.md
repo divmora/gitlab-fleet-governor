@@ -58,13 +58,15 @@ Managing security baselines, branch protections, push rules, and compliance stan
   4. **Protected Tags**: Tag protections, allowed create tiers, dynamic username/group resolution.
   5. **Protected Environments**: Deployment gates, required approvals, wildcard patterns, pruning.
   6. **MR Approval Rules**: Global approval settings, named multi-approver matrices, username/group resolution.
-  7. **Project Settings**: Squash policies, merge methods, discussion resolution gates, artifact retention.
+  7. **Project Settings**: Squash policies, merge methods, discussion resolution gates, artifact retention, visibility, forking, public jobs and CI job token settings.
   8. **Target Branch Rules**: MR branch workflow routing, wildcard pattern matching (*, feat/*), and unmanaged rule pruning.
   9. **Pipeline Retention**: Automated GitLab pipeline history deletion (`retention_days` converted to `ci_delete_pipelines_in_seconds`).
   10. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
   11. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
   12. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
   13. **Group Settings**: Group visibility, 2FA enforcement, creation levels, sharing and forking locks, IP and email-domain restrictions, default branch protection.
+  14. **CI/CD Job Token Scope**: Limit job token access to an allowlist of projects and groups, with pruning.
+  15. **Secret Push Protection**: Fleet-wide secret push protection (GitLab Ultimate).
   13. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
   14. **Members & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
   15. **Repository Files**: Declarative cross-repo file synchronization (CODEOWNERS, SECURITY.md).
