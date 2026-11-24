@@ -12,6 +12,7 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/notify"
 )
 
 // EngineExecutor is the mockable execution interface for the GovernanceEngine.
@@ -32,6 +33,14 @@ type Handler struct {
 	clientFactory GitLabClientFactory
 	engineFactory EngineFactory
 	lookupEnv     config.EnvLookupFunc
+	notifier      *notify.Dispatcher
+}
+
+// WithNotifyDispatcher overrides the notification dispatcher.
+func WithNotifyDispatcher(d *notify.Dispatcher) HandlerOption {
+	return func(h *Handler) {
+		h.notifier = d
+	}
 }
 
 // HandlerOption configures Handler.

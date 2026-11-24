@@ -152,4 +152,3 @@ func TestMergeReports_IncludesCredentialAndGroupFindings(t *testing.T) {
 	assert.Equal(t, 2, merged.Summary.DeployKeyViolations)
 	assert.Equal(t, 2, merged.Summary.NonCompliantProjectsCount, "project 1 on a and on b")
 }
-

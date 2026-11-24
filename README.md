@@ -215,6 +215,14 @@ Validates configuration schema, regular expressions, and permissions without rem
 gitlab-fleet-governor validate -c policies/enterprise.yaml
 ```
 
+#### Notifications
+`run` and `audit` can send a summary to Slack, Microsoft Teams, AWS SNS or any HTTPS webhook (Pro). Keep webhook URLs in the environment:
+```bash
+export GLFG_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+gitlab-fleet-governor audit -c policies/enterprise.yaml -o fleet-audit.xlsx --notify-min-severity critical
+```
+See [`settings.notifications`](docs/configuration.md#settingsnotifications).
+
 #### `config render`
 Prints the effective policy for each GitLab instance after defaults, inheritance and per-instance overrides, with secrets redacted:
 ```bash

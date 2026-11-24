@@ -84,6 +84,7 @@ The following table details feature availability and runtime verification mechan
 | **Secret Push Protection** | `governance.secret_push_protection` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Deploy Keys Governance** | `governance.deploy_keys` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Deploy Tokens Governance** | `governance.deploy_tokens` | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
+| **Drift & Audit Notifications** | `notify.*` (`notify.slack`, `notify.teams`, `notify.sns`, `notify.webhook`) | ❌ | ✅ Included | ✅ Included | Validated via `claims.AssertFeature` |
 | **Multi-Instance Governance** | `platform.multi_instance` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Compliance Audit Suite** | `audit.*` (`audit.run`, `audit.drift`) | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
 | **Multi-Sheet Excel Reports** | `audit.export.xlsx` | ❌ | ❌ | ✅ Included | Validated via `claims.AssertFeature` |
@@ -120,6 +121,7 @@ The following table details feature availability and runtime verification mechan
 - **Secret Push Protection (`governance.secret_push_protection`)**: Enforce GitLab secret push protection across the fleet (GitLab Ultimate).
 - **Deploy Keys Governance (`governance.deploy_keys`)**: Managed deploy keys matched by SHA256 fingerprint, enforced read/write access, read-only or removal for unlisted keys, and age-based rotation findings.
 - **Deploy Tokens Governance (`governance.deploy_tokens`)**: Project and group deploy token rules (allowed scopes, required and maximum expiry), with optional revocation of expired and non-compliant tokens.
+- **Drift & Audit Notifications (`notify.*`)**: Slack, Microsoft Teams (Adaptive Cards), AWS SNS and generic HTTPS webhook summaries after every run and audit, with per-channel severity thresholds.
 
 ### 4.3 Enterprise Plan Capabilities
 - **Compliance & Security Audit Suite (`audit.*`)**: Fleet-wide, non-mutating compliance posture scans inspecting user access hygiene, protected branch posture, protected environment gates, pipeline retention, repository files, and protected tags.

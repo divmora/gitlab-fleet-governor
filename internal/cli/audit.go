@@ -19,6 +19,7 @@ import (
 	auditsmtp "github.com/divmora/gitlab-fleet-governor/internal/audit/smtp"
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/notify"
 )
 
 type auditFlags struct {
@@ -47,6 +48,7 @@ type auditFlags struct {
 	SMTPDirectTLS  bool
 	SMTPSkipVerify bool
 	SMTPSendAttach bool
+	Notify         notify.Overrides
 }
 
 func newAuditCmd() *cobra.Command {
@@ -88,6 +90,7 @@ terminal tables, with automated SMTP email distribution.`,
 	}
 
 	cmd.Flags().StringVar(&flags.Modules, "modules", strings.Join(audit.AllModuleNames(), ","), "Comma-separated audit modules to execute (user_access, protected_branches, protected_environments, pipeline_retention, repository_files)")
+	addNotifyFlags(cmd, &flags.Notify)
 	cmd.Flags().StringVar(&flags.Format, "format", "", "Audit report presentation format (xlsx, json, csv, markdown, html, table)")
 	cmd.Flags().StringVarP(&flags.OutputFile, "output-file", "o", "", "Destination file path for the audit report (e.g. audit.xlsx, report.json)")
 	cmd.Flags().IntVar(&flags.Concurrency, "concurrency", 10, "Number of concurrent worker goroutines for fleet audits")
@@ -351,6 +354,17 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "Audit report successfully emailed to %s via %s\n", msgRecipients, flags.SMTPHost)
 	}
+
+	auditSummary := notify.FromAudit(reportData, outputFile)
+	auditSummary.Scope = notifyScope(cfg)
+	sendNotifications(ctx, cfg, flags.Notify, auditSummary, notify.Gate{
+		DryRun:      dryRun,
+		LicenseKey:  licenseKey,
+		LicenseFile: licenseFile,
+		CRL:         licenseCRL,
+		CRLFile:     licenseCRLFile,
+		CRLURL:      licenseCRLURL,
+	})
 
 	if instanceErr != nil {
 		return instanceErr

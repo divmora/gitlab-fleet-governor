@@ -73,6 +73,45 @@ Configurations are resolved in the following priority order:
 > [!TIP]
 > For full details on subscription plans, feature entitlements (Free Community Tier, Pro Plan, Enterprise Plan), and the Community zero-check guarantee, see the **[Subscription Plans & Feature Matrix](plans.md)**.
 
+### `settings.notifications`
+
+Sends a summary after `run`, `audit` and each Lambda run to Slack, Microsoft Teams, AWS SNS or any HTTPS endpoint (Pro, features `notify.slack`, `notify.teams`, `notify.sns`, `notify.webhook`).
+
+```yaml
+settings:
+  notifications:
+    slack:
+      webhook_url: "${SLACK_WEBHOOK_URL}"   # incoming webhook
+      channel: "#security-alerts"           # optional
+      min_severity: warning                 # info | warning (default) | critical
+    teams:
+      webhook_url: "${TEAMS_WEBHOOK_URL}"   # Teams Workflows webhook (Adaptive Card)
+      min_severity: critical
+    sns:
+      topic_arn: "arn:aws:sns:us-east-1:123456789012:governance-alerts"
+    webhook:
+      url: "${ALERT_WEBHOOK_URL}"           # receives the JSON summary
+```
+
+| Result | Severity |
+|---|---|
+| `run`: failed operation or run error | `critical` |
+| `run`: drift (plan) or applied change | `warning` |
+| `audit`: CRITICAL or HIGH finding | `critical` |
+| `audit`: MEDIUM or LOW finding | `warning` |
+| Nothing to report | `info` |
+
+A channel is notified when the overall severity reaches its `min_severity`, so `info` means every run. Each message lists the counts and the five most severe items at or above the threshold. SNS and `webhook` receive the full JSON summary (`command`, `mode`, `severity`, `counts`, `items`, ...).
+
+**Flags and environment.** `run` and `audit` also take `--notify-slack-webhook`, `--notify-slack-channel`, `--notify-teams-webhook`, `--notify-sns-topic-arn`, `--notify-webhook-url` and `--notify-min-severity`. Precedence is flag, then policy, then environment. The environment variables are `GLFG_SLACK_WEBHOOK_URL`, `GLFG_SLACK_CHANNEL`, `GLFG_TEAMS_WEBHOOK_URL`, `GLFG_SNS_TOPIC_ARN`, `GLFG_NOTIFY_WEBHOOK_URL` and `GLFG_NOTIFY_MIN_SEVERITY`. A `--notify-min-severity` flag applies to every channel.
+
+> [!IMPORTANT]
+> Webhook URLs are credentials. Keep them in the environment or in `${VAR}` references, not in the policy file or on the command line, where they end up in shell history and process listings.
+> - Only `https://` URLs are accepted, redirects are not followed, and URLs are never logged or echoed in errors.
+> - Each request times out after 5 seconds. A failed notification is logged as a warning and never changes the command's exit code.
+> - For SNS, the AWS credentials need `sns:Publish` on the topic. The region is taken from the ARN.
+> - On Lambda, an event-supplied config can't set `settings.notifications` (see [lambda.md](lambda.md)).
+
 ---
 
 ## `targets` Reference
