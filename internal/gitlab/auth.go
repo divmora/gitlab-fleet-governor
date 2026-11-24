@@ -135,3 +135,28 @@ func ResolveAuth(cfg *config.GitLabSettingsConfig, lookup ...EnvLookupFunc) (*Re
 
 	return res, nil
 }
+
+// NewClientForRun builds the client for one instance of a policy run. For a
+// multi-instance policy (cfg.Run.Instance set) it ignores GITLAB_BASE_URL,
+// CI_API_V4_URL and the token environment variables, so each instance talks
+// only to its own base_url with its own token. A single-instance policy keeps
+// the usual environment fallbacks.
+func NewClientForRun(cfg *config.PolicyConfig, lookup ...EnvLookupFunc) (*Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("nil policy config")
+	}
+	return NewClientFromConfig(&cfg.Settings.GitLab, RunEnvLookup(cfg, lookup...))
+}
+
+// RunEnvLookup returns the environment lookup to use when building the client
+// for cfg: no environment at all for an instance of a multi-instance policy,
+// otherwise the given lookup (or the process environment).
+func RunEnvLookup(cfg *config.PolicyConfig, lookup ...EnvLookupFunc) EnvLookupFunc {
+	if cfg != nil && cfg.Run.Instance != "" {
+		return func(string) (string, bool) { return "", false }
+	}
+	if len(lookup) > 0 && lookup[0] != nil {
+		return lookup[0]
+	}
+	return os.LookupEnv
+}

@@ -135,6 +135,7 @@ type ExecutionSummary struct {
 
 // ProjectChangeSummary summarizes changes made to a single project.
 type ProjectChangeSummary struct {
+	Instance    string   `json:"instance,omitempty"`
 	ProjectID   int64    `json:"project_id"`
 	ProjectPath string   `json:"project_path"`
 	Action      string   `json:"action"`

@@ -100,6 +100,7 @@ func OperationResultFromApply(ar *governance.ApplyResult) *OperationResult {
 
 // TargetResult aggregates all operation outcomes for a single project or group.
 type TargetResult struct {
+	Instance     string                  `json:"instance,omitempty"`
 	TargetID     int64                   `json:"target_id"`
 	TargetPath   string                  `json:"target_path"`
 	TargetName   string                  `json:"target_name"`
@@ -145,6 +146,7 @@ func (tr *TargetResult) Diffs() []governance.Diff {
 
 // ProjectChange records summarized changes on a single project.
 type ProjectChange struct {
+	Instance    string                `json:"instance,omitempty"`
 	ProjectID   int64                 `json:"project_id"`
 	ProjectPath string                `json:"project_path"`
 	Action      governance.ActionType `json:"action"`
@@ -160,6 +162,7 @@ type ExecutionResult struct {
 	GroupResults   []*TargetResult         `json:"group_results,omitempty"`
 	ProjectResults []*TargetResult         `json:"project_results,omitempty"`
 	TargetResults  []*TargetResult         `json:"target_results,omitempty"`
+	Instances      []*InstanceSummary      `json:"instances,omitempty"`
 	Metrics        *SummaryMetricsSnapshot `json:"metrics"`
 	SummaryMetrics *SummaryMetricsSnapshot `json:"summary_metrics,omitempty"`
 	ProjectChanges []ProjectChange         `json:"project_changes,omitempty"`
@@ -434,9 +437,12 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		requiredFeatures = append(requiredFeatures, "runtime.lambda")
 	}
+	if cfg.Run.InstanceCount > 1 {
+		requiredFeatures = append(requiredFeatures, FeatureMultiInstance)
+	}
 
 	if _, err := license.Enforce(license.EnforcementOptions{
-		DiscoveredProjects: len(fleet.Projects),
+		DiscoveredProjects: cfg.Run.PriorProjects + len(fleet.Projects),
 		IsDryRun:           dryRun,
 		GitLabBaseURL:      cfg.Settings.GitLab.BaseURL,
 		GitLabServerTime:   serverTime,

@@ -122,6 +122,9 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+	if err := requireSingleInstance("audit", cfg); err != nil {
+		return err
+	}
 
 	concurrency := flags.Concurrency
 	if cmd.Flags().Changed("concurrency") {

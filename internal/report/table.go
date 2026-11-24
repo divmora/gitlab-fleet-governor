@@ -66,6 +66,22 @@ func (r *TableReporter) Render(data *ReportData) error {
 	sb.WriteString(fmt.Sprintf("║  Metrics: %-70s ║\n", metricsLine))
 	sb.WriteString(c.bold("╚══════════════════════════════════════════════════════════════════════════════════╝\n\n"))
 
+	if data.IsMultiInstance() {
+		sb.WriteString(c.bold("GITLAB INSTANCES:\n"))
+		for _, in := range data.Instances {
+			status := c.green(in.Status)
+			if in.Status != "SUCCESS" {
+				status = c.red(in.Status)
+			}
+			sb.WriteString(fmt.Sprintf("  %-20s %-8s scanned %d, targeted %d, changed %d, failed %d  (%s)\n",
+				in.Name, status, in.Scanned, in.Targeted, in.Changed, in.Failed, in.BaseURL))
+			if in.Error != "" {
+				sb.WriteString(c.red(fmt.Sprintf("    error: %s\n", in.Error)))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
 	// Targets Table
 	if len(data.Targets) == 0 {
 		sb.WriteString(c.yellow("  No projects or groups matched target selector criteria.\n\n"))
@@ -84,7 +100,7 @@ func (r *TableReporter) Render(data *ReportData) error {
 			typeTag = "[G]"
 		}
 
-		path := t.Path
+		path := t.DisplayPath()
 		if len(path) > 44 {
 			path = "..." + path[len(path)-41:]
 		}

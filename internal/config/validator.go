@@ -65,6 +65,7 @@ func ValidateWithWarnings(cfg *PolicyConfig) ([]ValidationWarning, error) {
 
 	validateSettings(&cfg.Settings, "settings", &errs)
 	validateTargets(&cfg.Targets, "targets", &errs)
+	validateInstances(cfg, &errs)
 	validatePolicies(&cfg.Policies, "policies", &errs, &warns)
 
 	if len(errs) > 0 {

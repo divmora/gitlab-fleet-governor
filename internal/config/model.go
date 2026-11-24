@@ -22,13 +22,22 @@ type PolicyConfig struct {
 	// Targets defines group and project targeting selector rules.
 	Targets TargetSelectors `yaml:"targets,omitempty" json:"targets,omitempty"`
 
+	// Instances lists the GitLab instances to govern in one run. When set,
+	// each instance supplies its own connection settings and, optionally,
+	// targets; settings.gitlab then only provides shared defaults.
+	Instances []InstanceConfig `yaml:"instances,omitempty" json:"instances,omitempty"`
+
 	// Policies encapsulates all governance policy rulesets.
 	Policies PoliciesConfig `yaml:"policies,omitempty" json:"policies,omitempty"`
+
+	// Run holds per-run information that is not read from the policy file.
+	Run RunContext `yaml:"-" json:"-"`
 }
 
 // SetDefaults applies default settings and parameters across the configuration.
 func (p *PolicyConfig) SetDefaults() {
 	p.Settings.SetDefaults()
+	p.setInstanceDefaults()
 }
 
 // ============================================================================

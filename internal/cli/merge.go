@@ -88,6 +88,9 @@ func executeMerge(ctx context.Context, cmd *cobra.Command, flags mergeFlags) err
 	if globalFlags.ConfigPath != "" {
 		cfg, _, err := config.Load(ctx, globalFlags.ConfigPath)
 		if err == nil && cfg != nil {
+			if err := requireSingleInstance("merge", cfg); err != nil {
+				return err
+			}
 			gitlabCfg = cfg.Settings.GitLab
 		}
 	}
