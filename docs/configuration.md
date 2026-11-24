@@ -142,9 +142,17 @@ instances:
     base_url: "https://gitlab.internal.example.com/api/v4"
     token: "${GITLAB_SELF_MANAGED_TOKEN}"
     rate_limit_rps: 20
+    policies:                # merged over the top-level policies
+      push_rules:
+        max_file_size: 50    # prevent_secrets: true is kept
+      protected_branches:    # lists replace the top-level list
+        - name: main
+          allowed_to_merge:
+            - access_level: 40
 policies:                    # apply to every instance
   push_rules:
     prevent_secrets: true
+    max_file_size: 10
 ```
 
 | Field | Description |
@@ -154,6 +162,7 @@ policies:                    # apply to every instance
 | `token` | Required. The instance's own token, usually `${VAR}`. |
 | `token_type`, `timeout_seconds`, `rate_limit_rps`, `rate_limit_burst`, `max_retries`, `retry_base_delay_ms`, `retry_max_delay_ms` | As in `settings.gitlab`. Unset values inherit `settings.gitlab`, then the built-in defaults. Each instance has its own rate limiter and retries. |
 | `targets` | Group and project selectors for this instance. When unset, the top-level `targets` apply. |
+| `policies` | Overrides for this instance, merged over the top-level `policies` (see below). When unset, the top-level policies apply unchanged. |
 
 Behaviour:
 
@@ -161,7 +170,12 @@ Behaviour:
 - **One instance at a time.** Instances run in the order listed. If one fails, the rest still run, and the command exits with an error naming each failed instance.
 - **One fleet for licensing.** Projects on every instance count towards the licence's project limit together, and the licence's host scope must cover each instance.
 - **Reports.** Table and Markdown reports list each instance and show paths as `instance:path`. CSV gains a leading `instance` column, and JSON adds `instance` to each target and an `instances` summary. Single-instance reports are unchanged.
-- **Policies are shared.** Every instance gets the same `policies`. Per-instance overrides are planned.
+- **Policy overrides.** An instance's `policies` is merged over the top-level `policies` before the run:
+  - Mappings merge field by field. For example, overriding `push_rules.max_file_size` keeps the top-level `push_rules.prevent_secrets`.
+  - Lists such as `protected_branches`, `variables` and `webhooks` replace the top-level list as a whole.
+  - `null` removes a section for that instance, for example `variables: null`.
+  - The merged result is checked like top-level policies, so unknown fields and invalid values fail at load with an `instances[N].policies…` error.
+  - Licence features are worked out from each instance's merged policies.
 - `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
 
 ---

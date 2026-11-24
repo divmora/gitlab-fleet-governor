@@ -68,7 +68,9 @@ func TestExecuteInstances_TwoMockInstances(t *testing.T) {
 	cfg := twoInstancePolicy(alpha, beta, false)
 	cfg.Settings.License.Key = testutil.CLITestToken
 
-	single, err := realExecutor(context.Background(), cfg.InstanceRuns()[0].Config)
+	runs, err := cfg.InstanceRuns()
+	require.NoError(t, err)
+	single, err := realExecutor(context.Background(), runs[0].Config)
 	require.NoError(t, err)
 	perInstance := len(single.ProjectResults)
 	require.Positive(t, perInstance)
@@ -175,4 +177,29 @@ func TestExecuteInstances_ContinuesAfterFailureAndCountsPriorProjects(t *testing
 	assert.True(t, res.HasErrors())
 	assert.False(t, res.Instances[1].Success)
 	assert.Equal(t, "boom", res.Instances[1].Error)
+}
+
+func TestExecuteInstances_PassesMergedPolicies(t *testing.T) {
+	cfg := &config.PolicyConfig{
+		Version: "v1",
+		Instances: []config.InstanceConfig{
+			{Name: "a"},
+			{Name: "b", Policies: map[string]any{"variables": []any{map[string]any{"key": "TEAM", "value": "b-team"}}}},
+		},
+		Policies: config.PoliciesConfig{Variables: []config.VariableConfig{{Key: "TEAM", Value: "shared"}}},
+	}
+	got := map[string]string{}
+	_, err := engine.ExecuteInstances(context.Background(), cfg, func(_ context.Context, c *config.PolicyConfig) (*engine.ExecutionResult, error) {
+		got[c.Run.Instance] = c.Policies.Variables[0].Value
+		return &engine.ExecutionResult{Success: true}, nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"a": "shared", "b": "b-team"}, got)
+
+	cfg.Instances[1].Policies = map[string]any{"bogus": 1}
+	_, err = engine.ExecuteInstances(context.Background(), cfg, func(context.Context, *config.PolicyConfig) (*engine.ExecutionResult, error) {
+		t.Fatal("must not run with an invalid override")
+		return nil, nil
+	})
+	require.ErrorContains(t, err, "instances[1].policies (b)")
 }

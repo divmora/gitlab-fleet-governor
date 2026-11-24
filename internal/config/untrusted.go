@@ -93,10 +93,62 @@ func (p *UntrustedPolicy) apply(ctx context.Context, loader *Loader, cfg *Policy
 		files[i].ContentFile = ""
 	}
 
+	// Instance policy overrides are merged over the top-level policies later,
+	// so their repository files need the same treatment here.
+	for i := range cfg.Instances {
+		problems = append(problems, p.resolveOverrideFiles(ctx, loader, i, cfg.Instances[i].Policies)...)
+	}
+
 	if len(problems) > 0 {
 		return errors.New("untrusted configuration rejected: " + strings.Join(problems, "; "))
 	}
 	return nil
+}
+
+// resolveOverrideFiles applies the content_file rule to the repository_files
+// list of one instance's policy overrides, inlining s3:// objects.
+func (p *UntrustedPolicy) resolveOverrideFiles(ctx context.Context, loader *Loader, idx int, overrides map[string]any) []string {
+	raw, ok := overrides["repository_files"]
+	if !ok || raw == nil {
+		return nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return nil // not a list: strict decoding rejects it when the policies are merged
+	}
+	var problems []string
+	for j, item := range list {
+		entry, ok := asStringMap(item)
+		if !ok {
+			continue
+		}
+		field := fmt.Sprintf("instances[%d].policies.repository_files[%d].content_file", idx, j)
+		val, present := entry["content_file"]
+		if !present || val == nil {
+			continue
+		}
+		ref, isString := val.(string)
+		ref = strings.TrimSpace(ref)
+		switch {
+		case !isString:
+			problems = append(problems, field+" must be an s3:// URI")
+			continue
+		case ref == "":
+			continue
+		case !strings.HasPrefix(ref, "s3://"):
+			problems = append(problems, field+" must be an s3:// URI")
+			continue
+		}
+		data, err := loader.readFromS3(ctx, ref)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v", field, err))
+			continue
+		}
+		entry["content"] = string(data)
+		delete(entry, "content_file")
+		list[j] = entry
+	}
+	return problems
 }
 
 // SanitizeUntrusted applies policy to an already-parsed configuration, such
