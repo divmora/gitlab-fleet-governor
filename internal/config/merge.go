@@ -158,7 +158,7 @@ func mergeValue(dst, src any, path string) (any, error) {
 }
 
 func mergeKeyedList(dst, src []any, keys []string, path string) ([]any, error) {
-	out := make([]any, 0, len(dst)+len(src))
+	out := make([]any, 0, len(dst)) // grows as override items are appended
 	index := make(map[string]int, len(dst))
 	for _, item := range dst {
 		m, ok := asStringMap(item)
@@ -220,7 +220,7 @@ func mergeKeyedList(dst, src []any, keys []string, path string) ([]any, error) {
 	if len(removed) == 0 {
 		return out, nil
 	}
-	kept := make([]any, 0, len(out)-len(removed))
+	kept := make([]any, 0, len(out))
 	for i, item := range out {
 		if !removed[i] {
 			kept = append(kept, item)
