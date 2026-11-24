@@ -17,6 +17,9 @@ import (
 type State struct {
 	mu sync.RWMutex
 
+	// Project security: job token scope and secret push protection
+	security *securityState
+
 	// Projects: key is project ID
 	projects          map[int64]*gitlab.Project
 	projectByPath     map[string]int64 // path_with_namespace -> ID

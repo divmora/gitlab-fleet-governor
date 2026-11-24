@@ -437,6 +437,12 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.GroupSettings != nil {
 		requiredFeatures = append(requiredFeatures, "governance.group_settings")
 	}
+	if cfg.Policies.JobTokenScope != nil {
+		requiredFeatures = append(requiredFeatures, "governance.job_token_scope")
+	}
+	if cfg.Policies.SecretPushProtection != nil {
+		requiredFeatures = append(requiredFeatures, "governance.secret_push_protection")
+	}
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		requiredFeatures = append(requiredFeatures, "runtime.lambda")
 	}

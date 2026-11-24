@@ -269,6 +269,13 @@ type PoliciesConfig struct {
 	// ApprovalRules configures merge request approval settings and named approver rules.
 	ApprovalRules *ApprovalRulesConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
 
+	// JobTokenScope configures which projects and groups may use their CI/CD
+	// job tokens to access each targeted project.
+	JobTokenScope *JobTokenScopeConfig `yaml:"job_token_scope,omitempty" json:"job_token_scope,omitempty"`
+
+	// SecretPushProtection enables or disables secret push protection.
+	SecretPushProtection *SecretPushProtectionConfig `yaml:"secret_push_protection,omitempty" json:"secret_push_protection,omitempty"`
+
 	// GroupSettings configures group-level security and membership settings.
 	GroupSettings *GroupSettingsConfig `yaml:"group_settings,omitempty" json:"group_settings,omitempty"`
 
@@ -759,6 +766,32 @@ type ProjectSettingsConfig struct {
 
 	// ContainerExpirationPolicy configures container registry cleanup rules.
 	ContainerExpirationPolicy *ContainerExpirationPolicyConfig `yaml:"container_expiration_policy,omitempty" json:"container_expiration_policy,omitempty"`
+
+	// Visibility is the project visibility: "private", "internal" or "public".
+	Visibility string `yaml:"visibility,omitempty" json:"visibility,omitempty"`
+
+	// PublicJobs lets non-members see job logs and artifacts of public pipelines.
+	PublicJobs *bool `yaml:"public_jobs,omitempty" json:"public_jobs,omitempty"`
+
+	// RequestAccessEnabled lets users request access to the project.
+	RequestAccessEnabled *bool `yaml:"request_access_enabled,omitempty" json:"request_access_enabled,omitempty"`
+
+	// ForkingAccessLevel controls who may fork: "disabled", "private" or "enabled".
+	ForkingAccessLevel string `yaml:"forking_access_level,omitempty" json:"forking_access_level,omitempty"`
+
+	// CIForwardDeploymentEnabled prevents outdated deployment jobs from running.
+	CIForwardDeploymentEnabled *bool `yaml:"ci_forward_deployment_enabled,omitempty" json:"ci_forward_deployment_enabled,omitempty"`
+
+	// CIPushRepositoryForJobTokenAllowed lets CI jobs push to the repository with the job token.
+	CIPushRepositoryForJobTokenAllowed *bool `yaml:"ci_push_repository_for_job_token_allowed,omitempty" json:"ci_push_repository_for_job_token_allowed,omitempty"`
+
+	// CIPipelineVariablesMinimumOverrideRole is the minimum role allowed to
+	// override pipeline variables: "no_one_allowed", "developer", "maintainer" or "owner".
+	CIPipelineVariablesMinimumOverrideRole string `yaml:"ci_pipeline_variables_minimum_override_role,omitempty" json:"ci_pipeline_variables_minimum_override_role,omitempty"`
+
+	// CIRestrictPipelineCancellationRole is the minimum role allowed to
+	// cancel pipelines and jobs: "developer", "maintainer" or "no_one" (Premium).
+	CIRestrictPipelineCancellationRole string `yaml:"ci_restrict_pipeline_cancellation_role,omitempty" json:"ci_restrict_pipeline_cancellation_role,omitempty"`
 }
 
 // ContainerExpirationPolicyConfig defines project container registry expiration policies.

@@ -45,6 +45,8 @@ type Client struct {
 	repositoryFiles       RepositoryFilesService
 	branches              BranchesService
 	mergeRequests         MergeRequestsService
+	jobTokenScope         JobTokenScopeService
+	securitySettings      SecuritySettingsService
 
 	serverTimeMu   sync.RWMutex
 	lastServerTime time.Time
@@ -199,6 +201,16 @@ func WithBranchesService(s BranchesService) ClientOption {
 	return func(c *Client) { c.branches = s }
 }
 
+// WithJobTokenScopeService overrides the default JobTokenScopeService.
+func WithJobTokenScopeService(s JobTokenScopeService) ClientOption {
+	return func(c *Client) { c.jobTokenScope = s }
+}
+
+// WithSecuritySettingsService overrides the default SecuritySettingsService.
+func WithSecuritySettingsService(s SecuritySettingsService) ClientOption {
+	return func(c *Client) { c.securitySettings = s }
+}
+
 // WithMergeRequestsService overrides the default MergeRequestsService.
 func WithMergeRequestsService(s MergeRequestsService) ClientOption {
 	return func(c *Client) { c.mergeRequests = s }
@@ -322,6 +334,12 @@ func NewClient(auth *ResolvedAuth, opts ...ClientOption) (*Client, error) {
 	if c.mergeRequests == nil {
 		c.mergeRequests = &defaultMergeRequestsService{client: rawClient}
 	}
+	if c.jobTokenScope == nil {
+		c.jobTokenScope = rawClient.JobTokenScope
+	}
+	if c.securitySettings == nil {
+		c.securitySettings = rawClient.ProjectSecuritySettings
+	}
 
 	return c, nil
 }
@@ -386,6 +404,8 @@ func (c *Client) TargetBranchRules() TargetBranchRulesService         { return c
 func (c *Client) RepositoryFiles() RepositoryFilesService             { return c.repositoryFiles }
 func (c *Client) Branches() BranchesService                           { return c.branches }
 func (c *Client) MergeRequests() MergeRequestsService                 { return c.mergeRequests }
+func (c *Client) JobTokenScope() JobTokenScopeService                 { return c.jobTokenScope }
+func (c *Client) SecuritySettings() SecuritySettingsService           { return c.securitySettings }
 func (c *Client) BaseURL() string                                     { return c.baseURL }
 func (c *Client) RawClient() *gitlab.Client                           { return c.raw }
 

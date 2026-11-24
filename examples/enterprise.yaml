@@ -60,6 +60,13 @@ policies:
       allowed_to_merge: [40]
       allow_force_push: false
 
+  # 0b. CI/CD job token scope and secret push protection (Pro)
+  job_token_scope:
+    limit_access: true
+    allowed_groups: ["enterprise-fleet"]
+  secret_push_protection:
+    enabled: true
+
   # 1. Push Rules
   push_rules:
     author_email_regex: '@enterprise\.com$'

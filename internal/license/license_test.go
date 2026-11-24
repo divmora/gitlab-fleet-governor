@@ -1234,20 +1234,22 @@ func TestVerify_AutoFingerprint_NodeLocking(t *testing.T) {
 	})
 }
 
-func TestGroupSettingsIsPro(t *testing.T) {
-	if got := license.RequiredTierForFeature("governance.group_settings"); got != "pro" {
-		t.Fatalf("license.RequiredTierForFeature(group_settings) = %q, want pro", got)
-	}
-	found := false
-	for _, f := range license.DefaultTierFeatures["pro"] {
-		if f == "governance.group_settings" {
-			found = true
+func TestSecuritySettingsFeaturesArePro(t *testing.T) {
+	for _, feature := range []string{"governance.group_settings", "governance.job_token_scope", "governance.secret_push_protection"} {
+		if got := license.RequiredTierForFeature(feature); got != "pro" {
+			t.Fatalf("RequiredTierForFeature(%s) = %q, want pro", feature, got)
 		}
-	}
-	if !found {
-		t.Fatal("governance.group_settings missing from the pro tier")
-	}
-	if license.IsCommunityFeature("governance.group_settings") {
-		t.Fatal("group_settings must not be a community feature")
+		found := false
+		for _, f := range license.DefaultTierFeatures["pro"] {
+			if f == feature {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s missing from the pro tier", feature)
+		}
+		if license.IsCommunityFeature(feature) {
+			t.Fatalf("%s must not be a community feature", feature)
+		}
 	}
 }
