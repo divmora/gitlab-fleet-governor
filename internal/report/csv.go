@@ -47,11 +47,21 @@ func (r *CSVReporter) Render(data *ReportData) error {
 		"error",
 		"duration_ms",
 	}
+	multi := data.IsMultiInstance()
+	if multi {
+		header = append([]string{"instance"}, header...)
+	}
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("failed to write CSV header: %w", err)
 	}
 
 	for _, t := range data.Targets {
+		write := func(row []string) error {
+			if multi {
+				row = append([]string{t.Instance}, row...)
+			}
+			return w.Write(row)
+		}
 		if len(t.Operations) == 0 {
 			// Write target row without operations
 			row := []string{
@@ -68,7 +78,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 				t.Error,
 				strconv.FormatInt(t.Duration.Milliseconds(), 10),
 			}
-			if err := w.Write(row); err != nil {
+			if err := write(row); err != nil {
 				return err
 			}
 			continue
@@ -90,7 +100,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 					op.Error,
 					strconv.FormatInt(op.Duration.Milliseconds(), 10),
 				}
-				if err := w.Write(row); err != nil {
+				if err := write(row); err != nil {
 					return err
 				}
 				continue
@@ -112,7 +122,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 						op.Error,
 						strconv.FormatInt(op.Duration.Milliseconds(), 10),
 					}
-					if err := w.Write(row); err != nil {
+					if err := write(row); err != nil {
 						return err
 					}
 					continue
@@ -141,7 +151,7 @@ func (r *CSVReporter) Render(data *ReportData) error {
 						op.Error,
 						strconv.FormatInt(op.Duration.Milliseconds(), 10),
 					}
-					if err := w.Write(row); err != nil {
+					if err := write(row); err != nil {
 						return err
 					}
 				}

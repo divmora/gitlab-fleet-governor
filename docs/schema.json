@@ -75,6 +75,61 @@
         }
       }
     },
+    "instances": {
+      "type": "array",
+      "description": "GitLab instances governed in one run. Each needs its own token; unset connection fields inherit settings.gitlab.",
+      "items": {
+        "type": "object",
+        "required": ["name", "token"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$" },
+          "base_url": { "type": "string", "default": "https://gitlab.com/api/v4" },
+          "token": { "type": "string" },
+          "token_type": { "type": "string", "enum": ["private_token", "oauth", "job_token"] },
+          "timeout_seconds": { "type": "integer", "minimum": 0 },
+          "rate_limit_rps": { "type": "number", "minimum": 0.1 },
+          "rate_limit_burst": { "type": "integer", "minimum": 1 },
+          "max_retries": { "type": "integer", "minimum": 0 },
+          "retry_base_delay_ms": { "type": "integer", "minimum": 1 },
+          "retry_max_delay_ms": { "type": "integer", "minimum": 1 },
+          "targets": {
+              "type": "object",
+              "properties": {
+                "group_selector": {
+                  "type": "object",
+                  "properties": {
+                    "group_ids_include": { "type": "array", "items": { "type": "integer" } },
+                    "group_ids_exclude": { "type": "array", "items": { "type": "integer" } },
+                    "group_paths_include": { "type": "array", "items": { "type": "string" } },
+                    "group_paths_exclude": { "type": "array", "items": { "type": "string" } },
+                    "recursive": { "type": "boolean", "default": true }
+                  }
+                },
+                "project_selector": {
+                  "type": "object",
+                  "properties": {
+                    "namespaces_include": { "type": "array", "items": { "type": "string" } },
+                    "namespaces_exclude": { "type": "array", "items": { "type": "string" } },
+                    "project_name_regex_include": { "type": "string" },
+                    "project_name_regex_exclude": { "type": "string" },
+                    "visibility": { "type": "string", "enum": ["public", "internal", "private", "any"] },
+                    "archived": { "type": "boolean" },
+                    "exclude_marked_for_deletion": { "type": "boolean" },
+                    "id_range": {
+                      "type": "object",
+                      "properties": {
+                        "min": { "type": "integer", "minimum": 1 },
+                        "max": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        }
+      }
+    },
     "policies": {
       "type": "object",
       "properties": {

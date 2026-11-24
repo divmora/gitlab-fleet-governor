@@ -8,16 +8,17 @@ import (
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
+	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
 )
 
 func (h *Handler) executeEngine(ctx context.Context, cfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
-	client, err := h.clientFactory(&cfg.Settings.GitLab, h.lookupEnv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize GitLab client: %w", err)
-	}
-
-	eng := h.engineFactory(client, cfg)
-	return eng.Execute(ctx, cfg)
+	return engine.ExecuteInstances(ctx, cfg, func(ctx context.Context, instCfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
+		client, err := h.clientFactory(&instCfg.Settings.GitLab, gitlab.RunEnvLookup(instCfg, h.lookupEnv))
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize GitLab client: %w", err)
+		}
+		return h.engineFactory(client, instCfg).Execute(ctx, instCfg)
+	})
 }
 
 // BuildLambdaResponse constructs a formatted LambdaResponse from engine execution output.
@@ -78,6 +79,7 @@ func BuildLambdaResponse(
 
 	for _, ch := range res.ProjectChanges {
 		resp.ChangedProjects = append(resp.ChangedProjects, ProjectChangeSummary{
+			Instance:    ch.Instance,
 			ProjectID:   ch.ProjectID,
 			ProjectPath: ch.ProjectPath,
 			Action:      string(ch.Action),
@@ -148,6 +150,7 @@ func mergeEngineResult(
 
 	for _, ch := range res.ProjectChanges {
 		*changed = append(*changed, ProjectChangeSummary{
+			Instance:    ch.Instance,
 			ProjectID:   ch.ProjectID,
 			ProjectPath: ch.ProjectPath,
 			Action:      string(ch.Action),

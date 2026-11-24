@@ -150,6 +150,25 @@ type ReportData struct {
 	TotalFailed      int                  `json:"total_failed"`
 	OperationMetrics map[string]*OpMetric `json:"operation_metrics,omitempty"`
 	Targets          []TargetReport       `json:"targets,omitempty"`
+	Instances        []InstanceReport     `json:"instances,omitempty"`
+}
+
+// InstanceReport summarises one GitLab instance in a multi-instance run.
+type InstanceReport struct {
+	Name     string `json:"name"`
+	BaseURL  string `json:"base_url"`
+	Status   string `json:"status"` // "SUCCESS" or "FAILED"
+	Scanned  int    `json:"scanned"`
+	Targeted int    `json:"targeted"`
+	Changed  int    `json:"changed"`
+	Failed   int    `json:"failed"`
+	Error    string `json:"error,omitempty"`
+}
+
+// IsMultiInstance reports whether the report covers more than one GitLab
+// instance (a policy with an instances block).
+func (rd *ReportData) IsMultiInstance() bool {
+	return rd != nil && len(rd.Instances) > 0
 }
 
 // OpMetric captures aggregate counts for a specific governance operation.
@@ -163,6 +182,7 @@ type OpMetric struct {
 
 // TargetReport encapsulates the governance results for a single project or group.
 type TargetReport struct {
+	Instance     string            `json:"instance,omitempty"`
 	ID           int64             `json:"id"`
 	Path         string            `json:"path"`
 	ResourceType string            `json:"resource_type"` // "project" or "group"
@@ -171,6 +191,15 @@ type TargetReport struct {
 	Duration     time.Duration     `json:"duration"`
 	Error        string            `json:"error,omitempty"`
 	Operations   []OperationReport `json:"operations,omitempty"`
+}
+
+// DisplayPath returns the path prefixed with the instance name, for example
+// "saas:platform/api", or the bare path for a single-instance run.
+func (t TargetReport) DisplayPath() string {
+	if t.Instance == "" {
+		return t.Path
+	}
+	return t.Instance + ":" + t.Path
 }
 
 // OperationReport captures the result of a single operation on a target resource.
@@ -358,6 +387,7 @@ func FromExecutionResult(res *engine.ExecutionResult) *ReportData {
 
 		rd.Targets = append(rd.Targets, TargetReport{
 			ID:           tr.TargetID,
+			Instance:     tr.Instance,
 			Path:         tr.TargetPath,
 			ResourceType: string(tr.ResourceType),
 			Status:       status,
@@ -366,6 +396,20 @@ func FromExecutionResult(res *engine.ExecutionResult) *ReportData {
 			Error:        errStr,
 			Operations:   opReports,
 		})
+	}
+
+	for _, inst := range res.Instances {
+		if inst == nil {
+			continue
+		}
+		ir := InstanceReport{Name: inst.Name, BaseURL: inst.BaseURL, Status: "SUCCESS", Error: inst.Error}
+		if !inst.Success {
+			ir.Status = "FAILED"
+		}
+		if m := inst.Metrics; m != nil {
+			ir.Scanned, ir.Targeted, ir.Changed, ir.Failed = m.TotalScanned, m.TotalTargeted, m.TotalChanged, m.TotalFailed
+		}
+		rd.Instances = append(rd.Instances, ir)
 	}
 
 	return rd

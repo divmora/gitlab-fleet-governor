@@ -88,6 +88,9 @@ func executeExport(ctx context.Context, cmd *cobra.Command, flags exportFlags) e
 		if err != nil {
 			return fmt.Errorf("failed to load configuration '%s': %w", globalFlags.ConfigPath, err)
 		}
+		if err := requireSingleInstance("export", loadedCfg); err != nil {
+			return err
+		}
 		cfg = loadedCfg
 	} else {
 		cfg = &config.PolicyConfig{}

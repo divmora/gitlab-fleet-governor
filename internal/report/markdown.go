@@ -61,6 +61,18 @@ func (r *MarkdownReporter) Render(data *ReportData) error {
 	sb.WriteString(fmt.Sprintf("| **Compliant / Unchanged** | `%d` |\n", data.TotalUnchanged))
 	sb.WriteString(fmt.Sprintf("| **Failed / Errors** | `%d` |\n\n", data.TotalFailed))
 
+	// Instances Table (multi-instance runs only)
+	if data.IsMultiInstance() {
+		sb.WriteString("### 🌐 GitLab Instances\n\n")
+		sb.WriteString("| Instance | API URL | Status | Scanned | Targeted | Changed | Failed |\n")
+		sb.WriteString("|---|---|:---:|:---:|:---:|:---:|:---:|\n")
+		for _, in := range data.Instances {
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | %s | %d | %d | %d | %d |\n",
+				in.Name, in.BaseURL, in.Status, in.Scanned, in.Targeted, in.Changed, in.Failed))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Operations Summary Table
 	if len(data.OperationMetrics) > 0 {
 		sb.WriteString("### ⚙️ Operations Breakdown\n\n")
@@ -98,7 +110,7 @@ func (r *MarkdownReporter) Render(data *ReportData) error {
 			}
 
 			sb.WriteString(fmt.Sprintf("| %s | `%d` | `%s` | %s | `%s` |\n",
-				typeBadge, t.ID, t.Path, statusBadge, t.Duration.Round(time.Millisecond).String()))
+				typeBadge, t.ID, t.DisplayPath(), statusBadge, t.Duration.Round(time.Millisecond).String()))
 		}
 		sb.WriteString("\n")
 
@@ -111,7 +123,7 @@ func (r *MarkdownReporter) Render(data *ReportData) error {
 				}
 
 				sb.WriteString(fmt.Sprintf("<details>\n<summary><b>%s (%s)</b> — %s</summary>\n\n",
-					t.Path, t.ResourceType, t.Status))
+					t.DisplayPath(), t.ResourceType, t.Status))
 
 				if t.Error != "" {
 					sb.WriteString(fmt.Sprintf("> ❌ **Error**: `%s`\n\n", t.Error))

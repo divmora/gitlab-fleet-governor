@@ -10,6 +10,7 @@ GitLab Fleet Governor uses a declarative schema supporting interchangeable **YAM
 version: "v1"       # Required. Schema version: "v1"
 settings: { ... }   # Global runtime and client parameters
 targets: { ... }    # Fleet discovery and target selector rules
+instances: [ ... ]  # Optional. Several GitLab instances in one run (Enterprise)
 policies: { ... }   # Governance policy declarations
 ```
 
@@ -115,6 +116,53 @@ targets:
       min: 1
       max: 50000
 ```
+
+---
+
+## `instances` Reference
+
+A policy can govern several GitLab instances in one run, for example gitlab.com and a self-managed instance. Governing more than one instance requires an **Enterprise** licence (feature `platform.multi_instance`); without one, `plan` and dry-run still work and print a warning, and `apply` is refused.
+
+```yaml
+version: "v1"
+settings:
+  gitlab:
+    timeout_seconds: 60      # shared defaults for every instance
+targets:                     # used by instances without their own targets
+  group_selector:
+    group_paths_include: ["platform"]
+instances:
+  - name: saas
+    base_url: "https://gitlab.com/api/v4"
+    token: "${GITLAB_SAAS_TOKEN}"
+    targets:
+      group_selector:
+        group_paths_include: ["enterprise-fleet"]
+  - name: self-managed
+    base_url: "https://gitlab.internal.example.com/api/v4"
+    token: "${GITLAB_SELF_MANAGED_TOKEN}"
+    rate_limit_rps: 20
+policies:                    # apply to every instance
+  push_rules:
+    prevent_secrets: true
+```
+
+| Field | Description |
+|---|---|
+| `name` | Required. Lowercase letters, digits, `-` and `_`, up to 63 characters; unique. Shown in reports and logs. |
+| `base_url` | The instance's REST API URL. Defaults to `https://gitlab.com/api/v4`. |
+| `token` | Required. The instance's own token, usually `${VAR}`. |
+| `token_type`, `timeout_seconds`, `rate_limit_rps`, `rate_limit_burst`, `max_retries`, `retry_base_delay_ms`, `retry_max_delay_ms` | As in `settings.gitlab`. Unset values inherit `settings.gitlab`, then the built-in defaults. Each instance has its own rate limiter and retries. |
+| `targets` | Group and project selectors for this instance. When unset, the top-level `targets` apply. |
+
+Behaviour:
+
+- **No environment fallbacks.** An instance's client uses only its own `base_url` and `token`. `GITLAB_BASE_URL`, `CI_API_V4_URL`, `GITLAB_TOKEN` and the other token variables are ignored, so one instance's credential is never sent to another. `settings.gitlab.token` can't be combined with `instances`, and `settings.gitlab.base_url` is not used.
+- **One instance at a time.** Instances run in the order listed. If one fails, the rest still run, and the command exits with an error naming each failed instance.
+- **One fleet for licensing.** Projects on every instance count towards the licence's project limit together, and the licence's host scope must cover each instance.
+- **Reports.** Table and Markdown reports list each instance and show paths as `instance:path`. CSV gains a leading `instance` column, and JSON adds `instance` to each target and an `instances` summary. Single-instance reports are unchanged.
+- **Policies are shared.** Every instance gets the same `policies`. Per-instance overrides are planned.
+- `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
 
 ---
 

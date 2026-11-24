@@ -106,6 +106,8 @@ A config that arrives with an event is treated as untrusted. That covers inline 
 | **GitLab URL** | Without its own `settings.gitlab.token`, the config's `settings.gitlab.base_url` must be unset or match `GITLAB_BASE_URL`. A config that brings its own token may target any instance. |
 | **No local files** | `repository_files[].content_file` must be an `s3://` URI (fetched when the config loads). `settings.license.file`, `crl_file` and `crl_url` are rejected. |
 
+An event config may use an `instances` block (see [configuration](configuration.md#instances-reference)). Each instance then needs its own token in the config, because instance clients never fall back to `GITLAB_TOKEN` or `GITLAB_BASE_URL`; with the limited expansion above, that means a literal token or a variable listed in `GLFG_EVENT_CONFIG_ALLOWED_ENV`. Payload target overrides such as `group_paths_include` change the top-level `targets`, which only reach instances that don't set their own.
+
 The config named by the function's own `CONFIG_SOURCE` / `CONFIG_FILE` / `CONFIG_CONTENT` environment variables is the operator's, so none of these rules apply to it. Neither do CLI, Docker or Kubernetes runs, which read the operator's own config file or ConfigMap.
 
 ---

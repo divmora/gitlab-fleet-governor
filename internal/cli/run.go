@@ -109,28 +109,28 @@ func executeRun(ctx context.Context, cmd *cobra.Command, flags runFlags) error {
 		"concurrency", concurrency,
 	)
 
-	// 3. Construct resilient GitLab API client
-	client, err := gitlab.NewClientFromConfig(&cfg.Settings.GitLab)
-	if err != nil {
-		return fmt.Errorf("failed to initialize GitLab client: %w", err)
-	}
-
-	// 4. Initialize Governance Engine
-	eng, err := engine.NewGovernanceEngine(client, cfg,
-		engine.WithConcurrency(concurrency),
-		engine.WithDryRun(dryRun),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize governance engine: %w", err)
-	}
-
-	// 5. Execute Fleet Discovery & Policy Reconciliation
+	// 3-5. Discover and reconcile each GitLab instance (one for a
+	// settings.gitlab policy) with its own client, rate limits and retries.
 	slog.Info("Executing fleet governance reconciliation",
 		"dry_run", dryRun,
 		"concurrency", concurrency,
+		"instances", max(len(cfg.Instances), 1),
 	)
 
-	result, execErr := eng.Execute(ctx, cfg)
+	result, execErr := engine.ExecuteInstances(ctx, cfg, func(ctx context.Context, instCfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
+		client, err := gitlab.NewClientForRun(instCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize GitLab client: %w", err)
+		}
+		eng, err := engine.NewGovernanceEngine(client, instCfg,
+			engine.WithConcurrency(concurrency),
+			engine.WithDryRun(dryRun),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize governance engine: %w", err)
+		}
+		return eng.Execute(ctx, instCfg)
+	})
 
 	// 6. Convert execution result to canonical report DTO
 	reportData := report.FromExecutionResult(result)
