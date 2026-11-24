@@ -36,6 +36,15 @@ func (r *AuditReport) tagInstance(name string) {
 	for i := range r.ProtectedTagFindings {
 		r.ProtectedTagFindings[i].Instance = name
 	}
+	for i := range r.DeployKeyFindings {
+		r.DeployKeyFindings[i].Instance = name
+	}
+	for i := range r.DeployTokenFindings {
+		r.DeployTokenFindings[i].Instance = name
+	}
+	for i := range r.GroupSettingFindings {
+		r.GroupSettingFindings[i].Instance = name
+	}
 	for i, u := range r.UserDirectory {
 		if u == nil {
 			continue
@@ -66,6 +75,9 @@ func MergeReports(results []InstanceResult, startedAt time.Time) *AuditReport {
 		PipelineRetentionFindings: make([]PipelineRetentionFinding, 0),
 		RepositoryFileFindings:    make([]RepositoryFileFinding, 0),
 		ProtectedTagFindings:      make([]ProtectedTagFinding, 0),
+		DeployKeyFindings:         make([]DeployKeyFinding, 0),
+		DeployTokenFindings:       make([]DeployTokenFinding, 0),
+		GroupSettingFindings:      make([]GroupSettingFinding, 0),
 		Instances:                 make([]InstanceAudit, 0, len(results)),
 	}
 
@@ -106,6 +118,7 @@ func MergeReports(results []InstanceResult, startedAt time.Time) *AuditReport {
 		merged.Summary.ActiveProjectsCount += r.Summary.ActiveProjectsCount
 		merged.Summary.ArchivedProjectsCount += r.Summary.ArchivedProjectsCount
 		merged.Summary.PendingDeletionProjectsCount += r.Summary.PendingDeletionProjectsCount
+		merged.Summary.TotalGroupsScanned += r.Summary.TotalGroupsScanned
 
 		merged.UserAccessFindings = append(merged.UserAccessFindings, r.UserAccessFindings...)
 		merged.BotAccessFindings = append(merged.BotAccessFindings, r.BotAccessFindings...)
@@ -114,6 +127,9 @@ func MergeReports(results []InstanceResult, startedAt time.Time) *AuditReport {
 		merged.PipelineRetentionFindings = append(merged.PipelineRetentionFindings, r.PipelineRetentionFindings...)
 		merged.RepositoryFileFindings = append(merged.RepositoryFileFindings, r.RepositoryFileFindings...)
 		merged.ProtectedTagFindings = append(merged.ProtectedTagFindings, r.ProtectedTagFindings...)
+		merged.DeployKeyFindings = append(merged.DeployKeyFindings, r.DeployKeyFindings...)
+		merged.DeployTokenFindings = append(merged.DeployTokenFindings, r.DeployTokenFindings...)
+		merged.GroupSettingFindings = append(merged.GroupSettingFindings, r.GroupSettingFindings...)
 		merged.UserDirectory = append(merged.UserDirectory, r.UserDirectory...)
 	}
 

@@ -69,6 +69,9 @@ type Auditor struct {
 	pipelineRetentionAud PipelineRetentionModuleAuditor
 	repositoryFilesAud   RepositoryFilesModuleAuditor
 	protectedTagAud      ProtectedTagsModuleAuditor
+	deployKeysAud        *DeployKeysAuditor
+	deployTokensAud      *DeployTokensAuditor
+	groupSettingsAud     *GroupSettingsAuditor
 
 	licenseKey       string
 	licenseFile      string
@@ -282,6 +285,10 @@ func NewAuditor(client gl.GitLabClient, opts ...AuditorOption) (*Auditor, error)
 		setter.SetUserRegistry(reg)
 	}
 
+	a.deployKeysAud = NewDeployKeysAuditor()
+	a.deployTokensAud = NewDeployTokensAuditor()
+	a.groupSettingsAud = NewGroupSettingsAuditor()
+
 	return a, nil
 }
 
@@ -428,12 +435,23 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		PipelineRetentionFindings: make([]PipelineRetentionFinding, 0),
 		RepositoryFileFindings:    make([]RepositoryFileFinding, 0),
 		ProtectedTagFindings:      make([]ProtectedTagFinding, 0),
+		DeployKeyFindings:         make([]DeployKeyFinding, 0),
+		DeployTokenFindings:       make([]DeployTokenFinding, 0),
+		GroupSettingFindings:      make([]GroupSettingFinding, 0),
 	}
 
 	// Register user registry on modules
 	var reg *UserRegistry
 	if uAud, ok := a.userAccessAuditor.(*UserAccessAuditor); ok {
 		reg = uAud.registry
+	}
+
+	// Group-level audits (group settings and group deploy tokens) run over
+	// the discovered groups, even when no projects matched.
+	groups := fleet.GroupList()
+	report.Summary.TotalGroupsScanned = len(groups)
+	if err := a.auditGroups(ctx, groups, report); err != nil {
+		return nil, err
 	}
 
 	if len(projects) == 0 {
@@ -463,6 +481,8 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			defer func() { <-sem }()
 
 			uFindings, bFindings, eFindings, rFindings, fFindings, tFindings, err := a.auditSingleProject(ctx, p)
+			kFindings, kTokens, credErr := a.auditProjectCredentials(ctx, p)
+			err = errors.Join(err, credErr)
 			if err != nil {
 				slog.Warn("Encountered warning or error auditing project", "project", p.PathWithNamespace, "error", err)
 				mu.Lock()
@@ -493,6 +513,8 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 			if len(tFindings) > 0 {
 				report.ProtectedTagFindings = append(report.ProtectedTagFindings, tFindings...)
 			}
+			report.DeployKeyFindings = append(report.DeployKeyFindings, kFindings...)
+			report.DeployTokenFindings = append(report.DeployTokenFindings, kTokens...)
 			mu.Unlock()
 		}(proj)
 	}
@@ -604,6 +626,62 @@ func (a *Auditor) auditSingleProject(ctx context.Context, p *discovery.TargetPro
 		combinedErr = errors.Join(errs...)
 	}
 	return uFindings, bFindings, eFindings, rFindings, fFindings, tFindings, combinedErr
+}
+
+// auditProjectCredentials runs the deploy key and deploy token modules on
+// one project.
+func (a *Auditor) auditProjectCredentials(ctx context.Context, p *discovery.TargetProject) ([]DeployKeyFinding, []DeployTokenFinding, error) {
+	var keys []DeployKeyFinding
+	var tokens []DeployTokenFinding
+	var errs []error
+	if a.isModuleActive(string(ModuleDeployKeys)) && a.deployKeysAud != nil {
+		f, err := a.deployKeysAud.AuditProject(ctx, a.client, p, a.policyCfg)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("deploy_keys: %w", err))
+		}
+		keys = f
+	}
+	if a.isModuleActive(string(ModuleDeployTokens)) && a.deployTokensAud != nil {
+		f, err := a.deployTokensAud.AuditProject(ctx, a.client, p, a.policyCfg)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("deploy_tokens: %w", err))
+		}
+		tokens = f
+	}
+	return keys, tokens, errors.Join(errs...)
+}
+
+// auditGroups runs the group-level modules over the discovered groups.
+// Errors on a group are logged and the group is skipped, like project
+// module errors.
+func (a *Auditor) auditGroups(ctx context.Context, groups []*discovery.TargetGroup, report *AuditReport) error {
+	settings := a.isModuleActive(string(ModuleGroupSettings)) && a.groupSettingsAud != nil
+	tokens := a.isModuleActive(string(ModuleDeployTokens)) && a.deployTokensAud != nil
+	if !settings && !tokens {
+		return nil
+	}
+	for _, g := range groups {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if settings {
+			f, err := a.groupSettingsAud.AuditGroup(ctx, a.client, g, a.policyCfg)
+			if err != nil {
+				slog.Warn("Group settings audit failed", "group", g.FullPath, "error", err)
+			} else if f != nil {
+				report.GroupSettingFindings = append(report.GroupSettingFindings, *f)
+			}
+		}
+		if tokens {
+			f, err := a.deployTokensAud.AuditGroup(ctx, a.client, g, a.policyCfg)
+			if err != nil {
+				slog.Warn("Group deploy token audit failed", "group", g.FullPath, "error", err)
+			} else {
+				report.DeployTokenFindings = append(report.DeployTokenFindings, f...)
+			}
+		}
+	}
+	return nil
 }
 
 func (a *Auditor) isModuleActive(mod string) bool {

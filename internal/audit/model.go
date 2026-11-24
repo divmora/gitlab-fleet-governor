@@ -31,6 +31,9 @@ const (
 	ModulePipelineRetention     ModuleName = "pipeline_retention"
 	ModuleRepositoryFiles       ModuleName = "repository_files"
 	ModuleProtectedTags         ModuleName = "protected_tags"
+	ModuleDeployKeys            ModuleName = "deploy_keys"
+	ModuleDeployTokens          ModuleName = "deploy_tokens"
+	ModuleGroupSettings         ModuleName = "group_settings"
 )
 
 // AllModuleNames returns the canonical list of supported audit modules.
@@ -42,6 +45,9 @@ func AllModuleNames() []string {
 		string(ModulePipelineRetention),
 		string(ModuleRepositoryFiles),
 		string(ModuleProtectedTags),
+		string(ModuleDeployKeys),
+		string(ModuleDeployTokens),
+		string(ModuleGroupSettings),
 	}
 }
 
@@ -195,6 +201,64 @@ type ProtectedTagFinding struct {
 	Remediation               string   `json:"remediation"`
 }
 
+// DeployKeyFinding captures the audit of one deploy key enabled on a project.
+type DeployKeyFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance      string   `json:"instance,omitempty"`
+	ProjectID     int64    `json:"project_id"`
+	ProjectName   string   `json:"project_name"`
+	ProjectPath   string   `json:"project_path"`
+	ProjectWebURL string   `json:"project_web_url"`
+	ProjectStatus string   `json:"project_status"`
+	KeyTitle      string   `json:"key_title"`
+	Fingerprint   string   `json:"fingerprint"`
+	CanPush       bool     `json:"can_push"`
+	CreatedAt     string   `json:"created_at,omitempty"`
+	AgeDays       int      `json:"age_days"`
+	ExpiresAt     string   `json:"expires_at,omitempty"`
+	Severity      Severity `json:"severity"`
+	Violations    []string `json:"violations,omitempty"`
+	Details       string   `json:"details"`
+	Remediation   string   `json:"remediation"`
+}
+
+// DeployTokenFinding captures the audit of one project or group deploy token.
+type DeployTokenFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance      string   `json:"instance,omitempty"`
+	OwnerType     string   `json:"owner_type"` // "project" or "group"
+	OwnerID       int64    `json:"owner_id"`
+	OwnerPath     string   `json:"owner_path"`
+	OwnerWebURL   string   `json:"owner_web_url"`
+	ProjectStatus string   `json:"project_status,omitempty"`
+	TokenName     string   `json:"token_name"`
+	Username      string   `json:"username"`
+	Scopes        []string `json:"scopes"`
+	ExpiresAt     string   `json:"expires_at,omitempty"`
+	Expired       bool     `json:"expired"`
+	Severity      Severity `json:"severity"`
+	Violations    []string `json:"violations,omitempty"`
+	Details       string   `json:"details"`
+	Remediation   string   `json:"remediation"`
+}
+
+// GroupSettingFinding captures the security audit of one group's settings.
+type GroupSettingFinding struct {
+	// Instance names the GitLab instance in a multi-instance audit.
+	Instance              string   `json:"instance,omitempty"`
+	GroupID               int64    `json:"group_id"`
+	GroupPath             string   `json:"group_path"`
+	GroupWebURL           string   `json:"group_web_url"`
+	Visibility            string   `json:"visibility"`
+	RequireTwoFactorAuth  bool     `json:"require_two_factor_authentication"`
+	ProjectCreationLevel  string   `json:"project_creation_level"`
+	SubGroupCreationLevel string   `json:"subgroup_creation_level"`
+	Severity              Severity `json:"severity"`
+	Violations            []string `json:"violations,omitempty"`
+	Details               string   `json:"details"`
+	Remediation           string   `json:"remediation"`
+}
+
 // SummaryMetrics captures aggregate statistical breakdown of audit findings across the fleet.
 type SummaryMetrics struct {
 	TotalProjectsScanned         int              `json:"total_projects_scanned"`
@@ -216,6 +280,10 @@ type SummaryMetrics struct {
 	PipelineRetentionViolations  int              `json:"pipeline_retention_violations"`
 	RepositoryFileViolations     int              `json:"repository_file_violations"`
 	ProtectedTagViolations       int              `json:"protected_tag_violations"`
+	DeployKeyViolations          int              `json:"deploy_key_violations"`
+	DeployTokenViolations        int              `json:"deploy_token_violations"`
+	GroupSettingViolations       int              `json:"group_setting_violations"`
+	TotalGroupsScanned           int              `json:"total_groups_scanned,omitempty"`
 	AuditedBy                    string           `json:"audited_by,omitempty"`
 	SeverityBreakdown            map[Severity]int `json:"severity_breakdown"`
 	ModuleViolations             map[string]int   `json:"module_violations"`
@@ -255,6 +323,9 @@ type AuditReport struct {
 	PipelineRetentionFindings []PipelineRetentionFinding    `json:"pipeline_retention_findings,omitempty"`
 	RepositoryFileFindings    []RepositoryFileFinding       `json:"repository_file_findings,omitempty"`
 	ProtectedTagFindings      []ProtectedTagFinding         `json:"protected_tag_findings,omitempty"`
+	DeployKeyFindings         []DeployKeyFinding            `json:"deploy_key_findings,omitempty"`
+	DeployTokenFindings       []DeployTokenFinding          `json:"deploy_token_findings,omitempty"`
+	GroupSettingFindings      []GroupSettingFinding         `json:"group_setting_findings,omitempty"`
 	UserDirectory             []*UserInfo                   `json:"user_directory,omitempty"`
 	Instances                 []InstanceAudit               `json:"instances,omitempty"`
 }
@@ -450,6 +521,51 @@ func (r *AuditReport) ComputeSummary() {
 		}
 	}
 
+	// Deploy keys, deploy tokens and group settings
+	countSeverity := func(sev Severity) bool {
+		if sev == SeverityPass || sev == SeverityInfo {
+			return false
+		}
+		r.Summary.TotalViolations++
+		r.Summary.SeverityBreakdown[sev]++
+		switch sev {
+		case SeverityCritical:
+			r.Summary.CriticalSeverityCount++
+		case SeverityHigh:
+			r.Summary.HighSeverityCount++
+		case SeverityMedium:
+			r.Summary.MediumSeverityCount++
+		case SeverityLow:
+			r.Summary.LowSeverityCount++
+		}
+		return true
+	}
+	r.Summary.DeployKeyViolations = 0
+	r.Summary.DeployTokenViolations = 0
+	r.Summary.GroupSettingViolations = 0
+	for _, f := range r.DeployKeyFindings {
+		if countSeverity(f.Severity) {
+			r.Summary.DeployKeyViolations++
+			nonCompliantProjects[projectKey(f.Instance, f.ProjectID)] = struct{}{}
+		}
+	}
+	for _, f := range r.DeployTokenFindings {
+		if countSeverity(f.Severity) {
+			r.Summary.DeployTokenViolations++
+			if f.OwnerType == "project" {
+				nonCompliantProjects[projectKey(f.Instance, f.OwnerID)] = struct{}{}
+			}
+		}
+	}
+	for _, f := range r.GroupSettingFindings {
+		if countSeverity(f.Severity) {
+			r.Summary.GroupSettingViolations++
+		}
+	}
+	r.Summary.ModuleViolations[string(ModuleDeployKeys)] = r.Summary.DeployKeyViolations
+	r.Summary.ModuleViolations[string(ModuleDeployTokens)] = r.Summary.DeployTokenViolations
+	r.Summary.ModuleViolations[string(ModuleGroupSettings)] = r.Summary.GroupSettingViolations
+
 	r.Summary.ModuleViolations[string(ModuleUserAccess)] = r.Summary.UserAccessViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedBranches)] = r.Summary.ProtectedBranchViolations
 	r.Summary.ModuleViolations[string(ModuleProtectedEnvironments)] = r.Summary.ProtectedEnvViolations
@@ -557,6 +673,27 @@ func (r *AuditReport) SortFindings() {
 			return r.ProtectedTagFindings[i].ProjectPath < r.ProtectedTagFindings[j].ProjectPath
 		}
 		return r.ProtectedTagFindings[i].TagNamePattern < r.ProtectedTagFindings[j].TagNamePattern
+	})
+
+	sort.Slice(r.DeployKeyFindings, func(i, j int) bool {
+		a, b := r.DeployKeyFindings[i], r.DeployKeyFindings[j]
+		if a.ProjectPath != b.ProjectPath {
+			return a.ProjectPath < b.ProjectPath
+		}
+		return a.KeyTitle < b.KeyTitle
+	})
+	sort.Slice(r.DeployTokenFindings, func(i, j int) bool {
+		a, b := r.DeployTokenFindings[i], r.DeployTokenFindings[j]
+		if a.OwnerType != b.OwnerType {
+			return a.OwnerType > b.OwnerType // projects first
+		}
+		if a.OwnerPath != b.OwnerPath {
+			return a.OwnerPath < b.OwnerPath
+		}
+		return a.TokenName < b.TokenName
+	})
+	sort.Slice(r.GroupSettingFindings, func(i, j int) bool {
+		return r.GroupSettingFindings[i].GroupPath < r.GroupSettingFindings[j].GroupPath
 	})
 
 	sort.Slice(r.UserDirectory, func(i, j int) bool {

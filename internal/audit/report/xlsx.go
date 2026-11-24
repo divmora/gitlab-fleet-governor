@@ -99,6 +99,11 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 		return fmt.Errorf("failed to build protected tags sheet: %w", err)
 	}
 
+	// 8b. Deploy Keys, Deploy Tokens and Group Settings Sheets
+	if err := gen.buildCredentialAndGroupSheets(report); err != nil {
+		return fmt.Errorf("failed to build deploy credential and group settings sheets: %w", err)
+	}
+
 	// 9. User Directory Sheet
 	if err := gen.buildUserDirectorySheet(report); err != nil {
 		return fmt.Errorf("failed to build user directory sheet: %w", err)
@@ -367,6 +372,9 @@ func (g *XLSXReportGenerator) buildExecutiveSummarySheet(report *audit.AuditRepo
 		{"Pipeline Retention & Cleanup Auditor (pipeline_retention)", report.Summary.PipelineRetentionViolations},
 		{"Repository Files & CODEOWNERS Auditor (repository_files)", report.Summary.RepositoryFileViolations},
 		{"Protected Tags Compliance Auditor (protected_tags)", report.Summary.ProtectedTagViolations},
+		{"Deploy Keys Auditor (deploy_keys)", report.Summary.DeployKeyViolations},
+		{"Deploy Tokens Auditor (deploy_tokens)", report.Summary.DeployTokenViolations},
+		{"Group Settings Auditor (group_settings)", report.Summary.GroupSettingViolations},
 	}
 
 	for i, mm := range modMetrics {
@@ -1693,4 +1701,101 @@ func (g *XLSXReportGenerator) buildInstancesSheet(report *audit.AuditReport) err
 	}
 	g.applyColumnWidths(sheet, maxColLengths)
 	return nil
+}
+
+// xlsxRow is one row of a generic findings sheet.
+type xlsxRow struct {
+	values   []any
+	severity audit.Severity
+	url      string
+	instance string
+}
+
+// buildFindingsSheet writes a findings sheet: a header row, then one row per
+// finding with the link column (linkCol) hyperlinked when it is an http(s)
+// URL and the severity column (sevCol) colour-coded. In a multi-instance
+// report an Instance column is appended.
+func (g *XLSXReportGenerator) buildFindingsSheet(sheet string, headers []string, linkCol, sevCol int, rows []xlsxRow) error {
+	if _, err := g.file.NewSheet(sheet); err != nil {
+		return err
+	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	maxLens := make([]int, len(headers))
+	for i, h := range headers {
+		maxLens[i] = len(h)
+	}
+	for r, row := range rows {
+		values := row.values
+		if g.multi {
+			values = append(values, row.instance)
+		}
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, r+2)
+			_ = g.file.SetCellValue(sheet, cell, val)
+			style := g.dataCellStyle
+			switch colIdx {
+			case linkCol:
+				if isWebURL(row.url) {
+					_ = g.file.SetCellHyperLink(sheet, cell, row.url, "External")
+					style = g.hyperlinkStyle
+				}
+			case sevCol:
+				style = g.severityStyle(row.severity)
+			}
+			_ = g.file.SetCellStyle(sheet, cell, cell, style)
+			for _, line := range strings.Split(fmt.Sprintf("%v", val), "\n") {
+				if len(line) > maxLens[colIdx] {
+					maxLens[colIdx] = len(line)
+				}
+			}
+		}
+	}
+	g.applyColumnWidths(sheet, maxLens)
+	return nil
+}
+
+func (g *XLSXReportGenerator) buildCredentialAndGroupSheets(report *audit.AuditReport) error {
+	keys := make([]xlsxRow, 0, len(report.DeployKeyFindings))
+	for _, f := range report.DeployKeyFindings {
+		keys = append(keys, xlsxRow{
+			values:   []any{f.ProjectID, f.ProjectPath, f.ProjectStatus, f.ProjectWebURL, f.KeyTitle, f.Fingerprint, boolToYesNo(f.CanPush), f.CreatedAt, f.AgeDays, f.ExpiresAt, string(f.Severity), f.Details, f.Remediation},
+			severity: f.Severity, url: f.ProjectWebURL, instance: f.Instance,
+		})
+	}
+	if err := g.buildFindingsSheet("Deploy Keys", []string{"Project ID", "Project Path", "Project State", "Project URL", "Key Title", "Fingerprint", "Can Push", "Created", "Age (days)", "Expires", "Status", "Details", "Remediation"}, 3, 10, keys); err != nil {
+		return err
+	}
+
+	tokens := make([]xlsxRow, 0, len(report.DeployTokenFindings))
+	for _, f := range report.DeployTokenFindings {
+		expires := f.ExpiresAt
+		if expires == "" {
+			expires = "Never"
+		}
+		tokens = append(tokens, xlsxRow{
+			values:   []any{f.OwnerType, f.OwnerID, f.OwnerPath, f.OwnerWebURL, f.TokenName, f.Username, strings.Join(f.Scopes, ", "), expires, boolToYesNo(f.Expired), string(f.Severity), f.Details, f.Remediation},
+			severity: f.Severity, url: f.OwnerWebURL, instance: f.Instance,
+		})
+	}
+	if err := g.buildFindingsSheet("Deploy Tokens", []string{"Owner Type", "Owner ID", "Owner Path", "Owner URL", "Token Name", "Username", "Scopes", "Expires", "Expired", "Status", "Details", "Remediation"}, 3, 9, tokens); err != nil {
+		return err
+	}
+
+	groups := make([]xlsxRow, 0, len(report.GroupSettingFindings))
+	for _, f := range report.GroupSettingFindings {
+		groups = append(groups, xlsxRow{
+			values:   []any{f.GroupID, f.GroupPath, f.GroupWebURL, f.Visibility, boolToYesNo(f.RequireTwoFactorAuth), f.ProjectCreationLevel, f.SubGroupCreationLevel, string(f.Severity), f.Details, f.Remediation},
+			severity: f.Severity, url: f.GroupWebURL, instance: f.Instance,
+		})
+	}
+	return g.buildFindingsSheet("Group Settings", []string{"Group ID", "Group Path", "Group URL", "Visibility", "2FA Required", "Project Creation", "Subgroup Creation", "Status", "Details", "Remediation"}, 2, 7, groups)
 }

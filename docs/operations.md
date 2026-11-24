@@ -112,7 +112,7 @@ Operations execute sequentially per targeted project/group in the following dete
 
 ## Fleet Compliance & Security Audit Suite
 
-In addition to the 14 policy mutation reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
+In addition to its policy reconcilers, GitLab Fleet Governor provides a dedicated, non-mutating compliance auditing framework accessible via the `audit` command:
 
 ```bash
 gitlab-fleet-governor audit -c governance.yaml -o fleet-audit.xlsx
@@ -153,6 +153,31 @@ The audit framework executes read-only inspections in parallel across all target
 - **Direct User Grants**: Direct individual user tag creation permissions bypass group/role tiers and are flagged as `HIGH` findings.
 - **Wildcard Shadowing**: Broad catch-all wildcards (`*`) covering all tags are flagged as `LOW` findings with guidance to replace with targeted patterns.
 
+#### 7. Deploy Keys (`deploy_keys`)
+- **Write access**: keys that can push are `MEDIUM`, unless the policy lists the key with `can_push: true`.
+- **Age**: keys older than `deploy_keys.max_age_days` (365 days when unset) are `LOW`, or `MEDIUM` beyond twice the limit.
+- **Expired keys** still enabled are `MEDIUM`.
+- **Unmanaged keys**: when the policy lists `deploy_keys.keys`, a key that isn't listed is `LOW`. Keys are matched by fingerprint, like the `deploy_keys` reconciler.
+
+#### 8. Deploy Tokens (`deploy_tokens`)
+Covers project tokens and the tokens of every targeted group. Revoked tokens are ignored.
+- **Expired** but not revoked: `MEDIUM`.
+- **No expiry date**: `MEDIUM`.
+- **Write scopes** (`write_registry`, `write_package_registry`, `write_virtual_registry`): `MEDIUM` when the policy sets no `deploy_tokens.allowed_scopes`.
+- **Scopes outside `deploy_tokens.allowed_scopes`**: `HIGH`.
+- **Expiry beyond `deploy_tokens.max_expiration_days`**: `LOW`.
+
+#### 9. Group Settings (`group_settings`)
+Audits every targeted group. Groups are only discovered through a `group_selector`, so a `project_selector`-only target audits no groups.
+- **Two-factor authentication not required**: `HIGH`.
+- **Public group**: `MEDIUM`.
+- **Default branch protection allows force push**: `MEDIUM`.
+- **Developers can create projects**: `LOW`.
+- **Policy drift**: when the policy has `group_settings`, each setting that differs is `MEDIUM`. This uses the same comparison as the `group_settings` reconciler.
+
+> [!IMPORTANT]
+> `audit` exits non-zero when it finds `CRITICAL` or `HIGH` findings. Because groups without required 2FA are now `HIGH`, an audit that passed on 0.20.0 can fail after upgrading. To run the previous modules only, use `--modules=user_access,protected_branches,protected_environments,pipeline_retention,repository_files,protected_tags`.
+
 ---
 
 ## Executive Report Generation & Distribution
@@ -167,7 +192,10 @@ When exported to `.xlsx` (default when `-o file.xlsx` is specified), GitLab Flee
 6. **Pipeline Retention**: Pipeline cleanup policy status, stale pipeline accumulation counts, oldest pipeline age, and severity findings.
 7. **Repository Files**: File paths, target branches, drift status, missing line segments, and severity findings.
 8. **Protected Tags**: Tag patterns, protection status, create access levels, direct user/group create grants, and severity findings.
-9. **User Directory**: Fleet-wide directory of discovered user identities, access counts, and account types.
+9. **Deploy Keys**: Key titles, fingerprints, write access, age, expiry, and severity findings.
+10. **Deploy Tokens**: Project and group tokens with scopes, expiry, and severity findings.
+11. **Group Settings**: Visibility, 2FA enforcement, creation levels, and severity findings per group.
+12. **User Directory**: Fleet-wide directory of discovered user identities, access counts, and account types.
 
 ### Multi-Format Exporters
 Reports can be exported to multiple formats via `--format` or file extension detection:
