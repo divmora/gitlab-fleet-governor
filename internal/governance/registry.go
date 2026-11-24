@@ -44,6 +44,8 @@ func NewDefaultRegistry(client gitlab.GitLabClient) *OperationsRegistry {
 	reg.Register(NewJobTokenScopeReconciler())
 	reg.Register(NewPipelineRetentionReconciler())
 	reg.Register(NewVariablesReconciler())
+	reg.Register(NewDeployKeysReconciler())
+	reg.Register(NewDeployTokensReconciler())
 	reg.Register(NewRunnersReconciler())
 	reg.Register(NewComplianceReconciler())
 	reg.Register(NewWebhooksReconciler())

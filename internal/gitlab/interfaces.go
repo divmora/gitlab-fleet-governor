@@ -30,6 +30,8 @@ type GitLabClient interface {
 	MergeRequests() MergeRequestsService
 	JobTokenScope() JobTokenScopeService
 	SecuritySettings() SecuritySettingsService
+	DeployKeys() DeployKeysService
+	DeployTokens() DeployTokensService
 
 	// BaseURL returns the configured base URL for the client.
 	BaseURL() string
@@ -218,3 +220,9 @@ type JobTokenScopeService = gitlab.JobTokenScopeServiceInterface
 // SecuritySettingsService reads and updates project security settings such
 // as secret push protection.
 type SecuritySettingsService = gitlab.ProjectSecuritySettingsServiceInterface
+
+// DeployKeysService manages project deploy keys.
+type DeployKeysService = gitlab.DeployKeysServiceInterface
+
+// DeployTokensService manages project and group deploy tokens.
+type DeployTokensService = gitlab.DeployTokensServiceInterface

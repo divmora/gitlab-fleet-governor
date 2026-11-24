@@ -587,6 +587,52 @@ policies:
     enabled: true
 ```
 
+
+### 16. `deploy_keys`
+
+Deploy keys enabled on each targeted project (Pro, feature `governance.deploy_keys`).
+
+```yaml
+policies:
+  deploy_keys:
+    keys:
+      - title: "release-bot"
+        key: "ssh-ed25519 AAAAC3Nz... release-bot"   # needed to add the key where it's missing
+        can_push: true
+      - title: "ci-reader"
+        fingerprint: "SHA256:3+l2zztZvcsCJ5rYMz9NXMsm1cv9mJooUXy6v1qjPY0"   # match without the key
+    deny_push: true        # keys not listed become read-only
+    max_age_days: 90       # report keys older than this for rotation
+    prune: false           # true removes keys not listed from the project
+```
+
+| Situation | Effect |
+|---|---|
+| Listed key missing, `key` given | Added with `can_push` (default `false`) |
+| Listed key missing, no `key` | Reported (`AUDIT`); add the public key to have it added |
+| Listed key present with a different `can_push` | Updated |
+| Key not listed, `prune: true` | Removed from the project |
+| Key not listed, `deny_push: true` and it can push | Made read-only |
+| Key older than `max_age_days` | Reported for rotation |
+
+Keys are matched by SHA256 fingerprint when `key` or `fingerprint` is set (as shown by `ssh-keygen -lf`), otherwise by title (case-insensitive). Removing a deploy key only disables it for that project; keys shared with other projects stay there.
+
+### 17. `deploy_tokens`
+
+Rules every project and group deploy token must meet (Pro, feature `governance.deploy_tokens`). Tokens are never created: GitLab shows a token's secret only once.
+
+```yaml
+policies:
+  deploy_tokens:
+    allowed_scopes: ["read_repository", "read_registry"]
+    require_expires_at: true
+    max_expiration_days: 365
+    revoke_expired: true         # otherwise expired tokens are only reported
+    revoke_noncompliant: false   # true revokes tokens that break the rules above
+```
+
+Without the `revoke_*` options, every finding is reported as `AUDIT` and nothing is changed. Valid scopes: `read_repository`, `read_registry`, `write_registry`, `read_package_registry`, `write_package_registry`, `read_virtual_registry`, `write_virtual_registry`.
+
 ---
 
 ## Commercial License Resolution

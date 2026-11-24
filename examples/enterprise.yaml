@@ -67,6 +67,16 @@ policies:
   secret_push_protection:
     enabled: true
 
+  # 0c. Deploy keys and tokens (Pro)
+  deploy_keys:
+    deny_push: true
+    max_age_days: 180
+  deploy_tokens:
+    allowed_scopes: ["read_repository", "read_registry"]
+    require_expires_at: true
+    max_expiration_days: 365
+    revoke_expired: true
+
   # 1. Push Rules
   push_rules:
     author_email_regex: '@enterprise\.com$'

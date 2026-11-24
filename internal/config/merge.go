@@ -34,6 +34,7 @@ var keyedLists = map[string][]string{
 	"branch_merges":                {"source_branch", "target_branch"},
 	"runners.runners":              {"id"},
 	"members.allowed_members":      {"username"},
+	"deploy_keys.keys":             {"title"},
 }
 
 // listOrRules are sections that accept either a list of rules or a mapping

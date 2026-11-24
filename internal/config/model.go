@@ -269,6 +269,12 @@ type PoliciesConfig struct {
 	// ApprovalRules configures merge request approval settings and named approver rules.
 	ApprovalRules *ApprovalRulesConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
 
+	// DeployKeys governs project deploy keys.
+	DeployKeys *DeployKeysConfig `yaml:"deploy_keys,omitempty" json:"deploy_keys,omitempty"`
+
+	// DeployTokens governs project and group deploy tokens.
+	DeployTokens *DeployTokensConfig `yaml:"deploy_tokens,omitempty" json:"deploy_tokens,omitempty"`
+
 	// JobTokenScope configures which projects and groups may use their CI/CD
 	// job tokens to access each targeted project.
 	JobTokenScope *JobTokenScopeConfig `yaml:"job_token_scope,omitempty" json:"job_token_scope,omitempty"`
