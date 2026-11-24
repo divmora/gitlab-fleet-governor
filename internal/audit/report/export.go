@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -107,6 +108,9 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 	writeRow := func(instance string, row []string) error {
 		if multi {
 			row = append([]string{instance}, row...)
+		}
+		for i := range row {
+			row[i] = csvSafe(row[i])
 		}
 		return w.Write(row)
 	}
@@ -343,7 +347,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s | %s | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -360,7 +364,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s (%s) | %s | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.Username, escapeMD(f.Name), f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, f.Username, escapeMD(f.Name), f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -381,7 +385,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -398,7 +402,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %d | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -419,7 +423,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %d | %s | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, policy, f.StalePipelinesCount, oldest, badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -432,7 +436,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		for _, f := range report.RepositoryFileFindings {
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | `%s` | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.FilePath), escapeMD(f.TargetBranch), badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, escapeMD(f.FilePath), escapeMD(f.TargetBranch), badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -449,7 +453,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s |\n",
-				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.TagNamePattern), isProt, escapeMD(f.CreateAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, escapeMD(f.TagNamePattern), isProt, escapeMD(f.CreateAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -461,7 +465,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
 			sb.WriteString(fmt.Sprintf("| %d | [@%s](%s) | %s | %s | %s | %d |\n",
-				u.ID, escapeMD(audit.Label(u.Instance, u.Username)), u.WebURL, escapeMD(u.Name), u.AccountType, u.State, u.ProjectsCount))
+				u.ID, escapeMD(audit.Label(u.Instance, u.Username)), mdURL(u.WebURL), escapeMD(u.Name), u.AccountType, u.State, u.ProjectsCount))
 		}
 		sb.WriteString("\n")
 	}
@@ -580,7 +584,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				exp = f.ExpiresAt
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td>@%s</td>
   <td>%s</td>
@@ -588,7 +592,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.Username, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.Username), html.EscapeString(f.AccessRoleName), html.EscapeString(exp), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -606,7 +610,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				exp = f.ExpiresAt
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td>@%s (%s)</td>
   <td>%s</td>
@@ -614,7 +618,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.Username, f.Name, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.Username), html.EscapeString(f.Name), html.EscapeString(f.AccessRoleName), html.EscapeString(exp), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -636,7 +640,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				co = "<b>NO</b>"
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td><code>%s</code></td>
   <td>%s</td>
@@ -645,7 +649,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.BranchName, fp, co, f.PushAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.BranchName), fp, co, html.EscapeString(f.PushAccessLevelsSummary), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -663,7 +667,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				prod = "<b>Yes</b>"
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td><code>%s</code></td>
   <td>%s</td>
@@ -672,7 +676,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, f.DeployAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.EnvironmentName), prod, f.RequiredApprovalCount, html.EscapeString(f.DeployAccessLevelsSummary), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -694,7 +698,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				oldest = fmt.Sprintf("#%d (%dd old)", f.OldestPipelineID, f.OldestPipelineAgeDays)
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td>%s</td>
   <td>%d</td>
@@ -702,7 +706,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, policy, f.StalePipelinesCount, oldest, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(policy), f.StalePipelinesCount, html.EscapeString(oldest), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -716,7 +720,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <tbody>`)
 		for _, f := range report.RepositoryFileFindings {
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td><code>%s</code></td>
   <td><code>%s</code></td>
@@ -724,7 +728,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, html.EscapeString(f.FilePath), html.EscapeString(f.TargetBranch), htmlBadge(f.Severity), html.EscapeString(f.ViolationType), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.FilePath), html.EscapeString(f.TargetBranch), htmlBadge(f.Severity), html.EscapeString(f.ViolationType), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -742,7 +746,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 				isProt = "Yes"
 			}
 			sb.WriteString(fmt.Sprintf(`<tr>
-  <td><a href="%s" target="_blank">%s</a></td>
+  <td><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></td>
   <td>%s</td>
   <td><code>%s</code></td>
   <td>%s</td>
@@ -750,7 +754,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, html.EscapeString(f.TagNamePattern), isProt, html.EscapeString(f.CreateAccessLevelsSummary), htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, safeHref(f.ProjectWebURL), html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), html.EscapeString(f.ProjectStatus), html.EscapeString(f.TagNamePattern), html.EscapeString(isProt), html.EscapeString(f.CreateAccessLevelsSummary), htmlBadge(f.Severity), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -985,7 +989,7 @@ func htmlBadge(s audit.Severity) string {
 	case audit.SeverityPass:
 		return `<span class="badge badge-pass">Pass</span>`
 	default:
-		return string(s)
+		return html.EscapeString(string(s))
 	}
 }
 
@@ -1023,4 +1027,49 @@ func instanceIdentity(in audit.InstanceAudit) string {
 		return ""
 	}
 	return "@" + in.AuthenticatedUser.Username
+}
+
+// isWebURL reports whether u is an absolute http(s) URL, the only kind the
+// reports turn into links.
+func isWebURL(u string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(u))
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+// csvSafe stops spreadsheet applications from treating a cell as a formula
+// (CSV injection): a value starting with =, +, -, @, tab or carriage return
+// gets a leading apostrophe.
+func csvSafe(v string) string {
+	if v == "" {
+		return v
+	}
+	switch v[0] {
+	case '=', '+', '@', '\t', '\r':
+		return "'" + v
+	case '-':
+		if len(v) > 1 {
+			return "'" + v
+		}
+	}
+	return v
+}
+
+// mdURL returns u for a Markdown link target when it is an http(s) URL
+// without characters that would end the link early, and "#" otherwise.
+func mdURL(u string) string {
+	u = strings.TrimSpace(u)
+	if !isWebURL(u) || strings.ContainsAny(u, "()<> ") {
+		return "#"
+	}
+	return u
+}
+
+// safeHref returns u escaped for an href attribute when it is an http(s)
+// URL, and "#" otherwise, so a javascript: or data: URL from the GitLab API
+// can't become a live link in the report.
+func safeHref(u string) string {
+	if !isWebURL(u) {
+		return "#"
+	}
+	return html.EscapeString(strings.TrimSpace(u))
 }
