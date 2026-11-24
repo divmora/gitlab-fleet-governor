@@ -79,6 +79,19 @@ gitlab-fleet-governor export --project-id 42 --output project-42-policy.yaml
 
 ---
 
+## Starting From a Compliance Template
+
+Six starter policies ship with the binary: SOC 2, ISO/IEC 27001:2022, PCI DSS v4.0, HIPAA Security Rule, NIST SP 800-53 Rev. 5 and FedRAMP Moderate. Each comes with a control mapping:
+
+```bash
+gitlab-fleet-governor init --list
+gitlab-fleet-governor init --template soc2 --group acme/platform \
+  --email-domain acme.com --reviewer-group acme/security -o governance.yaml
+gitlab-fleet-governor init --template soc2 --readme    # control mapping
+```
+
+The templates support evidence for each framework's controls; they are a starting point, not a certification. See [templates/README.md](../templates/README.md).
+
 ## Creating Your First Policy
 
 Create a file named `governance.yaml`:

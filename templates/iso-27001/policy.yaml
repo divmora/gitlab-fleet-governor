@@ -1,0 +1,119 @@
+# ==============================================================================
+# GitLab Fleet Governor: ISO/IEC 27001:2022 starter policy
+# ------------------------------------------------------------------------------
+# Supports evidence for ISO/IEC 27001:2022 Annex A controls; see README.md in this
+# directory for the control mapping. This is a starting point, not a
+# certification: review every setting with your compliance team and auditor.
+#
+# Create a filled-in copy with:
+#   gitlab-fleet-governor init --template iso-27001 --group <group/path> \
+#     --email-domain <example.com> --reviewer-group <group/path> -o policy.yaml
+# ==============================================================================
+version: "v1"
+
+settings:
+  dry_run: true          # preview first; set false (or pass --dry-run=false) to enforce
+  concurrency: 10
+  report_format: markdown
+
+targets:
+  group_selector:
+    group_paths_include: ["REPLACE_WITH_GROUP_PATH"]
+    recursive: true
+  project_selector:
+    archived: false
+
+policies:
+  # Group security baseline: MFA for every member, no self-service access.
+  group_settings:
+    require_two_factor_authentication: true
+    two_factor_grace_period: 48
+    visibility: private
+    project_creation_level: maintainer
+    subgroup_creation_level: owner
+    request_access_enabled: false
+    share_with_group_lock: true
+    default_branch_protection:
+      allowed_to_push: [40]
+      allowed_to_merge: [40]
+      allow_force_push: false
+
+  # Commit hygiene: identified authors, no secrets in pushes.
+  push_rules:
+    author_email_regex: '@REPLACE_WITH_EMAIL_DOMAIN$'
+    prevent_secrets: true
+    member_check: true
+    commit_committer_check: true
+    deny_delete_tag: true
+    reject_unsigned_commits: false
+    file_name_regex: '(\.pem|\.key|\.p12|\.pfx|id_rsa|id_ed25519)$'
+    max_file_size: 50
+
+  # No direct pushes to the default branch; maintainers merge reviewed changes.
+  protected_branches:
+    - name: "main"
+      allowed_to_push:
+        - access_level: 0
+      allowed_to_merge:
+        - access_level: 40
+      allow_force_push: false
+      code_owner_approval_required: true
+
+  # Release tags are created by maintainers only.
+  protected_tags:
+    - name: "v*"
+      allowed_to_create:
+        - access_level: 40
+
+  # Independent review: 2 approvals, no self-approval.
+  approval_rules:
+    settings:
+      allow_author_approval: false
+      allow_committer_approval: false
+      allow_overrides_to_approver_list_per_merge_request: false
+      retain_approvals_on_push: false
+      require_password_to_approve: true
+    rules:
+      - name: "Security review"
+        approvals_required: 2
+        group_paths: ["REPLACE_WITH_REVIEWER_GROUP"]
+        protected_branch_names: ["main"]
+
+  # Changes merge only after a green pipeline and resolved discussions.
+  project_settings:
+    visibility: private
+    only_allow_merge_if_pipeline_succeeds: true
+    allow_merge_on_skipped_pipeline: false
+    only_allow_merge_if_all_discussions_are_resolved: true
+    public_jobs: false
+    request_access_enabled: false
+    forking_access_level: enabled
+    ci_push_repository_for_job_token_allowed: false
+    ci_forward_deployment_enabled: true
+
+  # Time-bound access: every member needs an expiry date.
+  members:
+    enforce_expires_at: true
+    max_expiration_days: 180
+
+  # Deploy credentials: read-only keys, short-lived scoped tokens.
+  deploy_keys:
+    deny_push: true
+    max_age_days: 365
+  deploy_tokens:
+    allowed_scopes: ["read_repository", "read_registry", "read_package_registry"]
+    require_expires_at: true
+    max_expiration_days: 365
+    revoke_expired: true
+
+  # Keep pipeline history as change evidence; set this to your retention policy.
+  pipeline_retention:
+    retention_days: 365
+
+  # Label projects with the framework (needs the framework to exist in GitLab).
+  compliance:
+    framework_name: "ISO27001"
+
+  # secret_push_protection needs GitLab Ultimate; uncomment if you have it.
+  # secret_push_protection:
+  #   enabled: true
