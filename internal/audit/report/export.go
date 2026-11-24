@@ -262,6 +262,32 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 		}
 	}
 
+	for _, f := range report.DeployKeyFindings {
+		access := "Read-only"
+		if f.CanPush {
+			access = "Read-write"
+		}
+		row := []string{"Deploy Keys", strconv.FormatInt(f.ProjectID, 10), f.ProjectName, f.ProjectPath, f.ProjectStatus, f.ProjectWebURL,
+			f.KeyTitle, access, "Deploy Key", string(f.Severity), strings.Join(f.Violations, "; "), f.Details, f.Remediation}
+		if err := writeRow(f.Instance, row); err != nil {
+			return err
+		}
+	}
+	for _, f := range report.DeployTokenFindings {
+		row := []string{"Deploy Tokens", strconv.FormatInt(f.OwnerID, 10), f.OwnerType, f.OwnerPath, f.ProjectStatus, f.OwnerWebURL,
+			f.TokenName, strings.Join(f.Scopes, " "), "Deploy Token", string(f.Severity), strings.Join(f.Violations, "; "), f.Details, f.Remediation}
+		if err := writeRow(f.Instance, row); err != nil {
+			return err
+		}
+	}
+	for _, f := range report.GroupSettingFindings {
+		row := []string{"Group Settings", strconv.FormatInt(f.GroupID, 10), "group", f.GroupPath, "", f.GroupWebURL,
+			f.GroupPath, f.Visibility, "Group", string(f.Severity), strings.Join(f.Violations, "; "), f.Details, f.Remediation}
+		if err := writeRow(f.Instance, row); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -297,6 +323,9 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Pipeline Retention Violations | %d |\n", report.Summary.PipelineRetentionViolations))
 	sb.WriteString(fmt.Sprintf("| Repository File Violations | %d |\n", report.Summary.RepositoryFileViolations))
 	sb.WriteString(fmt.Sprintf("| Protected Tag Violations | %d |\n", report.Summary.ProtectedTagViolations))
+	sb.WriteString(fmt.Sprintf("| Deploy Key Violations | %d |\n", report.Summary.DeployKeyViolations))
+	sb.WriteString(fmt.Sprintf("| Deploy Token Violations | %d |\n", report.Summary.DeployTokenViolations))
+	sb.WriteString(fmt.Sprintf("| Group Setting Violations | %d |\n", report.Summary.GroupSettingViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
 	if report.IsMultiInstance() {
@@ -458,9 +487,50 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("\n")
 	}
 
+	if len(report.DeployKeyFindings) > 0 {
+		sb.WriteString("## 8. Deploy Keys Audit (`deploy_keys`)\n\n")
+		sb.WriteString("| Project | State | Key | Access | Age (days) | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|:---:|---:|:---:|---|---|\n")
+		for _, f := range report.DeployKeyFindings {
+			access := "Read-only"
+			if f.CanPush {
+				access = "Read-write"
+			}
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %s | %d | %s | %s | %s |\n",
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), mdURL(f.ProjectWebURL), f.ProjectStatus, escapeMD(f.KeyTitle), access, f.AgeDays, formatBadge(f.Severity), escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.DeployTokenFindings) > 0 {
+		sb.WriteString("## 9. Deploy Tokens Audit (`deploy_tokens`)\n\n")
+		sb.WriteString("| Owner | Type | Token | Scopes | Expires | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|---|---|---|:---:|---|---|\n")
+		for _, f := range report.DeployTokenFindings {
+			expires := f.ExpiresAt
+			if expires == "" {
+				expires = "Never"
+			}
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %s | %s | %s | %s | %s |\n",
+				escapeMD(audit.Label(f.Instance, f.OwnerPath)), mdURL(f.OwnerWebURL), f.OwnerType, escapeMD(f.TokenName), escapeMD(strings.Join(f.Scopes, ", ")), expires, formatBadge(f.Severity), escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(report.GroupSettingFindings) > 0 {
+		sb.WriteString("## 10. Group Settings Audit (`group_settings`)\n\n")
+		sb.WriteString("| Group | Visibility | 2FA Required | Project Creation | Status | Details | Remediation |\n")
+		sb.WriteString("|---|---|:---:|---|:---:|---|---|\n")
+		for _, f := range report.GroupSettingFindings {
+			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %s | %s | %s | %s |\n",
+				escapeMD(audit.Label(f.Instance, f.GroupPath)), mdURL(f.GroupWebURL), f.Visibility, yesNo(f.RequireTwoFactorAuth), f.ProjectCreationLevel, formatBadge(f.Severity), escapeMD(f.Details), escapeMD(f.Remediation)))
+		}
+		sb.WriteString("\n")
+	}
+
 	// User Directory Section
 	if len(report.UserDirectory) > 0 {
-		sb.WriteString("## 8. Fleet User Directory\n\n")
+		sb.WriteString("## 11. Fleet User Directory\n\n")
 		sb.WriteString("| ID | Username | Full Name | Account Type | State | Projects Access |\n")
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
@@ -529,6 +599,9 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <div class="stat-card"><div>Retention Violations</div><div class="stat-val ` + dangerClass(report.Summary.PipelineRetentionViolations) + `">` + strconv.Itoa(report.Summary.PipelineRetentionViolations) + `</div></div>
   <div class="stat-card"><div>File Violations</div><div class="stat-val ` + dangerClass(report.Summary.RepositoryFileViolations) + `">` + strconv.Itoa(report.Summary.RepositoryFileViolations) + `</div></div>
   <div class="stat-card"><div>Tag Violations</div><div class="stat-val ` + dangerClass(report.Summary.ProtectedTagViolations) + `">` + strconv.Itoa(report.Summary.ProtectedTagViolations) + `</div></div>
+  <div class="stat-card"><div>Deploy Key Violations</div><div class="stat-val ` + dangerClass(report.Summary.DeployKeyViolations) + `">` + strconv.Itoa(report.Summary.DeployKeyViolations) + `</div></div>
+  <div class="stat-card"><div>Deploy Token Violations</div><div class="stat-val ` + dangerClass(report.Summary.DeployTokenViolations) + `">` + strconv.Itoa(report.Summary.DeployTokenViolations) + `</div></div>
+  <div class="stat-card"><div>Group Setting Violations</div><div class="stat-val ` + dangerClass(report.Summary.GroupSettingViolations) + `">` + strconv.Itoa(report.Summary.GroupSettingViolations) + `</div></div>
 </div>
 `)
 
@@ -759,6 +832,55 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(`</tbody></table>`)
 	}
 
+	htmlTable := func(title string, headers []string, rows [][]string) {
+		if len(rows) == 0 {
+			return
+		}
+		sb.WriteString("<h2>" + html.EscapeString(title) + "</h2>\n<table>\n  <thead>\n    <tr>")
+		for _, h := range headers {
+			sb.WriteString("<th>" + html.EscapeString(h) + "</th>")
+		}
+		sb.WriteString("</tr>\n  </thead>\n  <tbody>")
+		for _, r := range rows {
+			sb.WriteString("\n<tr>")
+			for _, cell := range r {
+				sb.WriteString("<td>" + cell + "</td>")
+			}
+			sb.WriteString("</tr>")
+		}
+		sb.WriteString(`</tbody></table>`)
+	}
+	link := func(url, text string) string {
+		return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>`, safeHref(url), html.EscapeString(text))
+	}
+	esc := html.EscapeString
+
+	var keyRows [][]string
+	for _, f := range report.DeployKeyFindings {
+		access := "Read-only"
+		if f.CanPush {
+			access = "<b>Read-write</b>"
+		}
+		keyRows = append(keyRows, []string{link(f.ProjectWebURL, audit.Label(f.Instance, f.ProjectPath)), esc(f.ProjectStatus), esc(f.KeyTitle), access, strconv.Itoa(f.AgeDays), htmlBadge(f.Severity), esc(f.Details), esc(f.Remediation)})
+	}
+	htmlTable("Deploy Keys Audit", []string{"Project", "State", "Key", "Access", "Age (days)", "Status", "Details", "Remediation"}, keyRows)
+
+	var tokenRows [][]string
+	for _, f := range report.DeployTokenFindings {
+		expires := f.ExpiresAt
+		if expires == "" {
+			expires = "Never"
+		}
+		tokenRows = append(tokenRows, []string{link(f.OwnerWebURL, audit.Label(f.Instance, f.OwnerPath)), esc(f.OwnerType), esc(f.TokenName), esc(strings.Join(f.Scopes, ", ")), esc(expires), htmlBadge(f.Severity), esc(f.Details), esc(f.Remediation)})
+	}
+	htmlTable("Deploy Tokens Audit", []string{"Owner", "Type", "Token", "Scopes", "Expires", "Status", "Details", "Remediation"}, tokenRows)
+
+	var groupRows [][]string
+	for _, f := range report.GroupSettingFindings {
+		groupRows = append(groupRows, []string{link(f.GroupWebURL, audit.Label(f.Instance, f.GroupPath)), esc(f.Visibility), yesNo(f.RequireTwoFactorAuth), esc(f.ProjectCreationLevel), htmlBadge(f.Severity), esc(f.Details), esc(f.Remediation)})
+	}
+	htmlTable("Group Settings Audit", []string{"Group", "Visibility", "2FA Required", "Project Creation", "Status", "Details", "Remediation"}, groupRows)
+
 	sb.WriteString(`</div></body></html>`)
 	_, err := io.WriteString(out, sb.String())
 	return err
@@ -793,6 +915,10 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		report.Summary.RepositoryFileViolations))
 	sb.WriteString(fmt.Sprintf("Protected Tags : Protected Tag Violations: %d\n",
 		report.Summary.ProtectedTagViolations))
+	sb.WriteString(fmt.Sprintf("Deploy Creds   : Deploy Key Violations: %d | Deploy Token Violations: %d\n",
+		report.Summary.DeployKeyViolations, report.Summary.DeployTokenViolations))
+	sb.WriteString(fmt.Sprintf("Group Settings : Group Setting Violations: %d (%d groups)\n",
+		report.Summary.GroupSettingViolations, report.Summary.TotalGroupsScanned))
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
 		sb.WriteString(fmt.Sprintf("Licensing      : %s (Tier: %s) | Status: %s | Licensed To: %s\n", att.LicenseModel, att.Tier, att.Status, att.LicensedTo))
@@ -955,8 +1081,51 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("\n")
 	}
 
+	tableSection := func(title string, header [4]string, rows [][4]string, sev []audit.Severity) {
+		if len(rows) == 0 {
+			return
+		}
+		sb.WriteString("[" + title + "]\n")
+		sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n", header[0], header[1], header[2], "STATUS", header[3]))
+		sb.WriteString(strings.Repeat("-", 105) + "\n")
+		for i, r := range rows {
+			sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n", truncate(r[0], 27), truncate(r[1], 19), truncate(r[2], 11), sev[i], truncate(r[3], 40)))
+		}
+		sb.WriteString("\n")
+	}
+	var rows [][4]string
+	var sevs []audit.Severity
+	for _, f := range report.DeployKeyFindings {
+		access := "read-only"
+		if f.CanPush {
+			access = "read-write"
+		}
+		rows = append(rows, [4]string{audit.Label(f.Instance, f.ProjectPath), f.KeyTitle, access, f.Details})
+		sevs = append(sevs, f.Severity)
+	}
+	tableSection("DEPLOY KEYS FINDINGS", [4]string{"PROJECT", "KEY", "ACCESS", "DETAILS"}, rows, sevs)
+	rows, sevs = nil, nil
+	for _, f := range report.DeployTokenFindings {
+		rows = append(rows, [4]string{audit.Label(f.Instance, f.OwnerPath), f.TokenName, f.OwnerType, f.Details})
+		sevs = append(sevs, f.Severity)
+	}
+	tableSection("DEPLOY TOKENS FINDINGS", [4]string{"OWNER", "TOKEN", "TYPE", "DETAILS"}, rows, sevs)
+	rows, sevs = nil, nil
+	for _, f := range report.GroupSettingFindings {
+		rows = append(rows, [4]string{audit.Label(f.Instance, f.GroupPath), f.Visibility, "2FA " + yesNo(f.RequireTwoFactorAuth), f.Details})
+		sevs = append(sevs, f.Severity)
+	}
+	tableSection("GROUP SETTINGS FINDINGS", [4]string{"GROUP", "VISIBILITY", "2FA", "DETAILS"}, rows, sevs)
+
 	_, err := io.WriteString(out, sb.String())
 	return err
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
 }
 
 func formatBadge(s audit.Severity) string {

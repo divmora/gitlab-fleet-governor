@@ -12,7 +12,7 @@
 
 ### Features
 
-* **governance:** deploy keys and deploy tokens reconcilers ([#122](https://github.com/divmora/gitlab-fleet-governor/issues/122)) ([e413009](https://github.com/divmora/gitlab-fleet-governor/commit/e413009376aa8a966189aaaa6defc56ea629a31e)), closes [#54](https://github.com/divmora/gitlab-fleet-governor/issues/54)
+* **governance:** deploy keys and deploy tokens reconcilers ([#122](https://github.com/divmora/gitlab-fleet-governor/issues/122)) ([e413009](https://github.com/divmora/gitlab-fleet-governor/commit/e413009376aa8a966189aaaa6defc56ea629a31e)), part of [#54](https://github.com/divmora/gitlab-fleet-governor/issues/54)
 * **governance:** group_settings reconciler ([#119](https://github.com/divmora/gitlab-fleet-governor/issues/119)) ([9c6067b](https://github.com/divmora/gitlab-fleet-governor/commit/9c6067bb9ebd79bc938db685775b8918745d58df))
 * **governance:** project security settings, job token scope and secret push protection ([#121](https://github.com/divmora/gitlab-fleet-governor/issues/121)) ([9d2ea87](https://github.com/divmora/gitlab-fleet-governor/commit/9d2ea87dbc91b5d0860d51fb0adb4a34b1ecb47a))
 

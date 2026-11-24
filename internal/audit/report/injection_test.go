@@ -39,6 +39,9 @@ func hostileReport() *audit.AuditReport {
 		RepositoryFileFindings:    []audit.RepositoryFileFinding{{ProjectID: 1, ProjectPath: "g/p", ProjectWebURL: evilURL, FilePath: xss, Severity: audit.SeverityHigh, Details: xss}},
 		ProtectedTagFindings:      []audit.ProtectedTagFinding{{ProjectID: 1, ProjectPath: "g/p", ProjectWebURL: evilURL, TagNamePattern: xss, CreateAccessLevelsSummary: xss, Severity: audit.SeverityHigh, Details: xss}},
 		UserDirectory:             []*audit.UserInfo{{ID: 9, Username: "mallory", Name: xss, WebURL: "javascript:alert(2)"}},
+		DeployKeyFindings:         []audit.DeployKeyFinding{{ProjectID: 1, ProjectPath: "g/p", ProjectWebURL: evilURL, KeyTitle: xss, Severity: audit.SeverityMedium, Details: xss, Remediation: "=cmd"}},
+		DeployTokenFindings:       []audit.DeployTokenFinding{{OwnerType: "group", OwnerID: 2, OwnerPath: "g", OwnerWebURL: evilURL, TokenName: xss, Scopes: []string{xss}, Severity: audit.SeverityHigh, Details: xss}},
+		GroupSettingFindings:      []audit.GroupSettingFinding{{GroupID: 2, GroupPath: "g", GroupWebURL: evilURL, Visibility: xss, ProjectCreationLevel: xss, Severity: audit.SeverityHigh, Details: xss, Remediation: "@SUM(2)"}},
 	}
 	r.ComputeSummary()
 	return r
@@ -85,6 +88,8 @@ func TestCSVReport_NeutralisesFormulas(t *testing.T) {
 	joined := strings.Join(cells, "\n")
 	assert.Contains(t, joined, `'+cmd|' /C calc'!A0`)
 	assert.Contains(t, joined, "'@SUM(1+1)")
+	assert.Contains(t, joined, "'=cmd")
+	assert.Contains(t, joined, "'@SUM(2)")
 }
 
 func TestMarkdownReport_DropsUnsafeLinks(t *testing.T) {
@@ -112,4 +117,32 @@ func TestXLSXReport_DropsUnsafeHyperlinks(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestXLSXReport_HasCredentialAndGroupSheets(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.ExportAuditReport(hostileReport(), report.FormatXLSX, &buf))
+	wb, err := excelize.OpenReader(&buf)
+	require.NoError(t, err)
+	defer func() { _ = wb.Close() }()
+	sheets := wb.GetSheetList()
+	for _, name := range []string{"Deploy Keys", "Deploy Tokens", "Group Settings"} {
+		assert.Contains(t, sheets, name)
+	}
+	title, err := wb.GetCellValue("Deploy Tokens", "E2")
+	require.NoError(t, err)
+	assert.Equal(t, xss, title, "cell values are stored as plain text")
+}
+
+func TestReports_ListCredentialAndGroupFindings(t *testing.T) {
+	md := render(t, report.FormatMarkdown)
+	assert.Contains(t, md, "## 8. Deploy Keys Audit")
+	assert.Contains(t, md, "## 9. Deploy Tokens Audit")
+	assert.Contains(t, md, "## 10. Group Settings Audit")
+	assert.Contains(t, md, "## 11. Fleet User Directory")
+	table := render(t, report.FormatTable)
+	assert.Contains(t, table, "[DEPLOY KEYS FINDINGS]")
+	assert.Contains(t, table, "[GROUP SETTINGS FINDINGS]")
+	page := render(t, report.FormatHTML)
+	assert.Contains(t, page, "<h2>Deploy Tokens Audit</h2>")
 }
