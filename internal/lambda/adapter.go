@@ -52,14 +52,14 @@ func (h *Handler) notify(ctx context.Context, cfg *config.PolicyConfig, res *eng
 	if cfg.IsMultiInstance() {
 		baseURL = cfg.Instances[0].BaseURL
 	}
+	// The licence check reads no file paths from the config: on Lambda a
+	// file-based licence comes from DIVMORA_LICENSE_FILE (or the default
+	// location), which the licence resolver falls back to.
 	notify.Send(ctx, h.notifier, n, notify.FromExecution(res, execErr), notify.Gate{
 		DryRun:        dryRun,
 		GitLabBaseURL: baseURL,
 		LicenseKey:    cfg.Settings.License.Key,
-		LicenseFile:   cfg.Settings.License.File,
 		CRL:           cfg.Settings.License.CRL,
-		CRLFile:       cfg.Settings.License.CRLFile,
-		CRLURL:        cfg.Settings.License.CRLURL,
 	})
 }
 
