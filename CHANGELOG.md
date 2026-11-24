@@ -7,6 +7,19 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.19.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.18.0...v0.19.0) (2026-11-24)
+
+
+### Features
+
+* **platform:** audit, export and merge with multi-instance policies ([#116](https://github.com/divmora/gitlab-fleet-governor/issues/116)) ([8f279a9](https://github.com/divmora/gitlab-fleet-governor/commit/8f279a9ebaff79d50976e3f19c7e7e844434e15e)), closes [#57](https://github.com/divmora/gitlab-fleet-governor/issues/57)
+* **platform:** per-instance policy overrides and config render ([#114](https://github.com/divmora/gitlab-fleet-governor/issues/114)) ([5c7c5ec](https://github.com/divmora/gitlab-fleet-governor/commit/5c7c5ececdbb58ee3ab23a2456c5c042bead43c6))
+
+
+### Bug Fixes
+
+* **security:** escape GitLab data in audit reports ([#117](https://github.com/divmora/gitlab-fleet-governor/issues/117)) ([f180f0f](https://github.com/divmora/gitlab-fleet-governor/commit/f180f0f622d066f33aea851b7d782ca82a75e204))
+
 ## [0.18.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.17.1...v0.18.0) (2026-11-24)
 
 
