@@ -1074,6 +1074,10 @@ func (rt *Router) routeGroups(w http.ResponseWriter, r *http.Request, sub string
 			rt.handleGetGroup(w, r, unescapedID)
 			return
 		}
+		if r.Method == http.MethodPut {
+			rt.handleUpdateGroup(w, r, unescapedID)
+			return
+		}
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 		return
 	}
@@ -1114,6 +1118,24 @@ func (rt *Router) handleGetGroup(w http.ResponseWriter, r *http.Request, idOrPat
 	g, found := rt.state.GetGroup(idOrPath)
 	if !found {
 		http.Error(w, `{"message":"404 Group Not Found"}`, http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(g)
+}
+
+func (rt *Router) handleUpdateGroup(w http.ResponseWriter, r *http.Request, idOrPath string) {
+	var body map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"error":"invalid json body"}`, http.StatusBadRequest)
+		return
+	}
+	g, found, err := rt.state.UpdateGroupFields(idOrPath, body)
+	if !found {
+		http.Error(w, `{"message":"404 Group Not Found"}`, http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, `{"message":"400 Bad Request"}`, http.StatusBadRequest)
 		return
 	}
 	_ = json.NewEncoder(w).Encode(g)

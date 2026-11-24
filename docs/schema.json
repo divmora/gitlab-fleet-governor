@@ -137,6 +137,37 @@
     "policies": {
       "type": "object",
       "properties": {
+        "group_settings": {
+          "type": "object",
+          "description": "Group-level security and membership settings applied to every targeted group (Pro).",
+          "additionalProperties": false,
+          "properties": {
+            "visibility": { "type": "string", "enum": ["private", "internal", "public"] },
+            "require_two_factor_authentication": { "type": "boolean" },
+            "two_factor_grace_period": { "type": "integer", "minimum": 0 },
+            "project_creation_level": { "type": "string", "enum": ["noone", "owner", "maintainer", "developer", "administrator"] },
+            "subgroup_creation_level": { "type": "string", "enum": ["owner", "maintainer"] },
+            "membership_lock": { "type": "boolean" },
+            "share_with_group_lock": { "type": "boolean" },
+            "prevent_forking_outside_group": { "type": "boolean" },
+            "request_access_enabled": { "type": "boolean" },
+            "emails_enabled": { "type": "boolean" },
+            "mentions_disabled": { "type": "boolean" },
+            "ip_restriction_ranges": { "type": "array", "items": { "type": "string" } },
+            "allowed_email_domains": { "type": "array", "items": { "type": "string" } },
+            "default_branch_protection": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "allowed_to_push": { "type": "array", "items": { "type": "integer", "enum": [0, 30, 40, 60] } },
+                "allowed_to_merge": { "type": "array", "items": { "type": "integer", "enum": [0, 30, 40, 60] } },
+                "allow_force_push": { "type": "boolean" },
+                "developer_can_initial_push": { "type": "boolean" },
+                "code_owner_approval_required": { "type": "boolean" }
+              }
+            }
+          }
+        },
         "push_rules": {
           "type": "object",
           "properties": {

@@ -1233,3 +1233,21 @@ func TestVerify_AutoFingerprint_NodeLocking(t *testing.T) {
 		assert.False(t, status.Valid)
 	})
 }
+
+func TestGroupSettingsIsPro(t *testing.T) {
+	if got := license.RequiredTierForFeature("governance.group_settings"); got != "pro" {
+		t.Fatalf("license.RequiredTierForFeature(group_settings) = %q, want pro", got)
+	}
+	found := false
+	for _, f := range license.DefaultTierFeatures["pro"] {
+		if f == "governance.group_settings" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("governance.group_settings missing from the pro tier")
+	}
+	if license.IsCommunityFeature("governance.group_settings") {
+		t.Fatal("group_settings must not be a community feature")
+	}
+}

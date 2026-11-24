@@ -51,7 +51,7 @@ Managing security baselines, branch protections, push rules, and compliance stan
 
 - 📜 **Declarative Policy-as-Code**: Author policies in interchangeable YAML or JSON with `${ENV_VAR:-default}` substitution.
 - 🌳 **Fleet-Scale Discovery**: Recursive Breadth-First Search (BFS) group hierarchy traversal with cycle detection and project filter pipelines.
-- 🛡️ **12 Complete Governance Reconcilers**:
+- 🛡️ **Governance Reconcilers** (highlights):
   1. **Push Rules**: Author emails, branch regexes, commit message format, file size limits, secret prevention, signed commits, and DCO sign-offs.
   2. **Protected Branches**: Push/merge/unprotect access tiers, force push bans, code owner approvals.
   3. **Branch Merges**: Automated branch promotion via Merge Requests with conflict-aware safety (merges when clean, leaves MR open on conflict).
@@ -64,6 +64,7 @@ Managing security baselines, branch protections, push rules, and compliance stan
   10. **CI/CD Variables**: Scoped environment variables, masked secrets, protected flags, raw values, drift pruning.
   11. **Runner Governance**: Shared/group runner toggles, tag enforcement, pause/locked controls.
   12. **Compliance Frameworks**: Automated assignment of compliance framework labels (SOC2, PCI-DSS, ISO27001).
+  13. **Group Settings**: Group visibility, 2FA enforcement, creation levels, sharing and forking locks, IP and email-domain restrictions, default branch protection.
   13. **Webhooks & Integrations**: Organization webhook endpoint provisioning, trigger filters, HMAC secret tokens, SSL verification.
   14. **Members & Access Audit**: Over-privileged user detection, mandatory expiration dates, inherited maintainer deduplication.
   15. **Repository Files**: Declarative cross-repo file synchronization (CODEOWNERS, SECURITY.md).

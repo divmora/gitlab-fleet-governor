@@ -329,6 +329,7 @@ func validatePolicies(p *PoliciesConfig, prefix string, errs *ValidationErrors, 
 	if p == nil {
 		return
 	}
+	validateGroupSettings(p.GroupSettings, prefix+".group_settings", errs)
 
 	if p.PushRules != nil {
 		validatePushRules(p.PushRules, prefix+".push_rules", errs)

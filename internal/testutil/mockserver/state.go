@@ -1,6 +1,7 @@
 package mockserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
@@ -601,6 +602,54 @@ func (s *State) GetGroup(idOrPath any) (*gitlab.Group, bool) {
 		return nil, false
 	}
 	return cloneGroup(g), true
+}
+
+// UpdateGroupFields applies a group update request body (as sent by
+// PUT /groups/:id) to the stored group. JSON fields in the body overwrite
+// the group's fields of the same name; nested objects such as
+// default_branch_protection_defaults are merged.
+func (s *State) UpdateGroupFields(idOrPath any, body map[string]any) (*gitlab.Group, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.resolveGroupIDLocked(idOrPath)
+	if !ok {
+		return nil, false, nil
+	}
+	g, found := s.groups[id]
+	if !found {
+		return nil, false, nil
+	}
+
+	raw, err := json.Marshal(g)
+	if err != nil {
+		return nil, true, err
+	}
+	current := map[string]any{}
+	if err := json.Unmarshal(raw, &current); err != nil {
+		return nil, true, err
+	}
+	for k, v := range body {
+		if nested, ok := v.(map[string]any); ok {
+			if cur, ok := current[k].(map[string]any); ok {
+				for nk, nv := range nested {
+					cur[nk] = nv
+				}
+				continue
+			}
+		}
+		current[k] = v
+	}
+	raw, err = json.Marshal(current)
+	if err != nil {
+		return nil, true, err
+	}
+	updated := &gitlab.Group{}
+	if err := json.Unmarshal(raw, updated); err != nil {
+		return nil, true, err
+	}
+	s.groups[id] = updated
+	return cloneGroup(updated), true, nil
 }
 
 func (s *State) ListGroups() []*gitlab.Group {
