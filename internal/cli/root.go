@@ -109,6 +109,7 @@ and pipeline retention across fleets of GitLab projects and groups.`,
 	rootCmd.AddCommand(newAuditCmd())
 	rootCmd.AddCommand(newExportCmd())
 	rootCmd.AddCommand(newValidateCmd())
+	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLambdaCmd())
 	rootCmd.AddCommand(newLicenseCmd())

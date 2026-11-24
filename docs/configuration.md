@@ -145,14 +145,22 @@ instances:
     policies:                # merged over the top-level policies
       push_rules:
         max_file_size: 50    # prevent_secrets: true is kept
-      protected_branches:    # lists replace the top-level list
-        - name: main
+      protected_branches:    # matched by name
+        - name: main         # only this rule changes
           allowed_to_merge:
             - access_level: 40
+        - name: develop      # not protected on this instance
+          $remove: true
+        - name: hotfix/*     # added on this instance
 policies:                    # apply to every instance
   push_rules:
     prevent_secrets: true
     max_file_size: 10
+  protected_branches:
+    - name: main
+      allowed_to_merge:
+        - access_level: 30
+    - name: develop
 ```
 
 | Field | Description |
@@ -170,12 +178,44 @@ Behaviour:
 - **One instance at a time.** Instances run in the order listed. If one fails, the rest still run, and the command exits with an error naming each failed instance.
 - **One fleet for licensing.** Projects on every instance count towards the licence's project limit together, and the licence's host scope must cover each instance.
 - **Reports.** Table and Markdown reports list each instance and show paths as `instance:path`. CSV gains a leading `instance` column, and JSON adds `instance` to each target and an `instances` summary. Single-instance reports are unchanged.
-- **Policy overrides.** An instance's `policies` is merged over the top-level `policies` before the run:
-  - Mappings merge field by field. For example, overriding `push_rules.max_file_size` keeps the top-level `push_rules.prevent_secrets`.
-  - Lists such as `protected_branches`, `variables` and `webhooks` replace the top-level list as a whole.
-  - `null` removes a section for that instance, for example `variables: null`.
-  - The merged result is checked like top-level policies, so unknown fields and invalid values fail at load with an `instances[N].policies…` error.
-  - Licence features are worked out from each instance's merged policies.
+- **Policy overrides.** An instance's `policies` is merged over the top-level `policies` before the run. Use [`config render`](#checking-the-effective-policy) to see the result.
+- `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
+
+### How overrides merge
+
+| Override value | Effect |
+|---|---|
+| A mapping (e.g. `push_rules: {max_file_size: 50}`) | Merged field by field; fields the override doesn't mention are kept. |
+| A list with a natural key (table below) | Merged item by item. An item whose key matches a top-level item is merged into it, an item with a new key is added, and an item with `$remove: true` drops the matching top-level item. |
+| `{$replace: [...]}` on such a list | Replaces the top-level list as a whole. |
+| Any other list or value | Replaces the top-level value. Lists inside a matched item, such as `allowed_to_merge`, replace too. |
+| `null` | Removes the section or field on this instance, so it is no longer managed there. Nothing is deleted from GitLab. |
+
+| List | Items matched by |
+|---|---|
+| `protected_branches` | `name` |
+| `protected_tags` (or `protected_tags.rules`), `protected_environments` (or `.rules`) | `name` |
+| `approval_rules.rules`, `target_branch_rules.rules` | `name` |
+| `variables` | `key` and `environment_scope` (unset means `*`) |
+| `webhooks` | `url` |
+| `repository_files` | `path` |
+| `branch_merges` | `source_branch` and `target_branch` |
+| `runners.runners` | `id` |
+| `members.allowed_members` | `username` |
+
+The merged result is checked like the top-level policies. Unknown fields, invalid values, an item without its key, a duplicate key, a `$remove` that matches nothing, and a marker used anywhere else all fail at load with an `instances[N].policies…` error. Licence features are worked out from each instance's merged policies.
+
+### Checking the effective policy
+
+`config render` prints the policy each instance is governed with, after inheritance and overrides, without calling any API:
+
+```bash
+gitlab-fleet-governor config render -c policy.yaml
+gitlab-fleet-governor config render -c policy.yaml --instance self-managed --format json
+```
+
+GitLab tokens, the licence key, webhook `secret_token` values and the values of masked variables are printed as `<redacted>`.
+
 - `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
 
 ---

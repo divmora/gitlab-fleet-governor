@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // instanceNameRegex restricts instance names to short identifiers that are
@@ -28,10 +26,9 @@ type InstanceConfig struct {
 	// top-level targets apply.
 	Targets *TargetSelectors `yaml:"targets,omitempty" json:"targets,omitempty"`
 
-	// Policies overrides the top-level policies on this instance. It is
-	// merged over them: nested mappings merge field by field, while scalars
-	// and lists replace the top-level value, and null removes it. The merged
-	// result is decoded and validated like the top-level policies.
+	// Policies overrides the top-level policies on this instance; see
+	// MergePolicies for the merge rules. The merged result is decoded and
+	// validated like the top-level policies.
 	Policies map[string]any `yaml:"policies,omitempty" json:"policies,omitempty"`
 }
 
@@ -91,72 +88,6 @@ func (p *PolicyConfig) InstanceRuns() ([]InstanceRun, error) {
 		runs = append(runs, InstanceRun{Name: inst.Name, Config: &c})
 	}
 	return runs, nil
-}
-
-// MergePolicies returns base with override merged over it. Nested mappings
-// merge key by key; any other override value (scalar, list or null) replaces
-// the base value. The result is decoded strictly, so unknown fields in the
-// override are rejected.
-func MergePolicies(base PoliciesConfig, override map[string]any) (*PoliciesConfig, error) {
-	raw, err := yaml.Marshal(base)
-	if err != nil {
-		return nil, fmt.Errorf("encode policies: %w", err)
-	}
-	merged := map[string]any{}
-	if err := yaml.Unmarshal(raw, &merged); err != nil {
-		return nil, fmt.Errorf("decode policies: %w", err)
-	}
-	if merged == nil {
-		merged = map[string]any{}
-	}
-	deepMerge(merged, override)
-
-	out := &PoliciesConfig{}
-	if len(merged) == 0 {
-		return out, nil
-	}
-	raw, err = yaml.Marshal(merged)
-	if err != nil {
-		return nil, fmt.Errorf("encode merged policies: %w", err)
-	}
-	if err := UnmarshalStrict(raw, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func deepMerge(dst, src map[string]any) {
-	for k, v := range src {
-		srcMap, srcIsMap := asStringMap(v)
-		dstMap, dstIsMap := asStringMap(dst[k])
-		if srcIsMap && dstIsMap {
-			deepMerge(dstMap, srcMap)
-			dst[k] = dstMap
-			continue
-		}
-		if v == nil {
-			delete(dst, k)
-			continue
-		}
-		dst[k] = v
-	}
-}
-
-// asStringMap normalises the map types produced by the YAML and JSON
-// decoders.
-func asStringMap(v any) (map[string]any, bool) {
-	switch m := v.(type) {
-	case map[string]any:
-		return m, true
-	case map[any]any:
-		out := make(map[string]any, len(m))
-		for k, val := range m {
-			out[fmt.Sprint(k)] = val
-		}
-		return out, true
-	default:
-		return nil, false
-	}
 }
 
 // setInstanceDefaults fills unset connection fields of each instance from

@@ -211,6 +211,12 @@ Validates configuration schema, regular expressions, and permissions without rem
 gitlab-fleet-governor validate -c policies/enterprise.yaml
 ```
 
+#### `config render`
+Prints the effective policy for each GitLab instance after defaults, inheritance and per-instance overrides, with secrets redacted:
+```bash
+gitlab-fleet-governor config render -c policies/enterprise.yaml --instance self-managed
+```
+
 #### `lambda`
 Emulates local AWS Lambda invocation with a JSON event payload:
 ```bash

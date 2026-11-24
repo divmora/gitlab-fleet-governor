@@ -98,6 +98,25 @@ func (p *UntrustedPolicy) apply(ctx context.Context, loader *Loader, cfg *Policy
 	for i := range cfg.Instances {
 		problems = append(problems, p.resolveOverrideFiles(ctx, loader, i, cfg.Instances[i].Policies)...)
 	}
+	if len(problems) == 0 {
+		// Backstop: after merging, no instance may be left with a file
+		// reference. Top-level references were inlined above and override
+		// references by resolveOverrideFiles.
+		for i, inst := range cfg.Instances {
+			if len(inst.Policies) == 0 {
+				continue
+			}
+			merged, err := MergePolicies(cfg.Policies, inst.Policies)
+			if err != nil {
+				continue // reported by validation
+			}
+			for j, f := range merged.RepositoryFiles {
+				if strings.TrimSpace(f.ContentFile) != "" {
+					problems = append(problems, fmt.Sprintf("instances[%d].policies.repository_files[%d].content_file must be an s3:// URI", i, j))
+				}
+			}
+		}
+	}
 
 	if len(problems) > 0 {
 		return errors.New("untrusted configuration rejected: " + strings.Join(problems, "; "))
@@ -112,9 +131,12 @@ func (p *UntrustedPolicy) resolveOverrideFiles(ctx context.Context, loader *Load
 	if !ok || raw == nil {
 		return nil
 	}
+	if m, isMap := asStringMap(raw); isMap {
+		raw = m[ReplaceMarker] // {$replace: [...]}
+	}
 	list, ok := raw.([]any)
 	if !ok {
-		return nil // not a list: strict decoding rejects it when the policies are merged
+		return nil // anything else is rejected when the policies are merged
 	}
 	var problems []string
 	for j, item := range list {
