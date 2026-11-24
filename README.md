@@ -49,6 +49,7 @@ Managing security baselines, branch protections, push rules, and compliance stan
 
 ## 🌟 Key Features
 
+- 📚 **Compliance Starter Templates**: SOC 2, ISO/IEC 27001, PCI DSS, HIPAA, NIST SP 800-53 and FedRAMP Moderate policies with control mappings, created with `gitlab-fleet-governor init` ([templates](templates/README.md)).
 - 📜 **Declarative Policy-as-Code**: Author policies in interchangeable YAML or JSON with `${ENV_VAR:-default}` substitution.
 - 🌳 **Fleet-Scale Discovery**: Recursive Breadth-First Search (BFS) group hierarchy traversal with cycle detection and project filter pipelines.
 - 🛡️ **Governance Reconcilers** (highlights):
@@ -208,6 +209,13 @@ gitlab-fleet-governor audit -c policies/enterprise.yaml -o fleet-audit.xlsx \
   --smtp-from=security@example.com --smtp-to=compliance-team@example.com \
   --smtp-cc=ciso@example.com
 ```
+
+#### `init`
+Creates a policy from a compliance starter template (SOC 2, ISO/IEC 27001, PCI DSS, HIPAA, NIST SP 800-53, FedRAMP Moderate), fills in its placeholders and validates it:
+```bash
+gitlab-fleet-governor init --template pci-dss --group acme/payments --email-domain acme.com --reviewer-group acme/security -o policy.yaml
+```
+Templates support evidence for the framework's controls and include a control mapping (`--readme`). They are a starting point, not a certification. See [templates/](templates/README.md).
 
 #### `validate`
 Validates configuration schema, regular expressions, and permissions without remote API calls:
