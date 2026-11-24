@@ -559,7 +559,7 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 			case 0, 2, 8, 9:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // Hyperlink
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -712,7 +712,7 @@ func (g *XLSXReportGenerator) buildBotAccessSheet(report *audit.AuditReport) err
 			case 0, 2, 8, 9:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // Hyperlink
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -865,7 +865,7 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 			case 0, 2, 5, 6:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // URL
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -1027,7 +1027,7 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 			case 0, 2, 5, 6:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // URL
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -1197,7 +1197,7 @@ func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditRep
 			case 0, 2, 5, 6, 7, 8, 9, 10:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // URL
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -1328,7 +1328,7 @@ func (g *XLSXReportGenerator) buildRepositoryFilesSheet(report *audit.AuditRepor
 			case 0, 2, 5, 6:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // URL
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -1471,7 +1471,7 @@ func (g *XLSXReportGenerator) buildProtectedTagsSheet(report *audit.AuditReport)
 			case 0, 2, 5:
 				_ = g.file.SetCellStyle(sheet, cell, cell, g.centerCellStyle)
 			case 3: // URL
-				if f.ProjectWebURL != "" {
+				if isWebURL(f.ProjectWebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, f.ProjectWebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
@@ -1591,7 +1591,7 @@ func (g *XLSXReportGenerator) buildUserDirectorySheet(report *audit.AuditReport)
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.passStatusStyle)
 				}
 			case 7: // URL
-				if u.WebURL != "" {
+				if isWebURL(u.WebURL) {
 					_ = g.file.SetCellHyperLink(sheet, cell, u.WebURL, "External")
 					_ = g.file.SetCellStyle(sheet, cell, cell, g.hyperlinkStyle)
 				} else {
