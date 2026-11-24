@@ -12,7 +12,7 @@
 
 ### Features
 
-* **platform:** govern several GitLab instances from one policy ([#113](https://github.com/divmora/gitlab-fleet-governor/issues/113)) ([e81b326](https://github.com/divmora/gitlab-fleet-governor/commit/e81b326a708f8a01b6f2664627a46764282b0411)), closes [#57](https://github.com/divmora/gitlab-fleet-governor/issues/57)
+* **platform:** govern several GitLab instances from one policy ([#113](https://github.com/divmora/gitlab-fleet-governor/issues/113)) ([e81b326](https://github.com/divmora/gitlab-fleet-governor/commit/e81b326a708f8a01b6f2664627a46764282b0411)), part of [#57](https://github.com/divmora/gitlab-fleet-governor/issues/57)
 
 
 ### Bug Fixes

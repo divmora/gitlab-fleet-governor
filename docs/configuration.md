@@ -121,7 +121,7 @@ targets:
 
 ## `instances` Reference
 
-A policy can govern several GitLab instances in one run, for example gitlab.com and a self-managed instance. Governing more than one instance requires an **Enterprise** licence (feature `platform.multi_instance`); without one, `plan` and dry-run still work and print a warning, and `apply` is refused.
+A policy can govern several GitLab instances in one run, for example gitlab.com and a self-managed instance. Governing more than one instance requires an **Enterprise** licence (feature `platform.multi_instance`); without one, `plan` and dry-run still work and print a warning, and `apply` is refused. The same applies to `audit`, which runs in dry-run unless `settings.dry_run` is `false` or `--dry-run=false` is passed, like its other commercial features.
 
 ```yaml
 version: "v1"
@@ -179,7 +179,17 @@ Behaviour:
 - **One fleet for licensing.** Projects on every instance count towards the licence's project limit together, and the licence's host scope must cover each instance.
 - **Reports.** Table and Markdown reports list each instance and show paths as `instance:path`. CSV gains a leading `instance` column, and JSON adds `instance` to each target and an `instances` summary. Single-instance reports are unchanged.
 - **Policy overrides.** An instance's `policies` is merged over the top-level `policies` before the run. Use [`config render`](#checking-the-effective-policy) to see the result.
-- `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
+- **Other commands.** `audit` covers every instance in one report (see below). `export` and `merge` work on one instance at a time: pass `--instance <name>`.
+
+#### Auditing several instances
+
+`audit` audits each instance with its own client and writes one report:
+
+- Every finding and user carries its instance. JSON adds an `instance` field and an `instances` summary, with each instance's URL, audit identity, project count, violation count and any error.
+- CSV gains a leading `Instance` column, and the XLSX workbook adds an `Instance` column to each sheet plus a **GitLab Instances** sheet.
+- Table, Markdown and HTML reports list the instances and show paths as `instance:path`.
+- Projects are counted per instance, so project 42 on two instances is two projects, and the licence attestation covers the whole fleet.
+- If an instance fails, the others are still audited and the report is still written, with the failure recorded. The command then exits with an error naming the failed instances.
 
 ### How overrides merge
 
@@ -215,8 +225,6 @@ gitlab-fleet-governor config render -c policy.yaml --instance self-managed --for
 ```
 
 GitLab tokens, the licence key, webhook `secret_token` values and the values of masked variables are printed as `<redacted>`.
-
-- `audit`, `export` and `merge` don't accept a policy with `instances` yet; run them with a single-instance policy for each instance.
 
 ---
 

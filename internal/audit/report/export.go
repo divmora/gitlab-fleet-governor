@@ -97,8 +97,18 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 		"Details",
 		"Remediation",
 	}
+	multi := report.IsMultiInstance()
+	if multi {
+		headers = append([]string{"Instance"}, headers...)
+	}
 	if err := w.Write(headers); err != nil {
 		return err
+	}
+	writeRow := func(instance string, row []string) error {
+		if multi {
+			row = append([]string{instance}, row...)
+		}
+		return w.Write(row)
 	}
 
 	for _, f := range report.UserAccessFindings {
@@ -117,7 +127,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -138,7 +148,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -159,7 +169,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -180,7 +190,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -201,7 +211,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -222,7 +232,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -243,7 +253,7 @@ func exportCSV(report *audit.AuditReport, out io.Writer) error {
 			f.Details,
 			f.Remediation,
 		}
-		if err := w.Write(row); err != nil {
+		if err := writeRow(f.Instance, row); err != nil {
 			return err
 		}
 	}
@@ -285,6 +295,17 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 	sb.WriteString(fmt.Sprintf("| Protected Tag Violations | %d |\n", report.Summary.ProtectedTagViolations))
 	sb.WriteString(fmt.Sprintf("| Unique Fleet Users Discovered | %d |\n\n", len(report.UserDirectory)))
 
+	if report.IsMultiInstance() {
+		sb.WriteString("## GitLab Instances\n\n")
+		sb.WriteString("| Instance | API URL | Audited As | Projects | Violations | Status |\n")
+		sb.WriteString("|---|---|---|---:|---:|---|\n")
+		for _, in := range report.Instances {
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | %s | %d | %d | %s |\n",
+				escapeMD(in.Name), escapeMD(in.BaseURL), escapeMD(instanceIdentity(in)), in.ProjectsScanned, in.Violations, escapeMD(instanceStatus(in))))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Commercial Licensing & Statutory Attestation Section
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
@@ -322,7 +343,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.Username, f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -339,7 +360,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | @%s (%s) | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.Username, escapeMD(f.Name), f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.Username, escapeMD(f.Name), f.AccessRoleName, exp, badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -360,7 +381,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.BranchName, fp, co, escapeMD(f.PushAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -377,7 +398,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %d | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, escapeMD(f.DeployAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -398,7 +419,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | %s | %d | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -411,7 +432,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		for _, f := range report.RepositoryFileFindings {
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | `%s` | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.FilePath), escapeMD(f.TargetBranch), badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.FilePath), escapeMD(f.TargetBranch), badge, escapeMD(f.ViolationType), escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -428,7 +449,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 			}
 			badge := formatBadge(f.Severity)
 			sb.WriteString(fmt.Sprintf("| [%s](%s) | %s | `%s` | %s | %s | %s | %s | %s |\n",
-				escapeMD(f.ProjectPath), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.TagNamePattern), isProt, escapeMD(f.CreateAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
+				escapeMD(audit.Label(f.Instance, f.ProjectPath)), f.ProjectWebURL, f.ProjectStatus, escapeMD(f.TagNamePattern), isProt, escapeMD(f.CreateAccessLevelsSummary), badge, escapeMD(f.Details), escapeMD(f.Remediation)))
 		}
 		sb.WriteString("\n")
 	}
@@ -440,7 +461,7 @@ func exportMarkdown(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString("|---|---|---|---|---|---:|\n")
 		for _, u := range report.UserDirectory {
 			sb.WriteString(fmt.Sprintf("| %d | [@%s](%s) | %s | %s | %s | %d |\n",
-				u.ID, u.Username, u.WebURL, escapeMD(u.Name), u.AccountType, u.State, u.ProjectsCount))
+				u.ID, escapeMD(audit.Label(u.Instance, u.Username)), u.WebURL, escapeMD(u.Name), u.AccountType, u.State, u.ProjectsCount))
 		}
 		sb.WriteString("\n")
 	}
@@ -507,6 +528,15 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
 </div>
 `)
 
+	if report.IsMultiInstance() {
+		sb.WriteString("<h2>GitLab Instances</h2>\n<table>\n    <tr><th>Instance</th><th>API URL</th><th>Audited As</th><th>Projects</th><th>Violations</th><th>Status</th></tr>\n")
+		for _, in := range report.Instances {
+			sb.WriteString(fmt.Sprintf("    <tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>\n",
+				html.EscapeString(in.Name), html.EscapeString(in.BaseURL), html.EscapeString(instanceIdentity(in)), in.ProjectsScanned, in.Violations, html.EscapeString(instanceStatus(in))))
+		}
+		sb.WriteString("</table>\n")
+	}
+
 	if report.LicenseAttestation != nil {
 		att := report.LicenseAttestation
 		capStr := fmt.Sprintf("%d Projects", att.MaxProjects)
@@ -558,7 +588,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.Username, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.Username, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -584,7 +614,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.Username, f.Name, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.Username, f.Name, f.AccessRoleName, exp, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -615,7 +645,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.BranchName, fp, co, f.PushAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.BranchName, fp, co, f.PushAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -642,7 +672,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, f.DeployAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, f.EnvironmentName, prod, f.RequiredApprovalCount, f.DeployAccessLevelsSummary, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -672,7 +702,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, policy, f.StalePipelinesCount, oldest, htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, policy, f.StalePipelinesCount, oldest, htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -694,7 +724,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, html.EscapeString(f.FilePath), html.EscapeString(f.TargetBranch), htmlBadge(f.Severity), html.EscapeString(f.ViolationType), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, html.EscapeString(f.FilePath), html.EscapeString(f.TargetBranch), htmlBadge(f.Severity), html.EscapeString(f.ViolationType), html.EscapeString(f.Details), html.EscapeString(f.Remediation)))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -720,7 +750,7 @@ func exportHTML(report *audit.AuditReport, out io.Writer) error {
   <td>%s</td>
   <td>%s</td>
   <td>%s</td>
-</tr>`, f.ProjectWebURL, f.ProjectPath, f.ProjectStatus, html.EscapeString(f.TagNamePattern), isProt, html.EscapeString(f.CreateAccessLevelsSummary), htmlBadge(f.Severity), f.Details, f.Remediation))
+</tr>`, f.ProjectWebURL, html.EscapeString(audit.Label(f.Instance, f.ProjectPath)), f.ProjectStatus, html.EscapeString(f.TagNamePattern), isProt, html.EscapeString(f.CreateAccessLevelsSummary), htmlBadge(f.Severity), f.Details, f.Remediation))
 		}
 		sb.WriteString(`</tbody></table>`)
 	}
@@ -764,6 +794,12 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(fmt.Sprintf("Licensing      : %s (Tier: %s) | Status: %s | Licensed To: %s\n", att.LicenseModel, att.Tier, att.Status, att.LicensedTo))
 		sb.WriteString(fmt.Sprintf("Attestation    : %s\n", att.AttestationStatement))
 	}
+	if report.IsMultiInstance() {
+		for _, in := range report.Instances {
+			sb.WriteString(fmt.Sprintf("Instance       : %-16s %d projects, %d violations, %s (%s)\n",
+				in.Name, in.ProjectsScanned, in.Violations, instanceStatus(in), in.BaseURL))
+		}
+	}
 	sb.WriteString("================================================================================\n\n")
 
 	if len(report.UserAccessFindings) > 0 {
@@ -776,7 +812,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				exp = f.ExpiresAt
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-16s %-16s %-12s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate("@"+f.Username, 15),
 				truncate(f.AccessRoleName, 15),
 				truncate(exp, 11),
@@ -797,7 +833,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				exp = f.ExpiresAt
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-16s %-16s %-12s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate("@"+f.Username, 15),
 				truncate(f.AccessRoleName, 15),
 				truncate(exp, 11),
@@ -822,7 +858,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				co = "NO"
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-16s %-12s %-12s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate(f.BranchName, 15),
 				fp,
 				co,
@@ -843,7 +879,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				prod = "Yes"
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-16s %-12s %-12d %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate(f.EnvironmentName, 15),
 				prod,
 				f.RequiredApprovalCount,
@@ -868,7 +904,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				oldest = fmt.Sprintf("#%d (%dd)", f.OldestPipelineID, f.OldestPipelineAgeDays)
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-16s %-12s %-16s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate(retStr, 15),
 				truncate(strconv.Itoa(f.StalePipelinesCount), 11),
 				truncate(oldest, 15),
@@ -885,7 +921,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 		sb.WriteString(strings.Repeat("-", 105) + "\n")
 		for _, f := range report.RepositoryFileFindings {
 			sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate(f.FilePath, 19),
 				truncate(f.TargetBranch, 11),
 				f.Severity,
@@ -905,7 +941,7 @@ func exportTable(report *audit.AuditReport, out io.Writer) error {
 				isProt = "Yes"
 			}
 			sb.WriteString(fmt.Sprintf("%-28s %-20s %-12s %-10s %s\n",
-				truncate(f.ProjectPath, 27),
+				truncate(audit.Label(f.Instance, f.ProjectPath), 27),
 				truncate(f.TagNamePattern, 19),
 				truncate(isProt, 11),
 				f.Severity,
@@ -973,4 +1009,18 @@ func truncate(s string, max int) string {
 func escapeMD(s string) string {
 	s = strings.ReplaceAll(s, "|", "\\|")
 	return strings.ReplaceAll(s, "\n", " ")
+}
+
+func instanceStatus(in audit.InstanceAudit) string {
+	if in.Error != "" {
+		return "FAILED: " + in.Error
+	}
+	return "OK"
+}
+
+func instanceIdentity(in audit.InstanceAudit) string {
+	if in.AuthenticatedUser == nil {
+		return ""
+	}
+	return "@" + in.AuthenticatedUser.Username
 }

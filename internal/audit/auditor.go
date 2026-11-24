@@ -77,6 +77,24 @@ type Auditor struct {
 	licenseCRLURL    string
 	dryRun           bool
 	requiredFeatures []string
+
+	// Multi-instance audits: the instance name stamped on findings, the
+	// number of instances, and projects already audited on earlier ones.
+	instance      string
+	instanceCount int
+	priorProjects int
+}
+
+// WithAuditorInstance marks the audit as one instance of a multi-instance
+// policy. Findings and users are tagged with name, more than one instance
+// requires the multi-instance licence feature, and priorProjects (projects
+// found on earlier instances) counts towards licence limits.
+func WithAuditorInstance(name string, count, priorProjects int) AuditorOption {
+	return func(a *Auditor) {
+		a.instance = name
+		a.instanceCount = count
+		a.priorProjects = priorProjects
+	}
 }
 
 // AuditorOption provides functional configuration for Auditor.
@@ -301,16 +319,20 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	}
 
 	var requiredFeatures []string
-	if len(projects) > license.FreeTierMaxProjects || a.licenseKey != "" || a.licenseFile != "" {
+	fleetProjects := a.priorProjects + len(projects)
+	if fleetProjects > license.FreeTierMaxProjects || a.licenseKey != "" || a.licenseFile != "" {
 		requiredFeatures = append(requiredFeatures, "audit.run")
 	}
 	requiredFeatures = append(requiredFeatures, a.requiredFeatures...)
+	if a.instanceCount > 1 {
+		requiredFeatures = append(requiredFeatures, license.FeatureMultiInstance)
+	}
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		requiredFeatures = append(requiredFeatures, "runtime.lambda")
 	}
 
 	licStatus, err := license.Enforce(license.EnforcementOptions{
-		DiscoveredProjects: len(projects),
+		DiscoveredProjects: fleetProjects,
 		IsDryRun:           a.dryRun,
 		GitLabBaseURL:      baseURL,
 		GitLabServerTime:   serverTime,
@@ -327,7 +349,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 		return nil, err
 	}
 
-	licenseAttestation := a.buildLicenseAttestation(licStatus, len(projects), serverTime)
+	licenseAttestation := a.buildLicenseAttestation(licStatus, fleetProjects, serverTime)
 
 	activeCount := 0
 	archivedCount := 0
@@ -417,6 +439,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	if len(projects) == 0 {
 		report.Duration = time.Since(startTime)
 		report.DurationString = report.Duration.Round(time.Millisecond).String()
+		report.tagInstance(a.instance)
 		report.ComputeSummary()
 		return report, nil
 	}
@@ -482,6 +505,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 	}
 
 	// 4. Finalize report metadata and metrics
+	report.tagInstance(a.instance)
 	report.SortFindings()
 	report.ComputeSummary()
 	report.Duration = time.Since(startTime)

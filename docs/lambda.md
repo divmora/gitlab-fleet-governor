@@ -161,7 +161,7 @@ gitlab-fleet-governor lambda --event examples/lambda-event.json
 
 GitLab Fleet Governor is packaged and published as an OCI-compliant AWS Lambda container image for both `x86_64` (amd64) and `arm64` architectures:
 
-- **Registry**: `ghcr.io/divmora/gitlab-fleet-governor-lambda:latest` (and `:vX.Y.Z`)
+- **Registry**: `ghcr.io/divmora/gitlab-fleet-governor-lambda:latest` (and `:X.Y.Z`, e.g. `:0.18.0`, without a `v`)
 - **Base Image**: `public.ecr.aws/lambda/provided:al2023`
 - **Architectures**: `linux/amd64`, `linux/arm64`
 

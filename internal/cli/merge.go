@@ -15,6 +15,7 @@ import (
 )
 
 type mergeFlags struct {
+	Instance     string
 	Project      string
 	SourceBranch string
 	TargetBranch string
@@ -53,6 +54,7 @@ without attempting to merge.`,
 	cmd.Flags().StringVar(&flags.Description, "description", "", "Custom merge request description (optional)")
 	cmd.Flags().BoolVar(&flags.AutoMerge, "auto-merge", true, "Automatically accept/merge the MR if clean with no conflicts")
 	cmd.Flags().BoolVar(&flags.JSON, "json", false, "Output execution outcome in JSON format")
+	cmd.Flags().StringVar(&flags.Instance, "instance", "", "Instance to use, for a policy with an instances block")
 
 	_ = cmd.MarkFlagRequired("project")
 	_ = cmd.MarkFlagRequired("source")
@@ -84,18 +86,22 @@ func executeMerge(ctx context.Context, cmd *cobra.Command, flags mergeFlags) err
 		dryRun = globalFlags.DryRun
 	}
 
-	var gitlabCfg config.GitLabSettingsConfig
+	runCfg := &config.PolicyConfig{}
 	if globalFlags.ConfigPath != "" {
 		cfg, _, err := config.Load(ctx, globalFlags.ConfigPath)
 		if err == nil && cfg != nil {
-			if err := requireSingleInstance("merge", cfg); err != nil {
+			selected, err := selectInstance(cfg, flags.Instance)
+			if err != nil {
 				return err
 			}
-			gitlabCfg = cfg.Settings.GitLab
+			runCfg = selected
 		}
 	}
+	if strings.TrimSpace(flags.Instance) != "" && runCfg.Run.Instance == "" {
+		return fmt.Errorf("--instance needs a policy with an instances block (--config)")
+	}
 
-	client, err := gitlab.NewClientFromConfig(&gitlabCfg)
+	client, err := gitlab.NewClientForRun(runCfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize GitLab client: %w", err)
 	}

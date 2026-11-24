@@ -8,11 +8,12 @@ import (
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/governance"
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 )
 
 // FeatureMultiInstance is the licence feature required to govern more than
 // one GitLab instance in a single run.
-const FeatureMultiInstance = "platform.multi_instance"
+const FeatureMultiInstance = license.FeatureMultiInstance
 
 // InstanceSummary reports the outcome of one GitLab instance in a
 // multi-instance run.

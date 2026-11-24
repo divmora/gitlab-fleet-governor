@@ -31,6 +31,9 @@ type XLSXReportGenerator struct {
 	cardHeaderStyle int
 	cardValStyle    int
 	cardDangerStyle int
+
+	// multi adds an Instance column to every findings sheet (multi-instance audits).
+	multi bool
 }
 
 // GenerateXLSX writes a multi-sheet Excel compliance audit report to w.
@@ -40,7 +43,8 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 	}
 
 	gen := &XLSXReportGenerator{
-		file: excelize.NewFile(),
+		file:  excelize.NewFile(),
+		multi: report.IsMultiInstance(),
 	}
 	defer func() { _ = gen.file.Close() }()
 
@@ -51,6 +55,13 @@ func GenerateXLSX(report *audit.AuditReport, w io.Writer) error {
 	// 1. Executive Summary Sheet
 	if err := gen.buildExecutiveSummarySheet(report); err != nil {
 		return fmt.Errorf("failed to build executive summary sheet: %w", err)
+	}
+
+	// 1b. GitLab Instances Sheet (multi-instance audits only)
+	if gen.multi {
+		if err := gen.buildInstancesSheet(report); err != nil {
+			return fmt.Errorf("failed to build instances sheet: %w", err)
+		}
 	}
 
 	// 2. User Access Sheet (Humans)
@@ -454,6 +465,9 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 		"Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -525,6 +539,9 @@ func (g *XLSXReportGenerator) buildUserAccessSheet(report *audit.AuditReport) er
 			f.ViolationType,
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -601,6 +618,9 @@ func (g *XLSXReportGenerator) buildBotAccessSheet(report *audit.AuditReport) err
 		"Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -672,6 +692,9 @@ func (g *XLSXReportGenerator) buildBotAccessSheet(report *audit.AuditReport) err
 			f.ViolationType,
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -747,6 +770,9 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 		"Violations / Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -819,6 +845,9 @@ func (g *XLSXReportGenerator) buildProtectedBranchesSheet(report *audit.AuditRep
 			string(f.Severity),
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -911,6 +940,9 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 		"Violations / Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -975,6 +1007,9 @@ func (g *XLSXReportGenerator) buildProtectedEnvironmentsSheet(report *audit.Audi
 			string(f.Severity),
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -1056,6 +1091,9 @@ func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditRep
 		"Violation Type",
 		"Details",
 		"Remediation",
+	}
+	if g.multi {
+		headers = append(headers, "Instance")
 	}
 
 	for colIdx, h := range headers {
@@ -1140,6 +1178,9 @@ func (g *XLSXReportGenerator) buildPipelineRetentionSheet(report *audit.AuditRep
 			f.Details,
 			f.Remediation,
 		}
+		if g.multi {
+			values = append(values, f.Instance)
+		}
 
 		for colIdx, val := range values {
 			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
@@ -1211,6 +1252,9 @@ func (g *XLSXReportGenerator) buildRepositoryFilesSheet(report *audit.AuditRepor
 		"Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -1264,6 +1308,9 @@ func (g *XLSXReportGenerator) buildRepositoryFilesSheet(report *audit.AuditRepor
 			f.ViolationType,
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -1337,6 +1384,9 @@ func (g *XLSXReportGenerator) buildProtectedTagsSheet(report *audit.AuditReport)
 		"Violations / Details",
 		"Remediation",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -1401,6 +1451,9 @@ func (g *XLSXReportGenerator) buildProtectedTagsSheet(report *audit.AuditReport)
 			string(f.Severity),
 			f.Details,
 			f.Remediation,
+		}
+		if g.multi {
+			values = append(values, f.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -1478,6 +1531,9 @@ func (g *XLSXReportGenerator) buildUserDirectorySheet(report *audit.AuditReport)
 		"Projects Accessible",
 		"Profile URL",
 	}
+	if g.multi {
+		headers = append(headers, "Instance")
+	}
 
 	for colIdx, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
@@ -1511,6 +1567,9 @@ func (g *XLSXReportGenerator) buildUserDirectorySheet(report *audit.AuditReport)
 			state,
 			u.ProjectsCount,
 			u.WebURL,
+		}
+		if g.multi {
+			values = append(values, u.Instance)
 		}
 
 		for colIdx, val := range values {
@@ -1586,4 +1645,52 @@ func boolToYesNo(b bool) string {
 		return "Yes"
 	}
 	return "No"
+}
+
+// buildInstancesSheet lists the GitLab instances covered by a multi-instance audit.
+func (g *XLSXReportGenerator) buildInstancesSheet(report *audit.AuditReport) error {
+	sheet := "GitLab Instances"
+	if _, err := g.file.NewSheet(sheet); err != nil {
+		return err
+	}
+	headers := []string{"Instance", "API URL", "Audited As", "Projects Scanned", "Violations", "Status"}
+	for colIdx, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = g.file.SetCellValue(sheet, cell, h)
+	}
+	lastHeaderCell, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	_ = g.file.SetCellStyle(sheet, "A1", lastHeaderCell, g.headerStyle)
+
+	maxColLengths := make([]int, len(headers))
+	for i, h := range headers {
+		maxColLengths[i] = len(h)
+	}
+	for r, in := range report.Instances {
+		identity := ""
+		if in.AuthenticatedUser != nil {
+			identity = "@" + in.AuthenticatedUser.Username
+		}
+		status, statusStyle := "OK", g.passStatusStyle
+		if in.Error != "" {
+			status, statusStyle = "FAILED: "+in.Error, g.highStatusStyle
+		}
+		values := []any{in.Name, in.BaseURL, identity, in.ProjectsScanned, in.Violations, status}
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, r+2)
+			_ = g.file.SetCellValue(sheet, cell, val)
+			style := g.dataCellStyle
+			switch colIdx {
+			case 3, 4:
+				style = g.centerCellStyle
+			case 5:
+				style = statusStyle
+			}
+			_ = g.file.SetCellStyle(sheet, cell, cell, style)
+			if l := len(fmt.Sprintf("%v", val)); l > maxColLengths[colIdx] {
+				maxColLengths[colIdx] = l
+			}
+		}
+	}
+	g.applyColumnWidths(sheet, maxColLengths)
+	return nil
 }

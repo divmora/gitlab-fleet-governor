@@ -122,9 +122,6 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
-	if err := requireSingleInstance("audit", cfg); err != nil {
-		return err
-	}
 
 	concurrency := flags.Concurrency
 	if cmd.Flags().Changed("concurrency") {
@@ -143,10 +140,10 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		"concurrency", concurrency,
 	)
 
-	// 2. Initialize resilient GitLab API client
-	client, err := gitlab.NewClientFromConfig(&cfg.Settings.GitLab)
+	// 2. Resolve the GitLab instances to audit (one for a settings.gitlab policy)
+	runs, err := cfg.InstanceRuns()
 	if err != nil {
-		return fmt.Errorf("failed to initialize GitLab client: %w", err)
+		return err
 	}
 
 	// 3. Parse active audit modules
@@ -257,26 +254,44 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		requiredAuditFeatures = append(requiredAuditFeatures, "audit.smtp")
 	}
 
-	// 6. Construct Auditor coordinator
-	auditor, err := audit.NewAuditor(client,
-		audit.WithAuditorConcurrency(concurrency),
-		audit.WithAuditorTargets(cfg.Targets),
-		audit.WithAuditorPolicy(cfg),
-		audit.WithAuditorModules(modules),
-		audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
-		audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
-		audit.WithAuditorCRL(licenseCRL, licenseCRLFile),
-		audit.WithAuditorCRLURL(licenseCRLURL),
-		audit.WithAuditorRequiredFeatures(requiredAuditFeatures...),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize auditor: %w", err)
+	// 6-7. Audit each instance with its own client, then merge the reports.
+	newAuditor := func(instCfg *config.PolicyConfig, priorProjects int) (*audit.Auditor, error) {
+		client, err := gitlab.NewClientForRun(instCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize GitLab client: %w", err)
+		}
+		return audit.NewAuditor(client,
+			audit.WithAuditorConcurrency(concurrency),
+			audit.WithAuditorTargets(instCfg.Targets),
+			audit.WithAuditorPolicy(instCfg),
+			audit.WithAuditorModules(modules),
+			audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
+			audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
+			audit.WithAuditorCRL(licenseCRL, licenseCRLFile),
+			audit.WithAuditorCRLURL(licenseCRLURL),
+			audit.WithAuditorRequiredFeatures(requiredAuditFeatures...),
+			audit.WithAuditorInstance(instCfg.Run.Instance, instCfg.Run.InstanceCount, priorProjects),
+		)
 	}
 
-	// 7. Run fleet discovery and audits
-	reportData, err := auditor.Execute(ctx)
-	if err != nil {
-		return fmt.Errorf("audit execution failed: %w", err)
+	var reportData *audit.AuditReport
+	var instanceErr error
+	if !cfg.IsMultiInstance() {
+		auditor, err := newAuditor(cfg, 0)
+		if err != nil {
+			return fmt.Errorf("failed to initialize auditor: %w", err)
+		}
+		reportData, err = auditor.Execute(ctx)
+		if err != nil {
+			return fmt.Errorf("audit execution failed: %w", err)
+		}
+	} else {
+		// A partial failure still writes the report; the error is returned
+		// once the report has been written and sent.
+		reportData, instanceErr = auditInstances(ctx, runs, newAuditor)
+		if reportData == nil {
+			return instanceErr
+		}
 	}
 
 	// 7. Write Report Output
@@ -335,6 +350,10 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 			}
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "Audit report successfully emailed to %s via %s\n", msgRecipients, flags.SMTPHost)
+	}
+
+	if instanceErr != nil {
+		return instanceErr
 	}
 
 	if reportData.Summary.CriticalSeverityCount > 0 || reportData.Summary.HighSeverityCount > 0 {
