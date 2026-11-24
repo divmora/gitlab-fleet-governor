@@ -63,6 +63,12 @@ func (p *UntrustedPolicy) apply(ctx context.Context, loader *Loader, cfg *Policy
 		}
 	}
 
+	// An event config must not choose where findings are sent: anyone who
+	// can invoke the function could otherwise collect them.
+	if !cfg.Settings.Notifications.IsEmpty() {
+		problems = append(problems, "settings.notifications is not allowed; configure notifications in the operator's own config or environment")
+	}
+
 	lic := cfg.Settings.License
 	if strings.TrimSpace(lic.File) != "" {
 		problems = append(problems, "settings.license.file is not allowed; provide the licence through the operator's environment")

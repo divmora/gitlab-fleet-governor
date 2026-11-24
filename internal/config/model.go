@@ -75,6 +75,10 @@ type SettingsConfig struct {
 
 	// License contains commercial enterprise license configuration.
 	License LicenseSettingsConfig `yaml:"license,omitempty" json:"license,omitempty"`
+
+	// Notifications sends run and audit summaries to chat and alerting
+	// channels (Pro).
+	Notifications *NotificationsConfig `yaml:"notifications,omitempty" json:"notifications,omitempty"`
 }
 
 // LicenseSettingsConfig encapsulates commercial enterprise license parameters.

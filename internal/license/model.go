@@ -98,6 +98,7 @@ var DefaultTierFeatures = liblicense.TierFeatures{
 		"governance.secret_push_protection",
 		"governance.deploy_keys",
 		"governance.deploy_tokens",
+		"notify.*",
 		"report.*",
 	},
 	"enterprise": {
@@ -144,9 +145,11 @@ func RequiredTierForFeature(feature string) string {
 		"governance.deploy_keys",
 		"governance.deploy_tokens":
 		return "pro"
-	default:
-		return "enterprise"
 	}
+	if strings.HasPrefix(strings.TrimSpace(strings.ToLower(feature)), "notify.") {
+		return "pro"
+	}
+	return "enterprise"
 }
 
 // AssertFeature checks if a feature is authorized.

@@ -94,6 +94,7 @@ func validateSettings(s *SettingsConfig, prefix string, errs *ValidationErrors) 
 	if s == nil {
 		return
 	}
+	validateNotifications(s.Notifications, prefix+".notifications", errs)
 
 	if s.Concurrency < 0 {
 		*errs = append(*errs, ValidationError{

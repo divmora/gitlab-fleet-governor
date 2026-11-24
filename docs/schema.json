@@ -28,6 +28,17 @@
           "items": { "type": "string" },
           "description": "Wildcard or substring patterns matching usernames, display names, or emails as bots"
         },
+        "notifications": {
+          "type": "object",
+          "description": "Run and audit summaries to chat and alerting channels (Pro).",
+          "additionalProperties": false,
+          "properties": {
+            "slack": { "type": "object", "additionalProperties": false, "required": ["webhook_url"], "properties": { "webhook_url": { "type": "string", "pattern": "^https://" }, "channel": { "type": "string" }, "min_severity": { "enum": ["info", "warning", "critical"] } } },
+            "teams": { "type": "object", "additionalProperties": false, "required": ["webhook_url"], "properties": { "webhook_url": { "type": "string", "pattern": "^https://" }, "min_severity": { "enum": ["info", "warning", "critical"] } } },
+            "sns": { "type": "object", "additionalProperties": false, "required": ["topic_arn"], "properties": { "topic_arn": { "type": "string", "pattern": "^arn:aws[a-z-]*:sns:" }, "min_severity": { "enum": ["info", "warning", "critical"] } } },
+            "webhook": { "type": "object", "additionalProperties": false, "required": ["url"], "properties": { "url": { "type": "string", "pattern": "^https://" }, "min_severity": { "enum": ["info", "warning", "critical"] } } }
+          }
+        },
         "gitlab": {
           "type": "object",
           "properties": {

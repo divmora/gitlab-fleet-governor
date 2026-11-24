@@ -11,12 +11,14 @@ import (
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/notify"
 	"github.com/divmora/gitlab-fleet-governor/internal/report"
 )
 
 type runFlags struct {
 	IncludeDiffs bool
 	Timeout      time.Duration
+	Notify       notify.Overrides
 }
 
 func newRunCmd() *cobra.Command {
@@ -53,6 +55,7 @@ webhooks, and members), plans or applies changes, and renders a summary report.`
 	}
 
 	cmd.Flags().BoolVar(&flags.IncludeDiffs, "include-diffs", true, "Include granular field-level diffs in summary report")
+	addNotifyFlags(cmd, &flags.Notify)
 	cmd.Flags().DurationVar(&flags.Timeout, "timeout", 0, "Global execution timeout duration (e.g. 15m, 1h; default: no timeout)")
 
 	return cmd
@@ -158,6 +161,18 @@ func executeRun(ctx context.Context, cmd *cobra.Command, flags runFlags) error {
 	if renderErr := reporter.Render(reportData); renderErr != nil {
 		slog.Error("Failed to render execution report", "error", renderErr)
 	}
+
+	summary := notify.FromExecution(result, execErr)
+	summary.Scope = notifyScope(cfg)
+	summary.ReportPath = globalFlags.OutputFile
+	sendNotifications(ctx, cfg, flags.Notify, summary, notify.Gate{
+		DryRun:      dryRun,
+		LicenseKey:  cfg.Settings.License.Key,
+		LicenseFile: cfg.Settings.License.File,
+		CRL:         cfg.Settings.License.CRL,
+		CRLFile:     cfg.Settings.License.CRLFile,
+		CRLURL:      cfg.Settings.License.CRLURL,
+	})
 
 	if execErr != nil {
 		return fmt.Errorf("governance execution failed: %w", execErr)

@@ -3,21 +3,63 @@ package lambda
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/divmora/gitlab-fleet-governor/internal/config"
 	"github.com/divmora/gitlab-fleet-governor/internal/engine"
 	"github.com/divmora/gitlab-fleet-governor/internal/gitlab"
+	"github.com/divmora/gitlab-fleet-governor/internal/notify"
 )
 
 func (h *Handler) executeEngine(ctx context.Context, cfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
-	return engine.ExecuteInstances(ctx, cfg, func(ctx context.Context, instCfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
+	res, err := engine.ExecuteInstances(ctx, cfg, func(ctx context.Context, instCfg *config.PolicyConfig) (*engine.ExecutionResult, error) {
 		client, err := h.clientFactory(&instCfg.Settings.GitLab, gitlab.RunEnvLookup(instCfg, h.lookupEnv))
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize GitLab client: %w", err)
 		}
 		return h.engineFactory(client, instCfg).Execute(ctx, instCfg)
+	})
+	h.notify(ctx, cfg, res, err)
+	return res, err
+}
+
+// notify sends the run summary. On Lambda, notification targets come only
+// from the function's own environment (GLFG_* variables), never from a
+// policy: whoever can invoke the function can supply a config, and must
+// not be able to choose where fleet findings are sent. Event configs that
+// try are also rejected by config.UntrustedPolicy.
+func (h *Handler) notify(ctx context.Context, cfg *config.PolicyConfig, res *engine.ExecutionResult, execErr error) {
+	if cfg == nil {
+		return
+	}
+	if !cfg.Settings.Notifications.IsEmpty() {
+		slog.Info("settings.notifications is ignored on Lambda; set notification targets with GLFG_* environment variables")
+	}
+	lookup := h.lookupEnv
+	n := notify.Resolve(nil, notify.Overrides{}, func(k string) (string, bool) {
+		if lookup == nil {
+			return "", false
+		}
+		return lookup(k)
+	})
+	if n.IsEmpty() {
+		return
+	}
+	dryRun := cfg.Settings.DryRun == nil || *cfg.Settings.DryRun
+	baseURL := cfg.Settings.GitLab.BaseURL
+	if cfg.IsMultiInstance() {
+		baseURL = cfg.Instances[0].BaseURL
+	}
+	notify.Send(ctx, h.notifier, n, notify.FromExecution(res, execErr), notify.Gate{
+		DryRun:        dryRun,
+		GitLabBaseURL: baseURL,
+		LicenseKey:    cfg.Settings.License.Key,
+		LicenseFile:   cfg.Settings.License.File,
+		CRL:           cfg.Settings.License.CRL,
+		CRLFile:       cfg.Settings.License.CRLFile,
+		CRLURL:        cfg.Settings.License.CRLURL,
 	})
 }
 
