@@ -1074,7 +1074,7 @@ func TestCRL_RevocationAndResolution(t *testing.T) {
 		assert.False(t, status.Valid)
 	})
 
-	t.Run("Enforce with revoked token in dry-run mode falls back to simulation exemption", func(t *testing.T) {
+	t.Run("Enforce with revoked token fails in dry-run mode too", func(t *testing.T) {
 		status, err := license.Enforce(license.EnforcementOptions{
 			DiscoveredProjects: 50,
 			IsDryRun:           true,
@@ -1082,10 +1082,22 @@ func TestCRL_RevocationAndResolution(t *testing.T) {
 			PublicKey:          pub,
 			CRL:                crlArmored,
 		})
-		require.NoError(t, err)
-		require.NotNil(t, status)
-		assert.True(t, status.Valid)
-		assert.Contains(t, status.Message, "Simulation / dry-run mode exempted")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, liblicense.ErrLicenseRevoked)
+		assert.Contains(t, err.Error(), "COMMERCIAL LICENSE REVOKED")
+		if status != nil {
+			assert.False(t, status.Valid)
+		}
+	})
+
+	t.Run("Enforce with an invalid token fails in dry-run mode too", func(t *testing.T) {
+		_, err := license.Enforce(license.EnforcementOptions{
+			DiscoveredProjects: 5,
+			IsDryRun:           true,
+			LicenseKey:         "DIV1.not-a-valid-token",
+			PublicKey:          pub,
+		})
+		require.ErrorContains(t, err, "commercial license verification failed")
 	})
 
 	t.Run("CRL File resolution via CRLFile", func(t *testing.T) {

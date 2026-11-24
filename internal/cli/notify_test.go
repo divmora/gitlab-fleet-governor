@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/divmora/gitlab-fleet-governor/internal/license"
 	"github.com/divmora/gitlab-fleet-governor/internal/notify"
+	"github.com/divmora/gitlab-fleet-governor/internal/testutil"
 )
 
 func notifyEndpoint(t *testing.T) (*httptest.Server, func() []notify.Summary) {
@@ -56,7 +58,16 @@ policies:
 `, gl.BaseURL()))
 
 	ctx := context.Background()
+	// Without a licence nothing is sent, even for a dry-run plan (#118).
+	t.Setenv("DIVMORA_LICENSE_KEY", "")
 	_, _, err := executeCommand(ctx, "run", "-c", policy, "--notify-webhook-url", srv.URL+"/hook", "--notify-min-severity", "info")
+	require.NoError(t, err, "a notification problem never fails the run")
+	assert.Empty(t, received())
+
+	license.SetVerificationPublicKey(testutil.GetTestPublicKey())
+	defer license.ResetVerificationPublicKey()
+	t.Setenv("DIVMORA_LICENSE_KEY", testutil.CLITestToken)
+	_, _, err = executeCommand(ctx, "run", "-c", policy, "--notify-webhook-url", srv.URL+"/hook", "--notify-min-severity", "info")
 	require.NoError(t, err)
 	got := received()
 	require.Len(t, got, 1)

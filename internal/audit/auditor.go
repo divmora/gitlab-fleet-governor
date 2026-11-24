@@ -78,7 +78,6 @@ type Auditor struct {
 	licenseCRL       string
 	licenseCRLFile   string
 	licenseCRLURL    string
-	dryRun           bool
 	requiredFeatures []string
 
 	// Multi-instance audits: the instance name stamped on findings, the
@@ -110,12 +109,14 @@ func WithAuditorRequiredFeatures(features ...string) AuditorOption {
 	}
 }
 
-// WithAuditorLicense configures commercial license enforcement settings for the audit run.
+// WithAuditorLicense configures commercial license enforcement settings for
+// the audit run. An audit only reads from GitLab, so it is always licensed
+// as production use: dryRun is accepted for compatibility and ignored.
 func WithAuditorLicense(key, file string, dryRun bool) AuditorOption {
+	_ = dryRun
 	return func(a *Auditor) {
 		a.licenseKey = key
 		a.licenseFile = file
-		a.dryRun = dryRun
 	}
 }
 
@@ -340,7 +341,7 @@ func (a *Auditor) Execute(ctx context.Context) (*AuditReport, error) {
 
 	licStatus, err := license.Enforce(license.EnforcementOptions{
 		DiscoveredProjects: fleetProjects,
-		IsDryRun:           a.dryRun,
+		IsDryRun:           false, // an audit is production use (#118)
 		GitLabBaseURL:      baseURL,
 		GitLabServerTime:   serverTime,
 		TargetPaths:        targetPaths,
@@ -742,20 +743,6 @@ func (a *Auditor) buildLicenseAttestation(status *license.ValidationStatus, proj
 			DiscoveredProjects:   projectCount,
 			ChangeDate:           changeDateStr,
 			AttestationStatement: fmt.Sprintf("Certified commercial governance under Business Source License 1.1. Licensed to %s (%s Tier, Capacity: %d projects, License ID: %s). Cryptographically attested via Ed25519 asymmetric signature.", status.Claims.Customer.Name, strings.ToUpper(plan), maxProjects, status.Claims.ID),
-		}
-	}
-
-	if a.dryRun {
-		return &LicenseAttestation{
-			GovernorVersion:      vInfo.Version,
-			Status:               "EXEMPTED_DRY_RUN",
-			LicenseModel:         "BSL-1.1",
-			Tier:                 "SIMULATION",
-			LicensedTo:           "Non-Production / Dry-Run Simulation",
-			MaxProjects:          0,
-			DiscoveredProjects:   projectCount,
-			ChangeDate:           changeDateStr,
-			AttestationStatement: "Audit execution performed in non-destructive dry-run simulation mode, permitted free of charge under Business Source License 1.1 Additional Use Grant (a).",
 		}
 	}
 

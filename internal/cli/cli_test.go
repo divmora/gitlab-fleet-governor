@@ -436,9 +436,17 @@ targets:
 		require.NoError(t, err)
 		assert.Contains(t, string(mdBytes), "# GitLab Fleet Compliance & Security Audit Report")
 
-		// 4. Excel (.xlsx) Output to File
+		// 4. Excel (.xlsx) Output to File: an Enterprise feature, needed even
+		// though audit runs with dry-run settings (#118).
 		xlsxOut := filepath.Join(tempDir, "audit.xlsx")
 		_, _, err = executeCommand(ctx, "audit", "-c", configFile, "-o", xlsxOut)
+		require.ErrorContains(t, err, "audit.export.xlsx")
+		_, _, err = executeCommand(ctx, "audit", "-c", configFile, "--dry-run", "-o", xlsxOut)
+		require.ErrorContains(t, err, "audit.export.xlsx", "--dry-run doesn't exempt an audit")
+
+		license.SetVerificationPublicKey(testutil.GetTestPublicKey())
+		defer license.ResetVerificationPublicKey()
+		_, _, err = executeCommand(ctx, "audit", "-c", configFile, "--license-key="+testutil.CLITestToken, "-o", xlsxOut)
 		require.NoError(t, err)
 		require.FileExists(t, xlsxOut)
 

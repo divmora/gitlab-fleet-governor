@@ -24,6 +24,9 @@ import (
 )
 
 func TestHandler_NotificationsComeFromEnvironmentOnly(t *testing.T) {
+	license.SetVerificationPublicKey(testutil.GetTestPublicKey())
+	defer license.ResetVerificationPublicKey()
+	t.Setenv("DIVMORA_LICENSE_KEY", testutil.CLITestToken)
 	var mu sync.Mutex
 	paths := []string{}
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

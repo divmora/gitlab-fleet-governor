@@ -207,12 +207,9 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 		licenseCRLURL = cfg.Settings.License.CRLURL
 	}
 
-	dryRun := false
-	if cmd.Flags().Changed("dry-run") || cmd.InheritedFlags().Changed("dry-run") {
-		dryRun = globalFlags.DryRun
-	} else if cfg.Settings.DryRun != nil {
-		dryRun = *cfg.Settings.DryRun
-	}
+	// audit only reads from GitLab, so a "dry-run" audit is a full audit:
+	// it is always licensed as production use (#118). --dry-run and
+	// settings.dry_run don't change what an audit may do.
 
 	// 5. Determine Export Format and Destination
 	outputFile := flags.OutputFile
@@ -269,7 +266,7 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 			audit.WithAuditorPolicy(instCfg),
 			audit.WithAuditorModules(modules),
 			audit.WithAuditorServiceAccounts(serviceAccounts, botPatterns),
-			audit.WithAuditorLicense(licenseKey, licenseFile, dryRun),
+			audit.WithAuditorLicense(licenseKey, licenseFile, false),
 			audit.WithAuditorCRL(licenseCRL, licenseCRLFile),
 			audit.WithAuditorCRLURL(licenseCRLURL),
 			audit.WithAuditorRequiredFeatures(requiredAuditFeatures...),
@@ -358,7 +355,6 @@ func executeAudit(ctx context.Context, cmd *cobra.Command, flags auditFlags) err
 	auditSummary := notify.FromAudit(reportData, outputFile)
 	auditSummary.Scope = notifyScope(cfg)
 	sendNotifications(ctx, cfg, flags.Notify, auditSummary, notify.Gate{
-		DryRun:      dryRun,
 		LicenseKey:  licenseKey,
 		LicenseFile: licenseFile,
 		CRL:         licenseCRL,

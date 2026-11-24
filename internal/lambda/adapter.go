@@ -47,7 +47,6 @@ func (h *Handler) notify(ctx context.Context, cfg *config.PolicyConfig, res *eng
 	if n.IsEmpty() {
 		return
 	}
-	dryRun := cfg.Settings.DryRun == nil || *cfg.Settings.DryRun
 	baseURL := cfg.Settings.GitLab.BaseURL
 	if cfg.IsMultiInstance() {
 		baseURL = cfg.Instances[0].BaseURL
@@ -56,7 +55,6 @@ func (h *Handler) notify(ctx context.Context, cfg *config.PolicyConfig, res *eng
 	// file-based licence comes from DIVMORA_LICENSE_FILE (or the default
 	// location), which the licence resolver falls back to.
 	notify.Send(ctx, h.notifier, n, notify.FromExecution(res, execErr), notify.Gate{
-		DryRun:        dryRun,
 		GitLabBaseURL: baseURL,
 		LicenseKey:    cfg.Settings.License.Key,
 		CRL:           cfg.Settings.License.CRL,
@@ -76,7 +74,6 @@ func BuildLambdaResponse(
 	resp := &LambdaResponse{
 		EventType:           eventType,
 		ConfigSource:        configSource,
-		DryRun:              dryRun,
 		ExecutionDurationMS: duration.Milliseconds(),
 		Errors:              make([]string, 0),
 		ChangedProjects:     make([]ProjectChangeSummary, 0),
