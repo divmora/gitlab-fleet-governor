@@ -65,7 +65,11 @@ func ExecuteInstances(ctx context.Context, cfg *config.PolicyConfig, exec Instan
 	gotResult := false
 	priorProjects := 0
 
-	for _, run := range cfg.InstanceRuns() {
+	runs, err := cfg.InstanceRuns()
+	if err != nil {
+		return nil, err
+	}
+	for _, run := range runs {
 		summary := &InstanceSummary{Name: run.Name, BaseURL: run.Config.Settings.GitLab.BaseURL}
 		merged.Instances = append(merged.Instances, summary)
 

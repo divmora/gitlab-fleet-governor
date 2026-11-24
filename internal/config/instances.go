@@ -25,6 +25,11 @@ type InstanceConfig struct {
 	// Targets selects groups and projects on this instance. When unset, the
 	// top-level targets apply.
 	Targets *TargetSelectors `yaml:"targets,omitempty" json:"targets,omitempty"`
+
+	// Policies overrides the top-level policies on this instance; see
+	// MergePolicies for the merge rules. The merged result is decoded and
+	// validated like the top-level policies.
+	Policies map[string]any `yaml:"policies,omitempty" json:"policies,omitempty"`
 }
 
 // RunContext carries per-run information that is not part of the policy
@@ -56,25 +61,33 @@ func (p *PolicyConfig) IsMultiInstance() bool {
 
 // InstanceRuns returns one entry per GitLab instance. A single-instance
 // policy returns the receiver itself with an empty name. For a policy with an
-// instances block, each entry is a shallow copy whose settings.gitlab and
-// targets are those of the instance; policies are shared and must be treated
-// as read-only.
-func (p *PolicyConfig) InstanceRuns() []InstanceRun {
+// instances block, each entry is a shallow copy whose settings.gitlab,
+// targets and policies are those of the instance. An instance without policy
+// overrides shares the top-level policies, which must be treated as
+// read-only.
+func (p *PolicyConfig) InstanceRuns() ([]InstanceRun, error) {
 	if !p.IsMultiInstance() {
-		return []InstanceRun{{Config: p}}
+		return []InstanceRun{{Config: p}}, nil
 	}
 	runs := make([]InstanceRun, 0, len(p.Instances))
-	for _, inst := range p.Instances {
+	for i, inst := range p.Instances {
 		c := *p
 		c.Instances = nil
 		c.Settings.GitLab = inst.GitLabSettingsConfig
 		if inst.Targets != nil {
 			c.Targets = *inst.Targets
 		}
+		if len(inst.Policies) > 0 {
+			merged, err := MergePolicies(p.Policies, inst.Policies)
+			if err != nil {
+				return nil, fmt.Errorf("instances[%d].policies (%s): %w", i, inst.Name, err)
+			}
+			c.Policies = *merged
+		}
 		c.Run = RunContext{Instance: inst.Name, InstanceCount: len(p.Instances)}
 		runs = append(runs, InstanceRun{Name: inst.Name, Config: &c})
 	}
-	return runs
+	return runs, nil
 }
 
 // setInstanceDefaults fills unset connection fields of each instance from
@@ -108,7 +121,7 @@ func (p *PolicyConfig) setInstanceDefaults() {
 	}
 }
 
-func validateInstances(cfg *PolicyConfig, errs *ValidationErrors) {
+func validateInstances(cfg *PolicyConfig, errs *ValidationErrors, warns *[]ValidationWarning) {
 	if !cfg.IsMultiInstance() {
 		return
 	}
@@ -149,5 +162,14 @@ func validateInstances(cfg *PolicyConfig, errs *ValidationErrors) {
 		}
 		validateGitLabSettings(&inst.GitLabSettingsConfig, prefix, errs)
 		validateTargets(inst.Targets, prefix+".targets", errs)
+
+		if len(inst.Policies) > 0 {
+			merged, err := MergePolicies(cfg.Policies, inst.Policies)
+			if err != nil {
+				*errs = append(*errs, ValidationError{Field: prefix + ".policies", Message: err.Error()})
+				continue
+			}
+			validatePolicies(merged, prefix+".policies", errs, warns)
+		}
 	}
 }

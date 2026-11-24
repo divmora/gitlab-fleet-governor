@@ -69,7 +69,8 @@ func TestInstances_Runs(t *testing.T) {
 	cfg, err := loadMulti(t, multiInstanceDoc)
 	require.NoError(t, err)
 
-	runs := cfg.InstanceRuns()
+	runs, err := cfg.InstanceRuns()
+	require.NoError(t, err)
 	require.Len(t, runs, 2)
 
 	assert.Equal(t, "saas", runs[0].Name)
@@ -88,7 +89,8 @@ func TestInstances_Runs(t *testing.T) {
 	assert.Equal(t, "glpat-saas", runs[0].Config.Settings.GitLab.Token)
 
 	single := &config.PolicyConfig{Version: "v1"}
-	singleRuns := single.InstanceRuns()
+	singleRuns, err := single.InstanceRuns()
+	require.NoError(t, err)
 	require.Len(t, singleRuns, 1)
 	assert.Same(t, single, singleRuns[0].Config)
 	assert.Empty(t, singleRuns[0].Name)

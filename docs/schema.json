@@ -93,6 +93,10 @@
           "max_retries": { "type": "integer", "minimum": 0 },
           "retry_base_delay_ms": { "type": "integer", "minimum": 1 },
           "retry_max_delay_ms": { "type": "integer", "minimum": 1 },
+          "policies": {
+            "type": "object",
+            "description": "Overrides merged over the top-level policies: mappings merge field by field, keyed lists (protected_branches, variables, webhooks, ...) merge by item key with $remove and $replace markers, other values replace, null removes."
+          },
           "targets": {
               "type": "object",
               "properties": {
