@@ -7,6 +7,19 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.18.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.17.1...v0.18.0) (2026-11-24)
+
+
+### Features
+
+* **platform:** govern several GitLab instances from one policy ([#113](https://github.com/divmora/gitlab-fleet-governor/issues/113)) ([e81b326](https://github.com/divmora/gitlab-fleet-governor/commit/e81b326a708f8a01b6f2664627a46764282b0411)), closes [#57](https://github.com/divmora/gitlab-fleet-governor/issues/57)
+
+
+### Bug Fixes
+
+* **security:** load Lambda config through an S3-only loader ([#110](https://github.com/divmora/gitlab-fleet-governor/issues/110)) ([de5251a](https://github.com/divmora/gitlab-fleet-governor/commit/de5251aa4d45868f25efbd1dca36dd91b8f6dd3e))
+* **security:** sanitise configs supplied by Lambda events ([#112](https://github.com/divmora/gitlab-fleet-governor/issues/112)) ([d6435b3](https://github.com/divmora/gitlab-fleet-governor/commit/d6435b3886f2adf53d84384d496fcd5d444a2517))
+
 ## [0.17.1](https://github.com/divmora/gitlab-fleet-governor/compare/v0.17.0...v0.17.1) (2026-11-23)
 
 
