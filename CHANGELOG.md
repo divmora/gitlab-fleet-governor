@@ -7,6 +7,22 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.22.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.21.0...v0.22.0) (2026-11-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **license:** audit features that needed a licence (Excel export, SMTP, multi-instance, audits over 25 projects) now need it with --dry-run too; notifications need Pro in dry-run runs; and a revoked or invalid licence key now fails dry-run runs instead of being ignored.
+
+### Features
+
+* **templates:** compliance starter policies and the init command ([#129](https://github.com/divmora/gitlab-fleet-governor/issues/129)) ([8bb4b24](https://github.com/divmora/gitlab-fleet-governor/commit/8bb4b24f92ebbf894edb420afe7f89edd9360948)), closes [#55](https://github.com/divmora/gitlab-fleet-governor/issues/55)
+
+
+### Bug Fixes
+
+* **license:** license audits and notifications as production use ([#127](https://github.com/divmora/gitlab-fleet-governor/issues/127)) ([d4fc5c9](https://github.com/divmora/gitlab-fleet-governor/commit/d4fc5c9a724c83b1222c72a893319dc1c01d70dc)), closes [#118](https://github.com/divmora/gitlab-fleet-governor/issues/118)
+
 ## [0.21.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.20.0...v0.21.0) (2026-11-24)
 
 
