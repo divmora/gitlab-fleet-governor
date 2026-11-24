@@ -7,6 +7,19 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.21.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.20.0...v0.21.0) (2026-11-24)
+
+
+### Features
+
+* **audit:** deploy keys, deploy tokens and group settings audit modules ([#123](https://github.com/divmora/gitlab-fleet-governor/issues/123)) ([746cafe](https://github.com/divmora/gitlab-fleet-governor/commit/746cafebbc6987297b68dc7312f81d6f3bbde4da)), closes [#54](https://github.com/divmora/gitlab-fleet-governor/issues/54)
+* **notifications:** Slack, Teams, SNS and webhook summaries after run and audit ([#125](https://github.com/divmora/gitlab-fleet-governor/issues/125)) ([34d3a71](https://github.com/divmora/gitlab-fleet-governor/commit/34d3a7122cec6d3bf8ebaf7f4a7e3f2b307c64b1))
+
+
+### Bug Fixes
+
+* **lambda:** don't read licence file paths from config for notifications ([#126](https://github.com/divmora/gitlab-fleet-governor/issues/126)) ([6589beb](https://github.com/divmora/gitlab-fleet-governor/commit/6589beb0d4f53e6a40a895ff4f901f0580a88672))
+
 ## [0.20.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.19.0...v0.20.0) (2026-11-24)
 
 
