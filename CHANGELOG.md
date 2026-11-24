@@ -7,6 +7,15 @@
   go install github.com/divmora/license-go/cmd/license-cli@v1.0.0
   ```
 
+## [0.20.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.19.0...v0.20.0) (2026-11-24)
+
+
+### Features
+
+* **governance:** deploy keys and deploy tokens reconcilers ([#122](https://github.com/divmora/gitlab-fleet-governor/issues/122)) ([e413009](https://github.com/divmora/gitlab-fleet-governor/commit/e413009376aa8a966189aaaa6defc56ea629a31e)), closes [#54](https://github.com/divmora/gitlab-fleet-governor/issues/54)
+* **governance:** group_settings reconciler ([#119](https://github.com/divmora/gitlab-fleet-governor/issues/119)) ([9c6067b](https://github.com/divmora/gitlab-fleet-governor/commit/9c6067bb9ebd79bc938db685775b8918745d58df))
+* **governance:** project security settings, job token scope and secret push protection ([#121](https://github.com/divmora/gitlab-fleet-governor/issues/121)) ([9d2ea87](https://github.com/divmora/gitlab-fleet-governor/commit/9d2ea87dbc91b5d0860d51fb0adb4a34b1ecb47a))
+
 ## [0.19.0](https://github.com/divmora/gitlab-fleet-governor/compare/v0.18.0...v0.19.0) (2026-11-24)
 
 
