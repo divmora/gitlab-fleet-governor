@@ -469,6 +469,9 @@ func (s *defaultGroupsService) ListSubgroups(gid any, opt *gitlab.ListSubGroupsO
 func (s *defaultGroupsService) ListGroupProjects(gid any, opt *gitlab.ListGroupProjectsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Project, *gitlab.Response, error) {
 	return s.client.Groups.ListGroupProjects(gid, opt, options...)
 }
+func (s *defaultGroupsService) UpdateGroup(gid any, opt *gitlab.UpdateGroupOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Group, *gitlab.Response, error) {
+	return s.client.Groups.UpdateGroup(gid, opt, options...)
+}
 
 type defaultProtectedBranchesService struct{ client *gitlab.Client }
 

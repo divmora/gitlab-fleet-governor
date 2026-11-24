@@ -269,6 +269,9 @@ type PoliciesConfig struct {
 	// ApprovalRules configures merge request approval settings and named approver rules.
 	ApprovalRules *ApprovalRulesConfig `yaml:"approval_rules,omitempty" json:"approval_rules,omitempty"`
 
+	// GroupSettings configures group-level security and membership settings.
+	GroupSettings *GroupSettingsConfig `yaml:"group_settings,omitempty" json:"group_settings,omitempty"`
+
 	// ProjectSettings configures arbitrary project workflow and repository settings.
 	ProjectSettings *ProjectSettingsConfig `yaml:"project_settings,omitempty" json:"project_settings,omitempty"`
 

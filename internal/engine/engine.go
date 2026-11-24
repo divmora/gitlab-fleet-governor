@@ -434,6 +434,9 @@ func (e *GovernanceEngine) runWithOptions(ctx context.Context, cfg *config.Polic
 	if cfg.Policies.Compliance != nil {
 		requiredFeatures = append(requiredFeatures, "governance.compliance_frameworks")
 	}
+	if cfg.Policies.GroupSettings != nil {
+		requiredFeatures = append(requiredFeatures, "governance.group_settings")
+	}
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		requiredFeatures = append(requiredFeatures, "runtime.lambda")
 	}

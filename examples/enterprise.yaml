@@ -46,6 +46,20 @@ targets:
     archived: false
 
 policies:
+  # 0. Group Settings (Pro): applied to every targeted group
+  group_settings:
+    visibility: private
+    require_two_factor_authentication: true
+    two_factor_grace_period: 48
+    project_creation_level: maintainer
+    subgroup_creation_level: owner
+    share_with_group_lock: true
+    request_access_enabled: false
+    default_branch_protection:
+      allowed_to_push: [40]
+      allowed_to_merge: [40]
+      allow_force_push: false
+
   # 1. Push Rules
   push_rules:
     author_email_regex: '@enterprise\.com$'

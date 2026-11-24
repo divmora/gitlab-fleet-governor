@@ -118,6 +118,10 @@ func (m *mockGraphClient) ListGroupProjects(gid any, opt *gitlab.ListGroupProjec
 	return nil, &gitlab.Response{NextPage: 0}, nil
 }
 
+func (m *mockGraphClient) UpdateGroup(gid any, opt *gitlab.UpdateGroupOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Group, *gitlab.Response, error) {
+	return nil, nil, nil
+}
+
 // ----------------------------------------------------------------------------
 // 1. Multi-Node Circular Subgroup Stress Tests
 // ----------------------------------------------------------------------------

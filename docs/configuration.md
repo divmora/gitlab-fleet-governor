@@ -513,6 +513,41 @@ policies:
 > - Line endings (`\r\n` vs `\n`) and leading/trailing whitespace are automatically normalized during drift evaluation to prevent false-positive changes across platforms.
 > - When using `direct_commit` on branches with push restrictions (`allowed_to_push: 0`), GitLab Fleet Governor catches the HTTP 403 Forbidden and advises switching to `merge_request` enforcement.
 
+
+### 13. `group_settings`
+
+Group-level security and membership settings, applied to every targeted group (Pro, feature `governance.group_settings`). Unset fields are left as they are, and only settings that differ from the policy are sent to GitLab.
+
+```yaml
+policies:
+  group_settings:
+    visibility: private                       # private | internal | public
+    require_two_factor_authentication: true
+    two_factor_grace_period: 48               # hours
+    project_creation_level: maintainer        # noone | owner | maintainer | developer | administrator
+    subgroup_creation_level: owner            # owner | maintainer
+    share_with_group_lock: true
+    membership_lock: true                     # Premium
+    prevent_forking_outside_group: true       # Premium
+    request_access_enabled: false
+    emails_enabled: true
+    mentions_disabled: false
+    ip_restriction_ranges: ["10.0.0.0/8"]     # Premium; [] removes the restriction
+    allowed_email_domains: ["example.com"]    # Premium; [] removes the restriction
+    default_branch_protection:                # applied to new projects' default branch
+      allowed_to_push: [40]                   # 0 no one, 30 developer, 40 maintainer, 60 admin
+      allowed_to_merge: [40]
+      allow_force_push: false
+      developer_can_initial_push: false
+      code_owner_approval_required: true      # Premium
+```
+
+> [!NOTE]
+> - `ip_restriction_ranges` and `allowed_email_domains` are compared without regard to order or case.
+> - GitLab refuses to make a group more restricted than its projects or subgroups, for example `visibility: private` on a group that has a public project. The run reports that group as failed with GitLab's error.
+> - Premium-only settings fail with GitLab's error on Free instances.
+> - Group settings are applied to every group the targets select, including subgroups when `recursive` is on.
+
 ---
 
 ## Commercial License Resolution
